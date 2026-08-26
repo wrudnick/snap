@@ -16,8 +16,11 @@ import { input } from '@/input'
  * Dev builds only; tree-shaken out of production.
  */
 
-/** Side channel for the live camera, populated by the Rig each frame. */
-export const bridge: { camera: THREE.Camera | null } = { camera: null }
+/** Side channel for the live camera and scene, populated by the Rig. */
+export const bridge: { camera: THREE.Camera | null; scene: THREE.Scene | null } = {
+  camera: null,
+  scene: null,
+}
 
 export interface HarnessSubject {
   id: string
@@ -43,6 +46,8 @@ export interface SnapHarness {
   cameraPosition: () => [number, number, number] | null
   /** End the route immediately. */
   finish: () => void
+  /** Every mesh in the scene, with instance counts — for diagnosing empty draws. */
+  sceneStats: () => Array<{ type: string; name: string; count: number; visible: boolean }>
 }
 
 /** Wrap an angle into [-π, π] so yaw offsets don't accumulate past the clamp. */
@@ -117,6 +122,21 @@ export function installHarness(): void {
     finish: () => {
       runtime.t = 1
       runtime.elapsed = runtime.duration
+    },
+
+    sceneStats: () => {
+      const out: Array<{ type: string; name: string; count: number; visible: boolean }> = []
+      bridge.scene?.traverse((o) => {
+        const mesh = o as THREE.Mesh & { count?: number; isInstancedMesh?: boolean }
+        if (!(mesh as THREE.Mesh).isMesh) return
+        out.push({
+          type: mesh.isInstancedMesh ? 'InstancedMesh' : 'Mesh',
+          name: mesh.name || '(unnamed)',
+          count: mesh.count ?? 1,
+          visible: mesh.visible,
+        })
+      })
+      return out
     },
   }
 

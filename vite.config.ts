@@ -14,6 +14,10 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
+    // `stats-gl` (via drei) depends on an older three, so without this the app
+    // loads two copies. Every `instanceof` check across the postprocessing
+    // pipeline then fails silently and the composer renders black.
+    dedupe: ['three'],
   },
   build: {
     target: 'es2022',

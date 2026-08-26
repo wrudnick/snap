@@ -25,14 +25,18 @@ export function Rig({ route, rail }: { route: RouteDef; rail: Rail }) {
     ended.current = false
   }, [route.id])
 
-  // Hand the camera to the dev harness so tests can aim by world position.
+  // Hand the camera and scene to the dev harness so tests can aim by world
+  // position and inspect what actually got mounted.
+  const scene = useThree((s) => s.scene)
   useEffect(() => {
     if (!import.meta.env.DEV) return
     bridge.camera = camera
+    bridge.scene = scene
     return () => {
       bridge.camera = null
+      bridge.scene = null
     }
-  }, [camera])
+  }, [camera, scene])
 
   useFrame((_, delta) => {
     // Clamped so a backgrounded tab doesn't teleport the camera on return.

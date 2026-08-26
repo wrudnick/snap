@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 
 import type { SubjectDef } from '@/content/subjects/types'
+import { toonRamp } from '@/render/palette'
+import { disposeToonMaterials, toonMaterial } from '@/render/toonPatch'
 
 /**
  * Procedural placeholder subjects.
@@ -24,14 +26,9 @@ const CONE = new THREE.ConeGeometry(0.5, 1, 8)
 const CYL = new THREE.CylinderGeometry(0.5, 0.5, 1, 10)
 
 // Materials are shared per colour — material switches are what draw calls cost.
-const materialCache = new Map<number, THREE.MeshLambertMaterial>()
-function mat(color: number): THREE.MeshLambertMaterial {
-  let m = materialCache.get(color)
-  if (!m) {
-    m = new THREE.MeshLambertMaterial({ color })
-    materialCache.set(color, m)
-  }
-  return m
+// Toon-shaded, and patched for hue-shifted shadow plus rim light.
+function mat(color: number): THREE.MeshToonMaterial {
+  return toonMaterial(color, toonRamp())
 }
 
 function part(
@@ -303,8 +300,7 @@ export function buildModel(def: SubjectDef): BuiltModel {
 
 /** All materials/geometries created here, for a one-time warm compile. */
 export function disposeModelCaches(): void {
-  materialCache.forEach((m) => m.dispose())
-  materialCache.clear()
+  disposeToonMaterials()
   BOX.dispose()
   SPHERE.dispose()
   CONE.dispose()

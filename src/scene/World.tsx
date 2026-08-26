@@ -2,6 +2,9 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
+import { DAWN } from '@/render/palette'
+import { useToonMaterial } from '@/render/useToonMaterial'
+
 /**
  * Lighting and atmosphere.
  *
@@ -17,6 +20,7 @@ export function World({ children }: { children: React.ReactNode }) {
   const camera = useThree((s) => s.camera)
   const lightRef = useRef<THREE.DirectionalLight>(null)
   const target = useMemo(() => new THREE.Object3D(), [])
+  const groundMaterial = useToonMaterial(0x565a63)
 
   useFrame(() => {
     const light = lightRef.current
@@ -31,16 +35,16 @@ export function World({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <color attach="background" args={[0xb8c6d4]} />
+      <color attach="background" args={[DAWN.sky]} />
       {/* Far plane sits just inside the segment-gating distance, so props are
           fully fogged out before they unmount. */}
-      <fog attach="fog" args={[0xb8c6d4, 45, 105]} />
+      <fog attach="fog" args={[DAWN.sky, DAWN.fogNear, DAWN.fogFar]} />
 
-      <hemisphereLight args={[0xcfe0f0, 0x4a4640, 1.1]} />
+      <hemisphereLight args={[DAWN.skyFill, DAWN.groundFill, DAWN.fillIntensity]} />
       <directionalLight
         ref={lightRef}
-        intensity={2.0}
-        color={0xfff2dd}
+        intensity={DAWN.keyIntensity}
+        color={DAWN.key}
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.0006}
@@ -54,7 +58,7 @@ export function World({ children }: { children: React.ReactNode }) {
       {/* Ground plane beneath everything, so the world doesn't end at the kerb. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.06, 0]} receiveShadow>
         <planeGeometry args={[600, 900]} />
-        <meshLambertMaterial color={0x4b4f56} />
+        <primitive object={groundMaterial} attach="material" dispose={null} />
       </mesh>
 
       {children}

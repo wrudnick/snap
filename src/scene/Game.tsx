@@ -1,5 +1,6 @@
 import { AdaptiveDpr, PerformanceMonitor, Preload } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
+import { EffectComposer } from '@react-three/postprocessing'
 import { Perf } from 'r3f-perf'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -8,12 +9,18 @@ import { Rail } from '@/game/rail'
 import { resetRuntime, runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
 import { PointerKeyboardAdapter } from '@/input'
+import { CelOutline } from '@/render/CelOutline'
 
 import { Rig } from './Rig'
 import { Shutter } from './Shutter'
 import { Street } from './Street'
 import { Subjects } from './Subjects'
 import { World } from './World'
+
+/** Toggle for bisecting post-processing problems: ?post=0 disables the chain. */
+const POST_ENABLED =
+  typeof window === 'undefined' ||
+  new URLSearchParams(window.location.search).get('post') !== '0'
 
 /** Binds the input adapter to the canvas element. Swap the adapter for gamepad. */
 function InputBinding() {
@@ -80,6 +87,19 @@ export function Game() {
           material enters view stalls while the shader compiles — which reads to
           the player as a stutter, not as loading. */}
       <Preload all />
+
+      {/* One fullscreen pass for the ink lines. See CelOutline for why this
+          isn't an inverted hull.
+
+          multisampling MUST be 0: an MSAA composer target can't also expose a
+          readable depth texture in WebGL2, so the outline effect reads a flat
+          depth buffer and silently produces no lines at all. Edge detection
+          gives hard lines regardless, so MSAA buys little here. */}
+      {POST_ENABLED && (
+        <EffectComposer multisampling={0}>
+          <CelOutline />
+        </EffectComposer>
+      )}
 
       <PerformanceMonitor onDecline={() => setDegraded(true)} onIncline={() => setDegraded(false)} />
       <AdaptiveDpr pixelated />
