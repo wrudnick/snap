@@ -72,7 +72,7 @@ interface GameStore {
 
 export const useGame = create<GameStore>((set, get) => ({
   phase: 'menu',
-  routeId: 'downtown',
+  routeId: 'goldcoast',
   filmRemaining: 0,
   photos: [],
   album: loadAlbum(),

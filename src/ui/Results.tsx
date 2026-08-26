@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import { DOWNTOWN } from '@/content/routes/downtown'
+import { GOLD_COAST } from '@/content/routes/goldcoast'
 import { SUBJECTS } from '@/content/subjects'
 import { bestPerSpecies } from '@/game/scoring/score'
 import { runTotal, useGame } from '@/game/state'
@@ -81,7 +81,7 @@ export function Results() {
         </div>
 
         <div className="row">
-          <button className="primary" onClick={() => startRun(DOWNTOWN.id, DOWNTOWN.film)}>
+          <button className="primary" onClick={() => startRun(GOLD_COAST.id, GOLD_COAST.film)}>
             Ride again
           </button>
           <button onClick={backToMenu}>Back to menu</button>

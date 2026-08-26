@@ -26,6 +26,57 @@ export interface SubjectPlacement {
   seed: number
 }
 
+/**
+ * What kind of place a stretch of route is.
+ *
+ * Drives both content generation (what gets built alongside the path) and
+ * lighting. Adding a kind means teaching the generator one new case — it does
+ * not mean touching the rail, the capture pipeline, or scoring.
+ */
+export type SectionKind =
+  | 'beach'
+  | 'tunnel'
+  | 'avenue'
+  | 'boutique'
+  | 'dining'
+  | 'park'
+  | 'alley'
+  | 'interior'
+
+export interface LightingProfile {
+  /** Background and fog colour. */
+  sky: number
+  fogNear: number
+  fogFar: number
+  key: number
+  keyIntensity: number
+  skyFill: number
+  groundFill: number
+  fillIntensity: number
+  /** Shadowed surfaces drift toward this. */
+  shadowTint: number
+  shadowTintStrength: number
+  /** Interiors and tunnels have no sun; shadow maps are wasted there. */
+  castShadows: boolean
+}
+
+export interface RouteSection {
+  id: string
+  kind: SectionKind
+  /** Human-readable, shown at the checkpoint. */
+  title: string
+  /** Inclusive waypoint index range this section spans. */
+  waypoints: [number, number]
+  lighting: LightingProfile
+}
+
+export interface Checkpoint {
+  id: string
+  title: string
+  /** Waypoint index the checkpoint sits on. */
+  waypoint: number
+}
+
 export interface RouteDef {
   id: string
   displayName: string
@@ -33,6 +84,10 @@ export interface RouteDef {
   durationSeconds: number
   /** Spline control points, already at eye height. */
   waypoints: Array<[number, number, number]>
+  /** Ordered, contiguous. Every waypoint should fall inside exactly one. */
+  sections: RouteSection[]
+  /** Resume points; also how the player replays a stretch. */
+  checkpoints: Checkpoint[]
   look: {
     /** Max yaw offset from the rail heading, radians. */
     yawLimit: number

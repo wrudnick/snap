@@ -1,4 +1,4 @@
-import { DOWNTOWN } from '@/content/routes/downtown'
+import { GOLD_COAST } from '@/content/routes/goldcoast'
 import { SUBJECTS } from '@/content/subjects'
 import { useGame } from '@/game/state'
 
@@ -14,13 +14,13 @@ export function Menu() {
       <div className="screen">
         <h1 className="title">snap</h1>
         <p className="subtitle">
-          One street, one pass, {DOWNTOWN.film} shots. You can't stop and you can't go
+          One street, one pass, {GOLD_COAST.film} shots. You can't stop and you can't go
           back — you can only look, and choose when to press the shutter.
         </p>
 
         <div className="row" style={{ marginBottom: '3rem' }}>
-          <button className="primary" onClick={() => startRun(DOWNTOWN.id, DOWNTOWN.film)}>
-            Ride {DOWNTOWN.displayName}
+          <button className="primary" onClick={() => startRun(GOLD_COAST.id, GOLD_COAST.film)}>
+            Ride {GOLD_COAST.displayName}
           </button>
           <span className="sub" style={{ color: 'var(--dim)', fontSize: '0.78rem' }}>
             {found} of {total} subjects photographed

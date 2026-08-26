@@ -64,6 +64,39 @@ export class Rail {
     return this.curve.getLength()
   }
 
+  /**
+   * Route progress nearest a world position.
+   *
+   * Catmull-Rom control points don't map linearly onto the arc-length
+   * parameterisation `getPointAt` uses, so a section that spans waypoints 4–8
+   * can't have its `t` range computed arithmetically. Sampling and taking the
+   * nearest point is approximate but stable, and it runs once at load.
+   */
+  tNearest(point: THREE.Vector3, samples = 600): number {
+    let bestT = 0
+    let bestDistance = Infinity
+    const probe = new THREE.Vector3()
+
+    for (let i = 0; i < samples; i++) {
+      const t = i / (samples - 1)
+      this.curve.getPointAt(t, probe)
+      const d = probe.distanceToSquared(point)
+      if (d < bestDistance) {
+        bestDistance = d
+        bestT = t
+      }
+    }
+    return bestT
+  }
+
+  /** Unit vector pointing right of travel at `t`, on the horizontal plane. */
+  rightAt(t: number, target: THREE.Vector3): THREE.Vector3 {
+    this.tangentAt(t, target)
+    // cross(tangent, up) — written out to avoid a temporary.
+    const { x, z } = target
+    return target.set(-z, 0, x).normalize()
+  }
+
   /** Convenience for debug draws: `count` evenly spaced points along the path. */
   samplePoints(count: number): THREE.Vector3[] {
     return Array.from({ length: count }, (_, i) =>

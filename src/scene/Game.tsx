@@ -4,16 +4,17 @@ import { EffectComposer } from '@react-three/postprocessing'
 import { Perf } from 'r3f-perf'
 import { useEffect, useMemo, useState } from 'react'
 
-import { ROUTES } from '@/content/routes/downtown'
+import { ROUTES } from '@/content/routes/goldcoast'
 import { Rail } from '@/game/rail'
 import { resetRuntime, runtime } from '@/game/runtime'
+import { resolveRoute } from '@/game/sections'
 import { useGame } from '@/game/state'
 import { PointerKeyboardAdapter } from '@/input'
 import { CelOutline } from '@/render/CelOutline'
 
 import { Rig } from './Rig'
 import { Shutter } from './Shutter'
-import { Street } from './Street'
+import { Environment } from './Environment'
 import { Subjects } from './Subjects'
 import { World } from './World'
 
@@ -53,8 +54,12 @@ function RunController({ fov, duration }: { fov: number; duration: number }) {
 
 export function Game() {
   const routeId = useGame((s) => s.routeId)
-  const route = ROUTES[routeId] ?? ROUTES.downtown!
+  const route = ROUTES[routeId] ?? ROUTES.goldcoast!
   const rail = useMemo(() => new Rail(route), [route])
+
+  // Waypoint indices → route progress. Done once, because Catmull-Rom control
+  // points don't map linearly onto arc length.
+  const resolved = useMemo(() => resolveRoute(route, rail), [route, rail])
 
   // Shed resolution rather than framerate when the GPU can't keep up.
   const [degraded, setDegraded] = useState(false)
@@ -73,8 +78,8 @@ export function Game() {
       }}
       camera={{ fov: route.fov.default, near: 0.1, far: 400 }}
     >
-      <World>
-        <Street route={route} />
+      <World sections={resolved.sections}>
+        <Environment route={route} rail={rail} sections={resolved.sections} />
         <Subjects route={route} rail={rail} />
       </World>
 

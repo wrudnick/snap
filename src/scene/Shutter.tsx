@@ -1,7 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useRef } from 'react'
 
-import { ROUTES } from '@/content/routes/downtown'
+import { ROUTES } from '@/content/routes/goldcoast'
 import { SPECIES_INDEX } from '@/content/subjects'
 import { capturePhotoImage } from '@/game/capture/image'
 import { buildSnapshot } from '@/game/capture/snapshot'

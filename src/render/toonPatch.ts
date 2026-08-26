@@ -27,6 +27,22 @@ export interface ToonPatchOptions {
   rimPower?: number
 }
 
+/**
+ * Uniform objects shared by every patched material.
+ *
+ * The route passes through eight lighting zones, and shadow colour has to move
+ * with them. Because `onBeforeCompile` assigns *these exact objects* into each
+ * shader's uniform map, mutating one here updates every material on screen —
+ * no per-material walk, no re-compile, and it costs nothing per frame.
+ */
+export const sharedToonUniforms = {
+  uShadowTint: { value: new THREE.Color(DAWN.shadowTint) },
+  uShadowTintStrength: { value: DAWN.shadowTintStrength as number },
+  uRimColor: { value: new THREE.Color(DAWN.rimColor) },
+  uRimStrength: { value: DAWN.rimStrength as number },
+  uRimPower: { value: DAWN.rimPower as number },
+}
+
 export function patchToonMaterial(
   material: THREE.MeshToonMaterial,
   options: ToonPatchOptions = {},
@@ -38,11 +54,27 @@ export function patchToonMaterial(
   const rimPower = options.rimPower ?? DAWN.rimPower
 
   material.onBeforeCompile = (shader) => {
-    shader.uniforms.uShadowTint = { value: shadowTint }
-    shader.uniforms.uShadowTintStrength = { value: shadowTintStrength }
-    shader.uniforms.uRimColor = { value: rimColor }
-    shader.uniforms.uRimStrength = { value: rimStrength }
-    shader.uniforms.uRimPower = { value: rimPower }
+    // Materials with explicit overrides get their own uniforms; everything else
+    // shares the module-level set so lighting zones can retint the whole scene
+    // by mutating one value.
+    shader.uniforms.uShadowTint = options.shadowTint
+      ? { value: shadowTint }
+      : sharedToonUniforms.uShadowTint
+    shader.uniforms.uShadowTintStrength =
+      options.shadowTintStrength !== undefined
+        ? { value: shadowTintStrength }
+        : sharedToonUniforms.uShadowTintStrength
+    shader.uniforms.uRimColor = options.rimColor
+      ? { value: rimColor }
+      : sharedToonUniforms.uRimColor
+    shader.uniforms.uRimStrength =
+      options.rimStrength !== undefined
+        ? { value: rimStrength }
+        : sharedToonUniforms.uRimStrength
+    shader.uniforms.uRimPower =
+      options.rimPower !== undefined
+        ? { value: rimPower }
+        : sharedToonUniforms.uRimPower
 
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <common>',
