@@ -1,0 +1,124 @@
+import * as THREE from 'three'
+
+import { activeSubjects } from '@/game/capture/registry'
+import { runtime } from '@/game/runtime'
+import { useGame } from '@/game/state'
+import { input } from '@/input'
+
+/**
+ * Test harness.
+ *
+ * Exposes the input state, the runtime, and the store on `window.__snap` so
+ * end-to-end tests can drive the game deterministically — aim at a known
+ * subject, fire the shutter, assert on the resulting score — without depending
+ * on the timing of real pointer input.
+ *
+ * Dev builds only; tree-shaken out of production.
+ */
+
+/** Side channel for the live camera, populated by the Rig each frame. */
+export const bridge: { camera: THREE.Camera | null } = { camera: null }
+
+export interface HarnessSubject {
+  id: string
+  species: string
+  position: [number, number, number]
+}
+
+export interface SnapHarness {
+  input: typeof input
+  runtime: typeof runtime
+  store: typeof useGame
+  /** Fire the shutter on the next frame. */
+  shoot: () => void
+  /** Jump to a point along the route, 0..1. */
+  seek: (t: number) => void
+  /** Set look angles directly, in radians, relative to the rail heading. */
+  aim: (yaw: number, pitch: number) => void
+  /** Point the camera at a world position. False if the camera isn't ready. */
+  lookAt: (x: number, y: number, z: number) => boolean
+  /** Every subject currently mounted, with world positions. */
+  subjects: () => HarnessSubject[]
+  /** Current camera world position, or null before the first frame. */
+  cameraPosition: () => [number, number, number] | null
+  /** End the route immediately. */
+  finish: () => void
+}
+
+/** Wrap an angle into [-π, π] so yaw offsets don't accumulate past the clamp. */
+function normalizeAngle(a: number): number {
+  let x = a
+  while (x > Math.PI) x -= Math.PI * 2
+  while (x < -Math.PI) x += Math.PI * 2
+  return x
+}
+
+export function installHarness(): void {
+  if (!import.meta.env.DEV) return
+
+  const scratch = new THREE.Vector3()
+
+  const harness: SnapHarness = {
+    input,
+    runtime,
+    store: useGame,
+
+    shoot: () => {
+      input.shutter = true
+    },
+
+    seek: (t: number) => {
+      runtime.t = Math.max(0, Math.min(1, t))
+      // The rig recomputes `t` from `elapsed` every frame, so seeking has to
+      // move elapsed too or the jump is undone on the very next tick.
+      runtime.elapsed = runtime.t * runtime.duration
+    },
+
+    aim: (yaw: number, pitch: number) => {
+      runtime.yaw = yaw
+      runtime.pitch = pitch
+    },
+
+    lookAt: (x: number, y: number, z: number) => {
+      const camera = bridge.camera
+      if (!camera) return false
+
+      const cam = camera.position
+      const dx = x - cam.x
+      const dy = y - cam.y
+      const dz = z - cam.z
+
+      // Absolute heading to the target, in three's -Z-forward convention.
+      const heading = Math.atan2(-dx, -dz)
+
+      // The rig applies yaw as an offset from the rail heading, so subtract it.
+      runtime.yaw = normalizeAngle(heading - runtime.railHeading)
+      runtime.pitch = Math.atan2(dy, Math.hypot(dx, dz))
+      return true
+    },
+
+    subjects: () =>
+      activeSubjects().map((s) => {
+        s.object.getWorldPosition(scratch)
+        return {
+          id: s.id,
+          species: s.species,
+          position: [scratch.x, scratch.y, scratch.z],
+        }
+      }),
+
+    cameraPosition: () => {
+      const camera = bridge.camera
+      if (!camera) return null
+      camera.getWorldPosition(scratch)
+      return [scratch.x, scratch.y, scratch.z]
+    },
+
+    finish: () => {
+      runtime.t = 1
+      runtime.elapsed = runtime.duration
+    },
+  }
+
+  ;(window as unknown as { __snap: SnapHarness }).__snap = harness
+}
