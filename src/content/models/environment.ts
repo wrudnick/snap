@@ -49,6 +49,12 @@ export interface EnvironmentData {
   poles: Prop[]
   heads: Prop[]
   clutter: Prop[]
+  /**
+   * Buildings on streets the player never walks — the grid running south to the
+   * river. Never gated: they exist to be seen from a long way off, and they are
+   * one instanced draw call regardless of count.
+   */
+  skyline: Prop[]
 }
 
 // ---------------------------------------------------------------------------
@@ -444,6 +450,68 @@ function clutterOffsets(kind: SectionKind): [number, number] {
   }
 }
 
+/**
+ * Buildings along a corridor the route never walks.
+ *
+ * Walks the polyline placing frontages perpendicular to the local direction, so
+ * a corridor that bends still gets buildings squared to the street rather than
+ * to the world axes.
+ */
+function buildCorridors(route: RouteDef): Prop[] {
+  const props: Prop[] = []
+  if (!route.corridors) return props
+
+  const rng = makeRng(route.seed ^ 0x9e3779b9)
+
+  for (const corridor of route.corridors) {
+    for (let leg = 0; leg < corridor.path.length - 1; leg++) {
+      const [x0, z0] = corridor.path[leg]!
+      const [x1, z1] = corridor.path[leg + 1]!
+
+      const dx = x1 - x0
+      const dz = z1 - z0
+      const legLength = Math.hypot(dx, dz)
+      if (legLength < 1) continue
+
+      // Unit direction along the street, and its right-hand normal.
+      const ux = dx / legLength
+      const uz = dz / legLength
+      const nx = -uz
+      const nz = ux
+      const heading = Math.atan2(-ux, -uz)
+
+      const count = Math.max(1, Math.round(legLength / corridor.frontage))
+
+      for (const side of [-1, 1] as const) {
+        for (let i = 0; i < count; i++) {
+          if (rng() < corridor.gapChance) continue
+
+          const along = ((i + 0.5) / count) * legLength
+          const depth = range(rng, corridor.depth[0], corridor.depth[1])
+          const height = range(rng, corridor.height[0], corridor.height[1])
+          const width = range(rng, corridor.frontage * 0.78, corridor.frontage * 1.04)
+          const offset = side * (corridor.setback + depth / 2)
+
+          props.push({
+            position: [
+              x0 + ux * along + nx * offset,
+              height / 2,
+              z0 + uz * along + nz * offset,
+            ],
+            scale: [depth, height, width],
+            rotationY: heading,
+            color: pick(rng, corridor.palette),
+            // Never gated, so the value is unused; -1 marks it as such.
+            segment: -1,
+          })
+        }
+      }
+    }
+  }
+
+  return props
+}
+
 export function generateEnvironment(
   route: RouteDef,
   rail: Rail,
@@ -451,6 +519,7 @@ export function generateEnvironment(
 ): EnvironmentData {
   return {
     ground: buildGround(rail, sections),
+    skyline: buildCorridors(route),
     ...buildProps(route, rail, sections),
   }
 }

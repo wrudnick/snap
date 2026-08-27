@@ -1,3 +1,4 @@
+import type { LandmarkDef } from '@/content/models/landmarks'
 /**
  * Route and subject placement data.
  *
@@ -77,6 +78,28 @@ export interface Checkpoint {
   waypoint: number
 }
 
+/**
+ * A street the player never walks but can see down.
+ *
+ * When the route turns off Michigan Avenue the canyon shouldn't stop with it —
+ * you should still see the grid running south toward the river. Corridors
+ * generate building rows along a polyline with no ground and no rail
+ * relationship, purely so the city has depth beyond the path.
+ */
+export interface Corridor {
+  id: string
+  /** Polyline in world space, [x, z] pairs. */
+  path: Array<[number, number]>
+  /** Metres of frontage per building. */
+  frontage: number
+  /** Metres from centreline to the building line. */
+  setback: number
+  depth: [number, number]
+  height: [number, number]
+  gapChance: number
+  palette: number[]
+}
+
 export interface RouteDef {
   id: string
   displayName: string
@@ -118,6 +141,14 @@ export interface RouteDef {
     clutter: number
     subjects: number
   }
+  /**
+   * Streets visible from the route but never walked. Never gated by segment —
+   * the whole point is seeing them from a long way off, and they are instanced
+   * into a single draw call.
+   */
+  corridors?: Corridor[]
+  /** Hand-authored buildings, placed by real address. */
+  landmarks?: LandmarkDef[]
   /** Seed for the procedural street blockout. */
   seed: number
   /** Shots available per run. */

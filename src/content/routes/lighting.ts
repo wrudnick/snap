@@ -52,8 +52,10 @@ export const TUNNEL: LightingProfile = {
 /** Michigan Avenue. Tall, hard-edged, plenty of sky between the towers. */
 export const AVENUE_DAWN: LightingProfile = {
   sky: 0x9fc0e0,
-  fogNear: 120,
-  fogFar: 620,
+  // Reaches to the river — the Michigan corridor runs a mile south and the
+  // distant towers are the reason to look that way at all.
+  fogNear: 260,
+  fogFar: 1900,
   key: 0xffd2a0,
   keyIntensity: 2.3,
   skyFill: 0xa8c4e8,

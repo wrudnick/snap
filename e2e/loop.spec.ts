@@ -41,7 +41,9 @@ async function shootNearestAhead(page: Page, t: number): Promise<Shot | null> {
     const h = (window as any).__snap
 
     h.seek(seekTo)
-    await wait(400)
+    // Generous settle: seeking remounts a segment's worth of subjects, and the
+    // scene got heavier with landmarks. Too short and the scan finds nothing.
+    await wait(600)
 
     const cam = h.cameraPosition()
     if (!cam) return null
@@ -68,15 +70,15 @@ async function shootNearestAhead(page: Page, t: number): Promise<Shot | null> {
     const target = candidates[0]
     h.lookAt(...target.position)
     h.input.zoom = true
-    await wait(420)
+    await wait(500)
     h.lookAt(...target.position)
-    await wait(120)
+    await wait(150)
 
     const before = h.store.getState().photos.length
     h.shoot()
 
     // The image encode is async; wait for the photo to land in the store.
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 100; i++) {
       if (h.store.getState().photos.length > before) break
       await wait(50)
     }
@@ -106,13 +108,18 @@ async function shootNearestAhead(page: Page, t: number): Promise<Shot | null> {
  */
 async function shootAnywhere(
   page: Page,
-  candidates = [0.38, 0.85, 0.76, 0.04, 0.92, 0.55],
+  candidates = [0.30, 0.85, 0.76, 0.50, 0.04, 0.92, 0.67, 0.95],
 ): Promise<Shot | null> {
+  let lastAttempt: Shot | null = null
   for (const t of candidates) {
     const shot = await shootNearestAhead(page, t)
-    if (shot) return shot
+    if (shot) lastAttempt = shot
+    // A shot with no subject means the shutter fired at empty air — the aim
+    // missed, or the subject wandered between lookAt and capture. Keep going;
+    // returning it would assert against a photo of nothing.
+    if (shot?.subject) return shot
   }
-  return null
+  return lastAttempt
 }
 
 test.describe('gameplay loop', () => {
@@ -171,7 +178,12 @@ test.describe('gameplay loop', () => {
     const shot = await shootAnywhere(page)
     expect(shot).not.toBeNull()
 
-    await expect(page.locator('.film .count')).toHaveText(String(startingFilm - 1))
+    // One frame of film per shot fired, and the scan may have fired more than
+    // once before something scored.
+    const taken = await page.evaluate(
+      () => (window as any).__snap.store.getState().photos.length,
+    )
+    await expect(page.locator('.film .count')).toHaveText(String(startingFilm - taken))
     expect(shot!.subject).not.toBeNull()
     expect(shot!.total).toBeGreaterThan(0)
 
@@ -273,7 +285,14 @@ test.describe('gameplay loop', () => {
     await page.evaluate(() => (window as any).__snap.finish())
 
     await expect(page.getByRole('heading', { name: /contact sheet/i })).toBeVisible()
-    await expect(page.locator('.shot')).toHaveCount(1)
+
+    // shootAnywhere may fire more than once while scanning for a subject, so
+    // assert the sheet matches the store rather than a hardcoded count.
+    const taken = await page.evaluate(
+      () => (window as any).__snap.store.getState().photos.length,
+    )
+    expect(taken).toBeGreaterThan(0)
+    await expect(page.locator('.shot')).toHaveCount(taken)
   })
 
   test('developing puts the best shot of each subject into the album', async ({ page }) => {
@@ -310,12 +329,16 @@ test.describe('gameplay loop', () => {
     await shootAnywhere(page)
     await page.evaluate(() => (window as any).__snap.finish())
 
-    await expect(page.locator('.shot')).toHaveCount(1)
-    await expect(page.locator('.shot.kept')).toHaveCount(1)
+    const taken = await page.evaluate(
+      () => (window as any).__snap.store.getState().photos.length,
+    )
+    expect(taken).toBeGreaterThan(0)
+    await expect(page.locator('.shot.kept')).toHaveCount(taken)
 
     await page.locator('.shot').first().click()
     await expect(page.locator('.shot.dropped')).toHaveCount(1)
-    await expect(page.getByText(/0 keeping/i)).toBeVisible()
+    await expect(page.locator('.shot.kept')).toHaveCount(taken - 1)
+    await expect(page.getByText(new RegExp(`${taken - 1} keeping`, 'i'))).toBeVisible()
   })
 
   test('the run is capped by the film roll', async ({ page }) => {

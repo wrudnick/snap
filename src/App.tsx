@@ -1,4 +1,6 @@
 import { useGame } from '@/game/state'
+import { useRouteBundle } from '@/game/useRoute'
+import { MiniMap } from '@/ui/MiniMap'
 import { Hud } from '@/ui/Hud'
 import { Menu } from '@/ui/Menu'
 import { Results } from '@/ui/Results'
@@ -16,11 +18,18 @@ import './ui/ui.css'
  */
 export function App() {
   const phase = useGame((s) => s.phase)
+  const routeId = useGame((s) => s.routeId)
+  const { route, rail, resolved } = useRouteBundle(routeId)
 
   return (
     <>
       <Game />
-      {phase === 'riding' && <Hud />}
+      {phase === 'riding' && (
+        <>
+          <Hud />
+          <MiniMap route={route} rail={rail} checkpoints={resolved.checkpoints} />
+        </>
+      )}
       {phase === 'menu' && <Menu />}
       {phase === 'review' && <Review />}
       {phase === 'results' && <Results />}

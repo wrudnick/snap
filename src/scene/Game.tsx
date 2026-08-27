@@ -2,13 +2,11 @@ import { AdaptiveDpr, PerformanceMonitor, Preload } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
 import { EffectComposer } from '@react-three/postprocessing'
 import { Perf } from 'r3f-perf'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { ROUTES } from '@/content/routes/goldcoast'
-import { Rail } from '@/game/rail'
 import { resetRuntime, runtime } from '@/game/runtime'
-import { resolveRoute } from '@/game/sections'
 import { useGame } from '@/game/state'
+import { useRouteBundle } from '@/game/useRoute'
 import { PointerKeyboardAdapter } from '@/input'
 import { CelOutline } from '@/render/CelOutline'
 
@@ -54,12 +52,10 @@ function RunController({ fov, duration }: { fov: number; duration: number }) {
 
 export function Game() {
   const routeId = useGame((s) => s.routeId)
-  const route = ROUTES[routeId] ?? ROUTES.goldcoast!
-  const rail = useMemo(() => new Rail(route), [route])
+  const { route, rail, resolved } = useRouteBundle(routeId)
 
   // Waypoint indices → route progress. Done once, because Catmull-Rom control
   // points don't map linearly onto arc length.
-  const resolved = useMemo(() => resolveRoute(route, rail), [route, rail])
 
   // Shed resolution rather than framerate when the GPU can't keep up.
   const [degraded, setDegraded] = useState(false)

@@ -3,6 +3,8 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 
 import { generateEnvironment, type Prop } from '@/content/models/environment'
+import { buildLandmark } from '@/content/models/landmarks'
+import type { LandmarkDef } from '@/content/models/landmarks'
 import type { RouteDef } from '@/content/routes/types'
 import { type Rail, segmentActive } from '@/game/rail'
 import type { ResolvedSection } from '@/game/sections'
@@ -53,6 +55,37 @@ function PropInstances({ props, limit, castShadow, receiveShadow }: GroupProps) 
         />
       ))}
     </Instances>
+  )
+}
+
+/**
+ * Hand-authored buildings.
+ *
+ * Never gated. There are a handful, they are the reason the setting is
+ * recognisable, and half of them are meant to be seen from most of a mile away.
+ */
+function Landmarks({ landmarks }: { landmarks?: LandmarkDef[] }) {
+  const groups = useMemo(
+    () => (landmarks ?? []).map((def) => ({ def, object: buildLandmark(def) })),
+    [landmarks],
+  )
+
+  useEffect(() => {
+    return () => {
+      for (const { object } of groups) {
+        object.traverse((child) => {
+          if (child instanceof THREE.Mesh) child.geometry.dispose()
+        })
+      }
+    }
+  }, [groups])
+
+  return (
+    <group>
+      {groups.map(({ def, object }) => (
+        <primitive key={def.id} object={object} dispose={null} />
+      ))}
+    </group>
   )
 }
 
@@ -115,6 +148,13 @@ export function Environment({
       <mesh geometry={data.ground} receiveShadow frustumCulled={false}>
         <primitive object={groundMaterial} attach="material" dispose={null} />
       </mesh>
+
+      {/* Streets we never walk, running south to the river. Ungated on purpose:
+          being visible from a long way off is the whole point, and it costs one
+          draw call however many towers are in it. */}
+      <PropInstances props={data.skyline} limit={520} castShadow receiveShadow />
+
+      <Landmarks landmarks={route.landmarks} />
 
       <PropInstances props={visible.buildings} limit={420} castShadow receiveShadow />
       <PropInstances props={visible.poles} limit={80} castShadow />
