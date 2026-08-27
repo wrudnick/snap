@@ -364,22 +364,25 @@ interface FrontageSpec {
   gapChance: number
 }
 
+/**
+ * Frontage rules for the *enclosures* only.
+ *
+ * Outdoor massing now comes from real OpenStreetMap footprints, so the
+ * generator no longer invents buildings for the street sections — it would just
+ * z-fight the real ones. What OSM cannot supply is the inside of things: tunnel
+ * walls, the alley's flanks, the restaurant's shell. Those stay procedural.
+ */
 function frontageSpec(kind: SectionKind): FrontageSpec | null {
   switch (kind) {
     case 'beach':
-      // Only the far wall of Gold Coast towers behind the Drive.
-      return { frontage: 26, setback: 48, depth: [14, 24], height: [30, 70], gapChance: 0.25 }
+    case 'avenue':
+    case 'boutique':
+    case 'dining':
+    case 'park':
+      return null
     case 'tunnel':
       // The tunnel's "buildings" are its walls — tall, tight, unbroken.
       return { frontage: 8, setback: 3.6, depth: [1.2, 1.6], height: [4, 4.4], gapChance: 0 }
-    case 'avenue':
-      return { frontage: 30, setback: 20, depth: [18, 30], height: [45, 130], gapChance: 0.05 }
-    case 'boutique':
-      return { frontage: 16, setback: 13.5, depth: [12, 20], height: [12, 26], gapChance: 0.08 }
-    case 'dining':
-      return { frontage: 18, setback: 14.5, depth: [12, 22], height: [14, 34], gapChance: 0.06 }
-    case 'park':
-      return { frontage: 22, setback: 16, depth: [12, 20], height: [20, 44], gapChance: 0.15 }
     case 'alley':
       return { frontage: 10, setback: 2.8, depth: [10, 16], height: [16, 30], gapChance: 0 }
     case 'interior':

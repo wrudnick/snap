@@ -154,152 +154,31 @@ export const GOLD_COAST: RouteDef = {
   // stay tight because they are numerous and only read up close.
   activeWindows: { buildings: 12, furniture: 4, clutter: 3, subjects: 4 },
 
-  /**
-   * Michigan Avenue continuing south past the turn, all the way to the river.
-   *
-   * The route leaves Michigan at Walton, but the canyon shouldn't leave with it —
-   * looking south you should see the grid run a mile to the river. Chicago's
-   * address grid does the arithmetic: a building at N maps to z = (1000 − N) ×
-   * 2.01, so this corridor spans Walton (932 N) to the river (400 N).
-   *
-   * Never gated by rail segment. It is one instanced draw call, and being
-   * visible from a long way off is the entire purpose.
-   */
-  corridors: [
-    {
-      id: 'michigan-south',
-      path: [
-        [-2, 150],
-        [-4, 400],
-        [-6, 700],
-        [-8, 1000],
-        [-10, 1260],
-      ],
-      frontage: 34,
-      setback: 21,
-      depth: [20, 34],
-      height: [40, 150],
-      gapChance: 0.04,
-      palette: [0xcfc4ad, 0xb9a88c, 0x6f6a63, 0xa8917a, 0x8d99a8, 0x9aa7b4],
-    },
-    {
-      // Wabash, a block west — gives the skyline depth instead of a flat wall.
-      id: 'wabash-south',
-      path: [
-        [-108, 300],
-        [-112, 700],
-        [-116, 1240],
-      ],
-      frontage: 40,
-      setback: 24,
-      depth: [22, 36],
-      height: [50, 130],
-      gapChance: 0.1,
-      palette: [0x8d99a8, 0x7d8794, 0xa8917a, 0x6f6a63],
-    },
-  ],
 
   /**
-   * Hand-placed landmarks, positioned from real addresses.
+   * Hand-authored buildings.
    *
-   * z = (1000 − street number) × 2.01, because Chicago runs 800 address units to
-   * the mile. Michigan Avenue is the x ≈ 0 centreline; east side positive.
+   * Deliberately short. OSM now supplies real footprints and heights for
+   * everything outdoors, so a landmark only earns its place when the building
+   * has signature geometry an extruded outline cannot express.
+   *
+   * The Hancock qualifies and almost nothing else does: its taper, X-bracing and
+   * twin antennas are the whole silhouette, and OSM knows only that it is a
+   * 22-sided polygon 343 m tall. Position and height come from the OSM centroid,
+   * and its extruded footprint is suppressed in city.ts so the two don't fight.
    */
   landmarks: [
-    {
-      id: 'one-splendid-mile',
-      name: 'One Splendid Mile',
-      kind: 'tower',
-      position: [-32, 0, 40], // 980 N Michigan
-      rotationY: 0,
-      height: 205,
-      footprint: [46, 40],
-      tiers: 4,
-      color: 0xb8a48c,
-      accent: 0x8f7d68,
-    },
-    {
-      id: 'palmolympia',
-      name: 'The Palmolympia',
-      kind: 'tower',
-      position: [-28, 0, 163], // 919 N Michigan, Art Deco setbacks
-      rotationY: 0,
-      height: 173,
-      footprint: [44, 38],
-      tiers: 5,
-      color: 0xd8c9ab,
-      accent: 0x9b8a70,
-    },
-    {
-      id: 'nine-hundred',
-      name: '900 North',
-      kind: 'tower',
-      position: [-30, 0, 201], // 900 N Michigan
-      rotationY: 0,
-      height: 265,
-      footprint: [50, 44],
-      tiers: 3,
-      color: 0xa89a86,
-      accent: 0x7f7362,
-    },
     {
       id: 'hancork',
       name: 'The Hancork',
       kind: 'hancock',
-      position: [32, 0, 251], // 875 N Michigan
+      position: [100, 0, 222], // OSM centroid of 875 N Michigan
       rotationY: 0,
-      height: 344,
+      height: 343, // OSM height tag
       footprint: [80, 50],
       taper: 0.38,
       color: 0x2b2d33,
       accent: 0x585c66,
-    },
-    {
-      id: 'water-tower-place',
-      name: 'Watertower Place',
-      kind: 'slab',
-      position: [34, 0, 332], // 835 N Michigan
-      rotationY: 0,
-      height: 262,
-      footprint: [54, 48],
-      color: 0xbfb3a0,
-      accent: 0x8d8375,
-    },
-    {
-      id: 'tribute-tower',
-      name: 'Tribute Tower',
-      kind: 'tower',
-      position: [30, 0, 1136], // 435 N Michigan
-      rotationY: 0,
-      height: 141,
-      footprint: [38, 34],
-      tiers: 4,
-      color: 0xd2c6ae,
-      accent: 0x9c8f78,
-    },
-    {
-      id: 'wrigleyville-building',
-      name: 'The Wriggle Building',
-      kind: 'tower',
-      position: [-30, 0, 1206], // 400 N Michigan
-      rotationY: 0,
-      height: 133,
-      footprint: [40, 30],
-      tiers: 4,
-      color: 0xf2ece0,
-      accent: 0xd2c9b8,
-    },
-    {
-      id: 'trumpet-tower',
-      name: 'Trumpet Tower',
-      kind: 'slab',
-      position: [-112, 0, 1204], // 401 N Wabash
-      rotationY: 0.2,
-      height: 423,
-      footprint: [58, 44],
-      taper: 0.55,
-      color: 0x9fb0bd,
-      accent: 0x76858f,
     },
   ],
 

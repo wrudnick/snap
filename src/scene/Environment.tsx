@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 
 import { generateEnvironment, type Prop } from '@/content/models/environment'
+import { buildCityGeometry } from '@/content/models/city'
 import { buildLandmark } from '@/content/models/landmarks'
 import type { LandmarkDef } from '@/content/models/landmarks'
 import type { RouteDef } from '@/content/routes/types'
@@ -55,6 +56,42 @@ function PropInstances({ props, limit, castShadow, receiveShadow }: GroupProps) 
         />
       ))}
     </Instances>
+  )
+}
+
+/**
+ * The real city, extruded from OpenStreetMap footprints.
+ *
+ * About a thousand buildings in one merged, vertex-coloured, non-indexed mesh —
+ * a single draw call for the whole of the Gold Coast. Never gated: it is one
+ * call whatever is on screen, and half the point is seeing a mile down Michigan.
+ */
+function City() {
+  const built = useMemo(() => buildCityGeometry(), [])
+
+  const material = useMemo(
+    () =>
+      patchToonMaterial(
+        new THREE.MeshToonMaterial({
+          color: 0xffffff,
+          gradientMap: toonRamp(),
+          vertexColors: true,
+        }),
+      ),
+    [],
+  )
+
+  useEffect(() => {
+    return () => {
+      built.geometry.dispose()
+      material.dispose()
+    }
+  }, [built, material])
+
+  return (
+    <mesh geometry={built.geometry} castShadow receiveShadow frustumCulled={false}>
+      <primitive object={material} attach="material" dispose={null} />
+    </mesh>
   )
 }
 
@@ -149,11 +186,7 @@ export function Environment({
         <primitive object={groundMaterial} attach="material" dispose={null} />
       </mesh>
 
-      {/* Streets we never walk, running south to the river. Ungated on purpose:
-          being visible from a long way off is the whole point, and it costs one
-          draw call however many towers are in it. */}
-      <PropInstances props={data.skyline} limit={520} castShadow receiveShadow />
-
+      <City />
       <Landmarks landmarks={route.landmarks} />
 
       <PropInstances props={visible.buildings} limit={420} castShadow receiveShadow />
