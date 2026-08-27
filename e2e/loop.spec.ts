@@ -25,11 +25,11 @@ type Shot = {
 async function boot(page: Page): Promise<void> {
   await page.goto('/')
   await page.waitForFunction(() => Boolean((window as any).__snap), null, { timeout: 20_000 })
-  await expect(page.getByRole('button', { name: /ride downtown/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^ride /i })).toBeVisible()
 }
 
 async function startRun(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /ride downtown/i }).click()
+  await page.getByRole('button', { name: /^ride /i }).click()
   await expect(page.locator('.hud')).toBeVisible()
   await page.waitForFunction(() => (window as any).__snap.runtime.running === true)
 }
@@ -46,14 +46,21 @@ async function shootNearestAhead(page: Page, t: number): Promise<Shot | null> {
     const cam = h.cameraPosition()
     if (!cam) return null
 
+    // "Ahead" has to come from the rail's actual heading. A Z-axis test only
+    // worked while the route ran in a straight line down -Z; the real route
+    // turns west and then north, so a hardcoded axis aims behind the camera.
+    const heading = h.runtime.railHeading
+    const fx = -Math.sin(heading)
+    const fz = -Math.cos(heading)
+
     const candidates = h
       .subjects()
-      .map((s: any) => ({
-        ...s,
-        dist: Math.hypot(s.position[0] - cam[0], s.position[2] - cam[2]),
-        ahead: s.position[2] - cam[2] < -2,
-      }))
-      .filter((s: any) => s.ahead && s.dist > 3 && s.dist < 40)
+      .map((s: any) => {
+        const dx = s.position[0] - cam[0]
+        const dz = s.position[2] - cam[2]
+        return { ...s, dist: Math.hypot(dx, dz), forward: dx * fx + dz * fz }
+      })
+      .filter((s: any) => s.forward > 2 && s.dist > 3 && s.dist < 45)
       .sort((a: any, b: any) => a.dist - b.dist)
 
     if (candidates.length === 0) return null
@@ -89,6 +96,25 @@ async function shootNearestAhead(page: Page, t: number): Promise<Shot | null> {
   }, t)
 }
 
+/**
+ * Try several points along the route until one yields a photo.
+ *
+ * Pinning a test to a single `t` couples it to wherever subjects happen to sit
+ * today, and the route is going to keep being retuned as real buildings land.
+ * Scanning asserts the thing that actually matters — that aiming at a subject
+ * anywhere on the route produces a scored photo.
+ */
+async function shootAnywhere(
+  page: Page,
+  candidates = [0.38, 0.85, 0.76, 0.04, 0.92, 0.55],
+): Promise<Shot | null> {
+  for (const t of candidates) {
+    const shot = await shootNearestAhead(page, t)
+    if (shot) return shot
+  }
+  return null
+}
+
 test.describe('gameplay loop', () => {
   test.beforeEach(async ({ page }) => {
     // A stale album from a previous test would change the results screen.
@@ -114,7 +140,14 @@ test.describe('gameplay loop', () => {
   test('starts a run with a full roll of film', async ({ page }) => {
     await boot(page)
     await startRun(page)
-    await expect(page.locator('.film .count')).toHaveText('24')
+
+    // Read from the route rather than hardcoding: film size is content, and a
+    // literal here breaks every time the route is retuned.
+    const film = await page.evaluate(
+      () => (window as any).__snap.store.getState().filmRemaining,
+    )
+    expect(film).toBeGreaterThan(0)
+    await expect(page.locator('.film .count')).toHaveText(String(film))
   })
 
   test('the camera advances along the rail on its own', async ({ page }) => {
@@ -132,10 +165,13 @@ test.describe('gameplay loop', () => {
     await boot(page)
     await startRun(page)
 
-    const shot = await shootNearestAhead(page, 0.16)
+    const startingFilm = await page.evaluate(
+      () => (window as any).__snap.store.getState().filmRemaining,
+    )
+    const shot = await shootAnywhere(page)
     expect(shot).not.toBeNull()
 
-    await expect(page.locator('.film .count')).toHaveText('23')
+    await expect(page.locator('.film .count')).toHaveText(String(startingFilm - 1))
     expect(shot!.subject).not.toBeNull()
     expect(shot!.total).toBeGreaterThan(0)
 
@@ -184,7 +220,7 @@ test.describe('gameplay loop', () => {
     const samples = await page.evaluate(async () => {
       const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
       const h = (window as any).__snap
-      h.seek(0.16)
+      h.seek(0.86)
       await wait(400)
 
       const out: Array<{ band: string; direction: number }> = []
@@ -232,7 +268,7 @@ test.describe('gameplay loop', () => {
   test('finishing the route opens the contact sheet', async ({ page }) => {
     await boot(page)
     await startRun(page)
-    await shootNearestAhead(page, 0.16)
+    await shootAnywhere(page)
 
     await page.evaluate(() => (window as any).__snap.finish())
 
@@ -244,7 +280,7 @@ test.describe('gameplay loop', () => {
     await boot(page)
     await startRun(page)
 
-    for (const t of [0.05, 0.16, 0.42]) {
+    for (const t of [0.04, 0.38, 0.85]) {
       await shootNearestAhead(page, t)
     }
 
@@ -271,7 +307,7 @@ test.describe('gameplay loop', () => {
   test('discarding a photo removes it from the run total', async ({ page }) => {
     await boot(page)
     await startRun(page)
-    await shootNearestAhead(page, 0.16)
+    await shootAnywhere(page)
     await page.evaluate(() => (window as any).__snap.finish())
 
     await expect(page.locator('.shot')).toHaveCount(1)
@@ -285,6 +321,10 @@ test.describe('gameplay loop', () => {
   test('the run is capped by the film roll', async ({ page }) => {
     await boot(page)
     await startRun(page)
+
+    const startingFilm = await page.evaluate(
+      () => (window as any).__snap.store.getState().filmRemaining,
+    )
 
     // Burn the whole roll without aiming at anything in particular.
     //
@@ -312,6 +352,6 @@ test.describe('gameplay loop', () => {
     const count = await page.evaluate(
       () => (window as any).__snap.store.getState().photos.length,
     )
-    expect(count).toBe(24)
+    expect(count).toBe(startingFilm)
   })
 })
