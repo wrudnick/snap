@@ -12,7 +12,18 @@ export interface SubjectPlacement {
   id: string
   /** Key into the subject registry (`src/content/subjects/`). */
   species: string
-  position: [number, number, number]
+  /**
+   * Route-relative placement: `t` along the rail, `offset` metres left of
+   * travel, `y` above grade.
+   *
+   * Strongly preferred over `position`. Absolute coordinates silently rot every
+   * time the route moves — when the path was refitted to real OSM streets, every
+   * hand-placed subject ended up in the wrong block or inside a building.
+   * Anchoring to the rail means subjects follow the route wherever it goes.
+   */
+  at?: { t: number; offset: number; y?: number }
+  /** Absolute world position. Only for things genuinely fixed in the world. */
+  position?: [number, number, number]
   /** Initial facing, radians about Y. */
   rotationY?: number
   /**

@@ -22,7 +22,7 @@ function assignSegments(
   const v = new THREE.Vector3()
 
   return placements.map((placement) => {
-    v.set(...placement.position)
+    v.set(...(placement.position ?? [0, 0, 0]))
     let bestIndex = 0
     let bestDistance = Infinity
 
@@ -38,8 +38,38 @@ function assignSegments(
   })
 }
 
+/**
+ * Resolve route-relative placements into world positions.
+ *
+ * Done once at load: `at` is authored against the rail, so a subject sits beside
+ * the path no matter how the path is later refitted.
+ */
+function resolvePlacements(rail: Rail, placements: SubjectPlacement[]): SubjectPlacement[] {
+  const point = new THREE.Vector3()
+  const right = new THREE.Vector3()
+
+  return placements.map((p) => {
+    if (!p.at) return p
+    rail.positionAt(p.at.t, point)
+    rail.rightAt(p.at.t, right)
+    // `offset` is metres left of travel, so subtract the right-hand normal.
+    return {
+      ...p,
+      position: [
+        point.x - right.x * p.at.offset,
+        p.at.y ?? 0,
+        point.z - right.z * p.at.offset,
+      ] as [number, number, number],
+    }
+  })
+}
+
 export function Subjects({ route, rail }: { route: RouteDef; rail: Rail }) {
-  const placed = useMemo(() => assignSegments(rail, route.subjects), [rail, route.subjects])
+  const resolved = useMemo(
+    () => resolvePlacements(rail, route.subjects),
+    [rail, route.subjects],
+  )
+  const placed = useMemo(() => assignSegments(rail, resolved), [rail, resolved])
   const segment = useActiveSegment()
 
   // Subjects outside the window unmount, which also unregisters them from the

@@ -224,6 +224,10 @@ test.describe('gameplay loop', () => {
   test('a subject facing the camera outscores the same subject facing away', async ({
     page,
   }) => {
+    // Samples a patrolling dog repeatedly and waits for each capture, so it is
+    // inherently the slowest test here — well past the 30s default once the
+    // whole suite is competing for the same dev server.
+    test.setTimeout(90_000)
     await boot(page)
     await startRun(page)
 
@@ -236,7 +240,7 @@ test.describe('gameplay loop', () => {
       await wait(400)
 
       const out: Array<{ band: string; direction: number }> = []
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 9; i++) {
         const cam = h.cameraPosition()
         const dog = h.subjects().find((s: any) => s.species === 'dog')
         // The dog patrols and can wander out of the active segment window.

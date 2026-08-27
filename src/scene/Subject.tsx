@@ -152,7 +152,7 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
   return (
     <group
       ref={groupRef}
-      position={placement.position}
+      position={placement.position ?? [0, 0, 0]}
       rotation={[0, placement.rotationY ?? 0, 0]}
     >
       <primitive object={built.group} />
