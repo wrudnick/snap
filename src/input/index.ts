@@ -15,9 +15,25 @@ export interface InputState {
   zoom: boolean
   /** Set on a shutter press; the game loop clears it after handling. */
   shutter: boolean
+  /** Edge-triggered speed changes; the loop clears them after handling. */
+  speedUp: boolean
+  speedDown: boolean
+  /** Jump to the next checkpoint. */
+  nextCheckpoint: boolean
+  /** Jump back to the previous checkpoint. */
+  prevCheckpoint: boolean
 }
 
-export const input: InputState = { aimX: 0, aimY: 0, zoom: false, shutter: false }
+export const input: InputState = {
+  aimX: 0,
+  aimY: 0,
+  zoom: false,
+  shutter: false,
+  speedUp: false,
+  speedDown: false,
+  nextCheckpoint: false,
+  prevCheckpoint: false,
+}
 
 /** Called by the game loop once per frame, after reading the look delta. */
 export function consumeAim(): void {
@@ -117,6 +133,12 @@ export class PointerKeyboardAdapter implements InputAdapter {
       input.shutter = true
     }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.zoom = true
+
+    // Review controls.
+    if (e.code === 'BracketRight') input.speedUp = true
+    if (e.code === 'BracketLeft') input.speedDown = true
+    if (e.code === 'Period') input.nextCheckpoint = true
+    if (e.code === 'Comma') input.prevCheckpoint = true
   }
 
   private onKeyUp = (e: KeyboardEvent): void => {

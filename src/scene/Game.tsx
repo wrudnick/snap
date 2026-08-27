@@ -76,14 +76,19 @@ export function Game() {
         // Explicitly NOT preserveDrawingBuffer — see game/capture/image.ts.
         preserveDrawingBuffer: false,
       }}
-      camera={{ fov: route.fov.default, near: 0.1, far: 400 }}
+      camera={{ fov: route.fov.default, near: 0.1, far: 1400 }}
     >
       <World sections={resolved.sections}>
         <Environment route={route} rail={rail} sections={resolved.sections} />
         <Subjects route={route} rail={rail} />
       </World>
 
-      <Rig route={route} rail={rail} />
+      <Rig
+        route={route}
+        rail={rail}
+        sections={resolved.sections}
+        checkpoints={resolved.checkpoints}
+      />
       <Shutter routeId={route.id} />
       <RunController fov={route.fov.default} duration={route.durationSeconds} />
       <InputBinding />

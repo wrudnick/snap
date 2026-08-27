@@ -17,8 +17,8 @@ import type { LightingProfile } from './types'
 /** Open lakefront at dawn. The brightest, widest moment in the route. */
 export const BEACH_DAWN: LightingProfile = {
   sky: 0xa9c8e6,
-  fogNear: 90,
-  fogFar: 320,
+  fogNear: 150,
+  fogFar: 750,
   key: 0xffd9a8,
   keyIntensity: 2.4,
   skyFill: 0xb6d2ee,
@@ -52,8 +52,8 @@ export const TUNNEL: LightingProfile = {
 /** Michigan Avenue. Tall, hard-edged, plenty of sky between the towers. */
 export const AVENUE_DAWN: LightingProfile = {
   sky: 0x9fc0e0,
-  fogNear: 70,
-  fogFar: 230,
+  fogNear: 120,
+  fogFar: 620,
   key: 0xffd2a0,
   keyIntensity: 2.3,
   skyFill: 0xa8c4e8,
@@ -67,8 +67,8 @@ export const AVENUE_DAWN: LightingProfile = {
 /** Oak Street. Low-rise and tree-lined, so more bounce and softer contrast. */
 export const BOUTIQUE_DAWN: LightingProfile = {
   sky: 0xa4c4e2,
-  fogNear: 60,
-  fogFar: 180,
+  fogNear: 100,
+  fogFar: 480,
   key: 0xffdcb4,
   keyIntensity: 2.0,
   skyFill: 0xb0cbe8,
@@ -82,8 +82,8 @@ export const BOUTIQUE_DAWN: LightingProfile = {
 /** Rush Street. Awnings and heat lamps warm the patios from below. */
 export const DINING_DAWN: LightingProfile = {
   sky: 0x9dbcd8,
-  fogNear: 55,
-  fogFar: 165,
+  fogNear: 95,
+  fogFar: 440,
   key: 0xffcf9a,
   keyIntensity: 2.1,
   skyFill: 0xa6c0dc,
@@ -97,8 +97,8 @@ export const DINING_DAWN: LightingProfile = {
 /** Mariano Park. Leaf cover, so cooler and more diffuse than the street. */
 export const PARK_DAWN: LightingProfile = {
   sky: 0xa2c2de,
-  fogNear: 50,
-  fogFar: 150,
+  fogNear: 90,
+  fogFar: 400,
   key: 0xffe0bc,
   keyIntensity: 1.85,
   skyFill: 0xa9c8e0,

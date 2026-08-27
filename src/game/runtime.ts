@@ -25,8 +25,17 @@ export interface Runtime {
   running: boolean
   /** Length of the active route in seconds. Needed to convert `t` to elapsed. */
   duration: number
+  /**
+   * Travel speed multiplier.
+   *
+   * A four-minute route is a long way to ride when you only want to look at the
+   * kitchen. Scrubbing forward is a review tool, not a game mechanic.
+   */
+  speed: number
   /** The rail's own heading this frame, before the player's yaw offset. */
   railHeading: number
+  /** Title of the section the camera is in. Shown in the HUD. */
+  sectionTitle: string
 }
 
 export const runtime: Runtime = {
@@ -40,6 +49,8 @@ export const runtime: Runtime = {
   running: false,
   duration: 1,
   railHeading: 0,
+  speed: 1,
+  sectionTitle: '',
 }
 
 export function resetRuntime(fov: number, duration: number): void {
@@ -52,4 +63,5 @@ export function resetRuntime(fov: number, duration: number): void {
   runtime.segment = 0
   runtime.running = false
   runtime.duration = duration
+  // Speed deliberately survives a reset — it is a review preference, not run state.
 }

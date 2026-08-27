@@ -98,14 +98,17 @@ export function Environment({
   }, [groundMaterial, data])
 
   const visible = useMemo(() => {
-    const keep = (p: Prop) => segmentActive(p.segment, segment, route.activeWindow)
+    const w = route.activeWindows
+    const keep = (window: number) => (p: Prop) =>
+      segmentActive(p.segment, segment, window)
+
     return {
-      buildings: data.buildings.filter(keep),
-      poles: data.poles.filter(keep),
-      heads: data.heads.filter(keep),
-      clutter: data.clutter.filter(keep),
+      buildings: data.buildings.filter(keep(w?.buildings ?? route.activeWindow)),
+      poles: data.poles.filter(keep(w?.furniture ?? route.activeWindow)),
+      heads: data.heads.filter(keep(w?.furniture ?? route.activeWindow)),
+      clutter: data.clutter.filter(keep(w?.clutter ?? route.activeWindow)),
     }
-  }, [data, segment, route.activeWindow])
+  }, [data, segment, route.activeWindow, route.activeWindows])
 
   return (
     <group>
@@ -113,7 +116,7 @@ export function Environment({
         <primitive object={groundMaterial} attach="material" dispose={null} />
       </mesh>
 
-      <PropInstances props={visible.buildings} limit={160} castShadow receiveShadow />
+      <PropInstances props={visible.buildings} limit={420} castShadow receiveShadow />
       <PropInstances props={visible.poles} limit={80} castShadow />
       <PropInstances props={visible.heads} limit={80} castShadow />
       <PropInstances props={visible.clutter} limit={80} castShadow receiveShadow />

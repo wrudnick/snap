@@ -102,8 +102,22 @@ export interface RouteDef {
   }
   /** How many chunks the route is divided into for content gating. */
   segmentCount: number
-  /** Segments either side of the camera that stay mounted. */
+  /** Segments either side of the camera that stay mounted. Default fallback. */
   activeWindow: number
+  /**
+   * Per-category gating windows, in segments.
+   *
+   * Buildings are drawn as one InstancedMesh, so mounting two hundred of them
+   * costs exactly one draw call — gating them tightly buys nothing and cuts the
+   * view to a fraction of a block. Small props are the ones worth gating: they
+   * are numerous, close to the camera, and invisible at distance anyway.
+   */
+  activeWindows?: {
+    buildings: number
+    furniture: number
+    clutter: number
+    subjects: number
+  }
   /** Seed for the procedural street blockout. */
   seed: number
   /** Shots available per run. */

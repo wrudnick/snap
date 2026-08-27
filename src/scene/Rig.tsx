@@ -6,6 +6,11 @@ import type { RouteDef } from '@/content/routes/types'
 import { bridge } from '@/dev/harness'
 import { clamp, type Rail } from '@/game/rail'
 import { runtime } from '@/game/runtime'
+import {
+  sectionAt,
+  type ResolvedCheckpoint,
+  type ResolvedSection,
+} from '@/game/sections'
 import { useGame } from '@/game/state'
 import { consumeAim, input } from '@/input'
 
@@ -17,7 +22,25 @@ import { consumeAim, input } from '@/input'
  * an absolute orientation, the clamp cone travels with the route — you can
  * always look across the street, never backwards down it.
  */
-export function Rig({ route, rail }: { route: RouteDef; rail: Rail }) {
+const SPEEDS = [0.5, 1, 2, 4, 8, 16] as const
+
+function stepSpeed(current: number, direction: 1 | -1): number {
+  const i = SPEEDS.indexOf(current as (typeof SPEEDS)[number])
+  const next = (i === -1 ? 1 : i) + direction
+  return SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, next))]!
+}
+
+export function Rig({
+  route,
+  rail,
+  sections,
+  checkpoints,
+}: {
+  route: RouteDef
+  rail: Rail
+  sections: ResolvedSection[]
+  checkpoints: ResolvedCheckpoint[]
+}) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const ended = useRef(false)
 
@@ -42,8 +65,35 @@ export function Rig({ route, rail }: { route: RouteDef; rail: Rail }) {
     // Clamped so a backgrounded tab doesn't teleport the camera on return.
     const dt = Math.min(delta, 1 / 30)
 
+    // Review controls. Edge-triggered, so consume the flag as we read it.
+    if (input.speedUp) {
+      input.speedUp = false
+      runtime.speed = stepSpeed(runtime.speed, 1)
+    }
+    if (input.speedDown) {
+      input.speedDown = false
+      runtime.speed = stepSpeed(runtime.speed, -1)
+    }
+
+    const jumpTo = (t: number) => {
+      runtime.t = Math.max(0, Math.min(1, t))
+      // The rig recomputes t from elapsed each frame, so elapsed has to move too.
+      runtime.elapsed = runtime.t * route.durationSeconds
+      ended.current = false
+    }
+    if (input.nextCheckpoint) {
+      input.nextCheckpoint = false
+      const next = checkpoints.find((c) => c.t > runtime.t + 0.004)
+      if (next) jumpTo(next.t)
+    }
+    if (input.prevCheckpoint) {
+      input.prevCheckpoint = false
+      const previous = [...checkpoints].reverse().find((c) => c.t < runtime.t - 0.004)
+      jumpTo(previous ? previous.t : 0)
+    }
+
     if (runtime.running) {
-      runtime.elapsed += dt
+      runtime.elapsed += dt * runtime.speed
       runtime.t = Math.min(1, runtime.elapsed / route.durationSeconds)
     }
 
@@ -74,6 +124,7 @@ export function Rig({ route, rail }: { route: RouteDef; rail: Rail }) {
     }
 
     runtime.segment = rail.segmentAt(runtime.t)
+    runtime.sectionTitle = sectionAt(sections, runtime.t).title
 
     if (runtime.t >= 1 && runtime.running && !ended.current) {
       ended.current = true

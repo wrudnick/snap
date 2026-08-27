@@ -44,7 +44,8 @@ export function Subjects({ route, rail }: { route: RouteDef; rail: Rail }) {
 
   // Subjects outside the window unmount, which also unregisters them from the
   // capture registry — so they can't be photographed from three blocks away.
-  const active = placed.filter((p) => segmentActive(p.segment, segment, route.activeWindow))
+  const window = route.activeWindows?.subjects ?? route.activeWindow
+  const active = placed.filter((p) => segmentActive(p.segment, segment, window))
 
   return (
     <group>

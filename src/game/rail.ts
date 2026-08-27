@@ -24,7 +24,11 @@ export class Rail {
       route.waypoints.map(([x, y, z]) => new THREE.Vector3(x, y, z)),
       false,
       'catmullrom',
-      0.5,
+      // Low tension keeps street corners crisp. At the default 0.5 the spline
+      // sweeps through a 90-degree turn like a racetrack, which reads nothing
+      // like walking a city grid; near zero it approaches straight runs between
+      // waypoints with a tight radius at the corner.
+      0.16,
     )
     this.segmentCount = route.segmentCount
   }
