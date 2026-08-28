@@ -27,10 +27,13 @@ function Turntable({
   object,
   spin,
   height,
+  reach,
 }: {
   object: THREE.Object3D
   spin: boolean
   height: number
+  /** Largest dimension. Framing on height alone crops long animals and cars. */
+  reach: number
 }) {
   const ref = useRef<THREE.Group>(null)
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
@@ -42,8 +45,8 @@ function Turntable({
     // Camera sits on -Z because models face local -Z. Viewing from +Z shows
     // every character from behind, which is exactly the wrong angle for judging
     // a face.
-    const distance = Math.max(1.6, height * 1.9)
-    camera.position.set(distance * 0.55, height * 0.66, -distance)
+    const distance = Math.max(1.8, reach * 1.75)
+    camera.position.set(distance * 0.55, Math.max(height * 0.66, reach * 0.3), -distance)
     camera.lookAt(0, height * 0.5, 0)
     camera.updateProjectionMatrix()
   }, [camera, height])
@@ -63,6 +66,7 @@ function InspectorScene({
   object,
   spin,
   height,
+  reach,
   mixer,
   scrub,
   action,
@@ -70,6 +74,7 @@ function InspectorScene({
   object: THREE.Object3D
   spin: boolean
   height: number
+  reach: number
   mixer: THREE.AnimationMixer | null
   /** Null plays normally; a number holds the clip at that fraction of its length. */
   scrub: number | null
@@ -100,10 +105,10 @@ function InspectorScene({
 
       {/* Ground and axes: without a reference plane it's impossible to tell a
           floating model from a correctly grounded one. */}
-      <gridHelper args={[Math.max(4, height * 3), 20, 0x4a5560, 0x2b333c]} position={[0, GROUND, 0]} />
-      <axesHelper args={[Math.max(0.6, height * 0.35)]} />
+      <gridHelper args={[Math.max(4, reach * 3), 20, 0x4a5560, 0x2b333c]} position={[0, GROUND, 0]} />
+      <axesHelper args={[Math.max(0.6, reach * 0.35)]} />
 
-      <Turntable object={object} spin={spin} height={height} />
+      <Turntable object={object} spin={spin} height={height} reach={reach} />
     </>
   )
 }
@@ -142,15 +147,24 @@ export function ModelInspector() {
     if (entry.kind === 'landmark') {
       const object = buildLandmark({ ...entry.def, position: [0, 0, 0] })
       const box = new THREE.Box3().setFromObject(object)
-      return { object, clips: [] as THREE.AnimationClip[], height: box.max.y - box.min.y, parts: countParts(object) }
+      const size = box.getSize(new THREE.Vector3())
+      return {
+        object,
+        clips: [] as THREE.AnimationClip[],
+        height: size.y,
+        reach: Math.max(size.x, size.y, size.z),
+        parts: countParts(object),
+      }
     }
     const def = SUBJECTS[entry.id]!
     const model = buildModel(def, seed)
     const box = new THREE.Box3().setFromObject(model.group)
+    const size = box.getSize(new THREE.Vector3())
     return {
       object: model.group,
       clips: model.clips,
-      height: box.max.y - box.min.y,
+      height: size.y,
+      reach: Math.max(size.x, size.y, size.z),
       parts: countParts(model.group),
     }
   }, [entry, seed])
@@ -265,6 +279,7 @@ export function ModelInspector() {
             object={built.object}
             spin={spin}
             height={built.height}
+            reach={built.reach}
             mixer={mixer}
             scrub={scrub}
             action={actionRef.current}
