@@ -22,6 +22,10 @@ export interface InputState {
   nextCheckpoint: boolean
   /** Jump back to the previous checkpoint. */
   prevCheckpoint: boolean
+  /** Toggle travel. */
+  togglePause: boolean
+  /** Seek straight to a route position, set by clicking the minimap. */
+  seekTo: number | null
 }
 
 export const input: InputState = {
@@ -33,6 +37,8 @@ export const input: InputState = {
   speedDown: false,
   nextCheckpoint: false,
   prevCheckpoint: false,
+  togglePause: false,
+  seekTo: null,
 }
 
 /** Called by the game loop once per frame, after reading the look delta. */
@@ -139,6 +145,7 @@ export class PointerKeyboardAdapter implements InputAdapter {
     if (e.code === 'BracketLeft') input.speedDown = true
     if (e.code === 'Period') input.nextCheckpoint = true
     if (e.code === 'Comma') input.prevCheckpoint = true
+    if (e.code === 'KeyP') input.togglePause = true
   }
 
   private onKeyUp = (e: KeyboardEvent): void => {

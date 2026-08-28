@@ -285,6 +285,20 @@ h2 {
   right: 5%;
   bottom: calc(5% + 118px);
   border-radius: 3px;
-  pointer-events: none;
+  /* Clickable: the map is how you jump to a spot to look at it. */
+  pointer-events: auto;
+  cursor: crosshair;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+
+.paused {
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  transform: translateX(-50%);
+  font-size: 0.74rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--bad);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
 }

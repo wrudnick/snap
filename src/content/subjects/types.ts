@@ -1,7 +1,29 @@
 import type { SpeciesDef } from '@/game/scoring/types'
 
 /** Which procedural placeholder builder to use, until real .glb models land. */
-export type ModelKind = 'bird' | 'quadruped' | 'vehicle'
+export type ModelKind = 'bird' | 'quadruped' | 'vehicle' | 'humanoid'
+
+/**
+ * Appearance ranges for a class of person.
+ *
+ * Every field is a palette rather than a value: a class describes a *kind* of
+ * person, and each individual draws from it deterministically using their own
+ * placement seed. Two tourists should never be the same tourist.
+ */
+export interface HumanSpec {
+  /** Metres, before per-person jitter. */
+  height: number
+  /** Torso and limb thickness multiplier. 0.85 slim, 1.2 heavy. */
+  build: number
+  skin: number[]
+  hair: number[]
+  top: number[]
+  bottom: number[]
+  /** Accessories this class may carry; each is rolled independently. */
+  accessories?: Array<'cap' | 'sunhat' | 'coat' | 'bag' | 'tote' | 'heels' | 'stripes' | 'bald'>
+  /** How stooped, in radians of forward torso lean. */
+  stoop?: number
+}
 
 /**
  * One entry in a subject's behaviour loop.
@@ -26,6 +48,8 @@ export interface BehaviorDef {
 export interface SubjectDef extends SpeciesDef {
   model: ModelKind
   palette: { body: number; accent: number }
+  /** Required when `model` is 'humanoid'. */
+  human?: HumanSpec
   /** Uniform scale applied to the placeholder model. */
   scale: number
   behaviors: BehaviorDef[]

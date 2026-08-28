@@ -156,13 +156,18 @@ export function buildCityGeometry(
       const [x2, z2] = ring[(i + 1) % ring.length]!
       const width = Math.hypot(x2 - x1, z2 - z1)
 
+      // Winding matters and is easy to get backwards. The converter normalises
+      // every ring to a positive shoelace area, and in a +X-east / +Z-south
+      // plane that makes the naive vertex order produce INWARD-facing walls —
+      // backface culling then hides every facade and you see straight through a
+      // building to its far inner walls. Reversed here so normals point out.
       push(x1, 0, z1, 0, 0)
-      push(x2, 0, z2, width, 0)
       push(x2, h, z2, width, h)
+      push(x2, 0, z2, width, 0)
 
       push(x1, 0, z1, 0, 0)
-      push(x2, h, z2, width, h)
       push(x1, h, z1, 0, h)
+      push(x2, h, z2, width, h)
     }
 
     // Roof, slightly lighter so rooflines read against the sky.
@@ -172,9 +177,10 @@ export function buildCityGeometry(
       const pa = ring[a]!
       const pb = ring[bIdx]!
       const pc = ring[c]!
+      // Same orientation problem: the fan order points roof normals downward.
       push(pa[0], h, pa[1], 0, 0)
-      push(pb[0], h, pb[1], 0, 0)
       push(pc[0], h, pc[1], 0, 0)
+      push(pb[0], h, pb[1], 0, 0)
     }
   }
 

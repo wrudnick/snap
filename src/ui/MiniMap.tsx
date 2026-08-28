@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react'
+import * as THREE from 'three'
 
 import type { RouteDef } from '@/content/routes/types'
 import type { Rail } from '@/game/rail'
 import { runtime } from '@/game/runtime'
+import { input } from '@/input'
 import type { ResolvedCheckpoint } from '@/game/sections'
 
 /**
@@ -41,6 +43,9 @@ export function MiniMap({
   checkpoints: ResolvedCheckpoint[]
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  // The draw loop owns the world->map projection; clicking needs to invert it,
+  // so the mapping is stashed here rather than recomputed and risking drift.
+  const projection = useRef<{ scale: number; offsetX: number; offsetY: number } | null>(null)
 
   // Sampled once: the spline's actual shape, not just its control points.
   const path = useMemo(
@@ -91,6 +96,8 @@ export function MiniMap({
 
     const px = (x: number) => offsetX + (x - bounds.minX) * scale
     const py = (z: number) => offsetY + (z - bounds.minZ) * scale
+
+    projection.current = { scale, offsetX, offsetY }
 
     const stroke = (
       points: Array<[number, number]>,
@@ -190,7 +197,7 @@ export function MiniMap({
       ctx.closePath()
       ctx.fill()
 
-      ctx.fillStyle = '#f5c451'
+      ctx.fillStyle = runtime.paused ? '#e0736b' : '#f5c451'
       ctx.beginPath()
       ctx.arc(cx, cy, 3.2, 0, Math.PI * 2)
       ctx.fill()
@@ -213,5 +220,37 @@ export function MiniMap({
     return () => cancelAnimationFrame(raf)
   }, [bounds, path, rail, route.corridors, route.landmarks, checkpoints])
 
-  return <canvas ref={canvasRef} className="minimap" style={{ width: WIDTH, height: HEIGHT }} />
+  /**
+   * Click to travel there.
+   *
+   * Inverts the map projection to a world position, then asks the rail for the
+   * nearest point on the route — so clicking anywhere near the line snaps to the
+   * path rather than requiring pixel accuracy. Writes to `input.seekTo` instead
+   * of moving the camera directly, keeping the rig the only thing that sets
+   * route position.
+   */
+  const onClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const p = projection.current
+    const canvas = canvasRef.current
+    if (!p || !canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const mx = ((e.clientX - rect.left) / rect.width) * WIDTH
+    const my = ((e.clientY - rect.top) / rect.height) * HEIGHT
+
+    const worldX = (mx - p.offsetX) / p.scale + bounds.minX
+    const worldZ = (my - p.offsetY) / p.scale + bounds.minZ
+
+    input.seekTo = rail.tNearest(new THREE.Vector3(worldX, 0, worldZ))
+  }
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="minimap"
+      style={{ width: WIDTH, height: HEIGHT }}
+      onClick={onClick}
+      title="Click to travel to that point on the route"
+    />
+  )
 }

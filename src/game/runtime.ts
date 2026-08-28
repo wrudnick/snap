@@ -21,8 +21,16 @@ export interface Runtime {
   targetFov: number
   /** Rail segment the camera is currently in. Drives content gating. */
   segment: number
-  /** False while paused, in menus, or after the route completes. */
+  /** False in menus and after the route completes. */
   running: boolean
+  /**
+   * Player-held pause on travel.
+   *
+   * Kept separate from `running` because they mean different things: `running`
+   * is whether a run is underway, `paused` is whether the camera is moving.
+   * Folding them together would make un-pausing indistinguishable from starting.
+   */
+  paused: boolean
   /** Length of the active route in seconds. Needed to convert `t` to elapsed. */
   duration: number
   /**
@@ -47,6 +55,7 @@ export const runtime: Runtime = {
   targetFov: 60,
   segment: 0,
   running: false,
+  paused: false,
   duration: 1,
   railHeading: 0,
   speed: 1,
@@ -62,6 +71,7 @@ export function resetRuntime(fov: number, duration: number): void {
   runtime.targetFov = fov
   runtime.segment = 0
   runtime.running = false
+  runtime.paused = false
   runtime.duration = duration
   // Speed deliberately survives a reset — it is a review preference, not run state.
 }

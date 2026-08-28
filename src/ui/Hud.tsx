@@ -19,11 +19,13 @@ export function Hud() {
   const flashRef = useRef<HTMLDivElement>(null)
   const sectionRef = useRef<HTMLDivElement>(null)
   const speedRef = useRef<HTMLDivElement>(null)
+  const pausedRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let raf = 0
     let lastTitle = ''
     let lastSpeed = -1
+    let lastPaused: boolean | null = null
 
     const tick = () => {
       if (barRef.current) barRef.current.style.transform = `scaleX(${runtime.t})`
@@ -37,6 +39,11 @@ export function Hud() {
       if (speedRef.current && runtime.speed !== lastSpeed) {
         lastSpeed = runtime.speed
         speedRef.current.textContent = lastSpeed === 1 ? '' : `${lastSpeed}×`
+      }
+
+      if (pausedRef.current && runtime.paused !== lastPaused) {
+        lastPaused = runtime.paused
+        pausedRef.current.textContent = lastPaused ? 'Paused' : ''
       }
 
       raf = requestAnimationFrame(tick)
@@ -68,6 +75,7 @@ export function Hud() {
       <div className="reticle" />
 
       <div className="section" ref={sectionRef} />
+      <div className="paused" ref={pausedRef} />
       <div className="speed" ref={speedRef} />
 
       <div className="film">
@@ -79,7 +87,7 @@ export function Hud() {
         Drag to look · Click or Space to shoot · Shift or right-click to zoom
         <br />
         <span style={{ opacity: 0.65 }}>
-          [ ] speed · , . jump checkpoint
+          P pause · [ ] speed · , . checkpoint · click the map to travel there
         </span>
       </div>
 

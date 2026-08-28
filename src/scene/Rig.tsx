@@ -81,6 +81,18 @@ export function Rig({
       runtime.elapsed = runtime.t * route.durationSeconds
       ended.current = false
     }
+    if (input.togglePause) {
+      input.togglePause = false
+      runtime.paused = !runtime.paused
+    }
+
+    // Set by clicking the minimap. Consumed here so the rig stays the only
+    // thing that writes route position.
+    if (input.seekTo !== null) {
+      jumpTo(input.seekTo)
+      input.seekTo = null
+    }
+
     if (input.nextCheckpoint) {
       input.nextCheckpoint = false
       const next = checkpoints.find((c) => c.t > runtime.t + 0.004)
@@ -92,7 +104,7 @@ export function Rig({
       jumpTo(previous ? previous.t : 0)
     }
 
-    if (runtime.running) {
+    if (runtime.running && !runtime.paused) {
       runtime.elapsed += dt * runtime.speed
       runtime.t = Math.min(1, runtime.elapsed / route.durationSeconds)
     }

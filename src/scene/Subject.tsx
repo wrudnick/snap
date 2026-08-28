@@ -26,7 +26,8 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
 
   // A fresh model per subject — they animate independently, so they can't share
   // an Object3D. Geometry and materials are shared inside buildModel.
-  const built = useMemo(() => buildModel(def), [def])
+  // Seeded per placement, so two people of the same class are different people.
+  const built = useMemo(() => buildModel(def, placement.seed), [def, placement.seed])
 
   const mixer = useMemo(() => new THREE.AnimationMixer(built.group), [built])
 

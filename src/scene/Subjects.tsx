@@ -44,6 +44,9 @@ function assignSegments(
  * Done once at load: `at` is authored against the rail, so a subject sits beside
  * the path no matter how the path is later refitted.
  */
+/** Route waypoints are authored at eye height; ground sits this far below. */
+const EYE_HEIGHT = 1.7
+
 function resolvePlacements(rail: Rail, placements: SubjectPlacement[]): SubjectPlacement[] {
   const point = new THREE.Vector3()
   const right = new THREE.Vector3()
@@ -52,12 +55,19 @@ function resolvePlacements(rail: Rail, placements: SubjectPlacement[]): SubjectP
     if (!p.at) return p
     rail.positionAt(p.at.t, point)
     rail.rightAt(p.at.t, right)
+
+    // Ground follows the rail, which dips 2.8 m below grade in the underpass and
+    // climbs back. Defaulting `y` to 0 leaves subjects floating there — so the
+    // default is the ground *under this point of the route*, and an explicit `y`
+    // is a lift above it rather than an absolute height.
+    const ground = point.y - EYE_HEIGHT
+
     // `offset` is metres left of travel, so subtract the right-hand normal.
     return {
       ...p,
       position: [
         point.x - right.x * p.at.offset,
-        p.at.y ?? 0,
+        ground + (p.at.y ?? 0),
         point.z - right.z * p.at.offset,
       ] as [number, number, number],
     }
