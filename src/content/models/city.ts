@@ -118,11 +118,24 @@ export function buildCityGeometry(
 ): CityGeometry {
   const positions: number[] = []
   const colors: number[] = []
-  const color = new THREE.Color()
+  // Where a fragment sits on its wall: u = metres along the face from its
+  // start, v = metres above grade. Metres rather than normalised UVs, because
+  // floors and window bays are real-world sizes — normalising would stretch a
+  // 60 m frontage's windows to the same count as a 6 m one.
+  const facade: number[] = []
+  // x = wall height, y = per-building seed, z = 1 for roofs (no windows).
+  const meta: number[] = []
 
-  const push = (x: number, y: number, z: number) => {
+  const color = new THREE.Color()
+  let seed = 0
+  let wallHeight = 0
+  let isRoof = 0
+
+  const push = (x: number, y: number, z: number, u: number, v: number) => {
     positions.push(x, y, z)
     colors.push(color.r, color.g, color.b)
+    facade.push(u, v)
+    meta.push(wallHeight, seed, isRoof)
   }
 
   for (const b of buildings) {
@@ -131,36 +144,45 @@ export function buildCityGeometry(
     colorFor(b, color)
     const h = heightOf(b)
 
-    // Walls.
+    wallHeight = h
+    // Stable per-building seed so the same building lights the same windows on
+    // every load — a city that reshuffles its lit windows each reload would be
+    // both distracting and impossible to photograph consistently.
+    seed = (Math.abs(Math.imul(b.i | 0, 0x9e3779b9)) % 10000) / 10000
+    isRoof = 0
+
     for (let i = 0; i < ring.length; i++) {
       const [x1, z1] = ring[i]!
       const [x2, z2] = ring[(i + 1) % ring.length]!
+      const width = Math.hypot(x2 - x1, z2 - z1)
 
-      push(x1, 0, z1)
-      push(x2, 0, z2)
-      push(x2, h, z2)
+      push(x1, 0, z1, 0, 0)
+      push(x2, 0, z2, width, 0)
+      push(x2, h, z2, width, h)
 
-      push(x1, 0, z1)
-      push(x2, h, z2)
-      push(x1, h, z1)
+      push(x1, 0, z1, 0, 0)
+      push(x2, h, z2, width, h)
+      push(x1, h, z1, 0, h)
     }
 
-    // Roof. Slightly lighter so rooflines read against the sky.
-    const roof = color.clone().multiplyScalar(1.12)
-    color.copy(roof)
+    // Roof, slightly lighter so rooflines read against the sky.
+    color.multiplyScalar(1.12)
+    isRoof = 1
     for (const [a, bIdx, c] of roofTriangles(ring)) {
       const pa = ring[a]!
       const pb = ring[bIdx]!
       const pc = ring[c]!
-      push(pa[0], h, pa[1])
-      push(pb[0], h, pb[1])
-      push(pc[0], h, pc[1])
+      push(pa[0], h, pa[1], 0, 0)
+      push(pb[0], h, pb[1], 0, 0)
+      push(pc[0], h, pc[1], 0, 0)
     }
   }
 
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+  geometry.setAttribute('aFacade', new THREE.Float32BufferAttribute(facade, 2))
+  geometry.setAttribute('aMeta', new THREE.Float32BufferAttribute(meta, 3))
   geometry.computeVertexNormals()
   geometry.computeBoundingSphere()
 

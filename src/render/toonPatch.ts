@@ -1,5 +1,13 @@
 import * as THREE from 'three'
 
+import {
+  FACADE_DEFAULTS,
+  FACADE_FRAGMENT,
+  FACADE_PARS_FRAGMENT,
+  FACADE_PARS_VERTEX,
+  FACADE_VERTEX,
+  type FacadeOptions,
+} from './facade'
 import { DAWN } from './palette'
 
 /**
@@ -25,6 +33,12 @@ export interface ToonPatchOptions {
   rimColor?: number
   rimStrength?: number
   rimPower?: number
+  /**
+   * Draw procedural windows, spandrels and cornices from the `aFacade`/`aMeta`
+   * vertex attributes. Only meaningful on geometry that carries them — the
+   * extruded OSM city.
+   */
+  facade?: FacadeOptions | false
 }
 
 /**
@@ -53,7 +67,25 @@ export function patchToonMaterial(
   const rimStrength = options.rimStrength ?? DAWN.rimStrength
   const rimPower = options.rimPower ?? DAWN.rimPower
 
+  const facade = options.facade
+    ? { ...FACADE_DEFAULTS, ...options.facade }
+    : null
+
   material.onBeforeCompile = (shader) => {
+    if (facade) {
+      shader.uniforms.uFloorHeight = { value: facade.floorHeight }
+      shader.uniforms.uBayWidth = { value: facade.bayWidth }
+      shader.uniforms.uGroundHeight = { value: facade.groundHeight }
+      shader.uniforms.uWindowDark = { value: new THREE.Color(facade.windowDark) }
+      shader.uniforms.uWindowLit = { value: new THREE.Color(facade.windowLit) }
+      shader.uniforms.uTrim = { value: new THREE.Color(facade.trim) }
+      shader.uniforms.uLitChance = { value: facade.litChance }
+
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', `#include <common>\n${FACADE_PARS_VERTEX}`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>\n${FACADE_VERTEX}`)
+    }
+
     // Materials with explicit overrides get their own uniforms; everything else
     // shares the module-level set so lighting zones can retint the whole scene
     // by mutating one value.
@@ -80,6 +112,7 @@ export function patchToonMaterial(
       '#include <common>',
       /* glsl */ `
         #include <common>
+        ${facade ? FACADE_PARS_FRAGMENT : ''}
         uniform vec3 uShadowTint;
         uniform float uShadowTintStrength;
         uniform vec3 uRimColor;
@@ -91,6 +124,13 @@ export function patchToonMaterial(
         }
       `,
     )
+
+    if (facade) {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>\n${FACADE_FRAGMENT}`,
+      )
+    }
 
     // `reflectedLight` is populated by this point, so direct light relative to
     // the surface colour approximates which toon band the fragment landed in.
@@ -125,6 +165,7 @@ export function patchToonMaterial(
             uRimPower
           );
           outgoingLight += uRimColor * rim * uRimStrength * snapLit;
+${facade ? '          // Lit windows are emissive: a window in shadow still glows.\n          outgoingLight += facadeEmissive;' : ''}
         }
         #include <opaque_fragment>
       `,
@@ -132,7 +173,9 @@ export function patchToonMaterial(
   }
 
   // Distinguishes patched from unpatched programs in three's shader cache.
-  material.customProgramCacheKey = () => 'snap-toon-v1'
+  // Facade and plain variants are different programs; a shared key would make
+  // three hand one shader to both.
+  material.customProgramCacheKey = () => (facade ? 'snap-toon-facade-v1' : 'snap-toon-v1')
   material.needsUpdate = true
   return material
 }

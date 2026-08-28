@@ -77,6 +77,9 @@ function City() {
           gradientMap: toonRamp(),
           vertexColors: true,
         }),
+        // Windows, spandrels and cornices, drawn from the facade attributes the
+        // city geometry carries. No textures, no extra draw calls.
+        { facade: {} },
       ),
     [],
   )
