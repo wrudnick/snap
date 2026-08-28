@@ -60,14 +60,31 @@ function InspectorScene({
   spin,
   height,
   mixer,
+  scrub,
+  action,
 }: {
   object: THREE.Object3D
   spin: boolean
   height: number
   mixer: THREE.AnimationMixer | null
+  /** Null plays normally; a number holds the clip at that fraction of its length. */
+  scrub: number | null
+  action: THREE.AnimationAction | null
 }) {
   useFrame((_, delta) => {
-    mixer?.update(Math.min(delta, 1 / 30))
+    if (!mixer) return
+    if (scrub === null) {
+      mixer.update(Math.min(delta, 1 / 30))
+      return
+    }
+    // Scrubbing: park the clip at an exact moment so a screenshot is
+    // reproducible. Reviewing a walk cycle from whatever frame the turntable
+    // happened to be on tells you very little.
+    if (action) {
+      action.paused = true
+      action.time = action.getClip().duration * scrub
+    }
+    mixer.update(0)
   })
 
   return (
@@ -111,6 +128,8 @@ export function ModelInspector() {
   const [seed, setSeed] = useState(1)
   const [spin, setSpin] = useState(true)
   const [clip, setClip] = useState<string | null>(null)
+  const [scrub, setScrub] = useState<number | null>(null)
+  const actionRef = useRef<THREE.AnimationAction | null>(null)
 
   const entry = entries.find((e) => e.id === selected) ?? entries[0]
 
@@ -143,7 +162,14 @@ export function ModelInspector() {
     mixer.stopAllAction()
     const name = clip ?? built.clips[0]?.name
     const found = built.clips.find((c) => c.name === name)
-    if (found) mixer.clipAction(found).reset().play()
+    if (found) {
+      const a = mixer.clipAction(found)
+      a.reset().play()
+      a.paused = false
+      actionRef.current = a
+    } else {
+      actionRef.current = null
+    }
     return () => {
       mixer.stopAllAction()
     }
@@ -192,6 +218,27 @@ export function ModelInspector() {
           ))
         )}
 
+        {built.clips.length > 0 && (
+          <>
+            <h2 style={{ marginTop: '1rem' }}>Scrub</h2>
+            <div className="row">
+              <button onClick={() => setScrub((v) => (v === null ? 0 : null))}>
+                {scrub === null ? 'Hold' : 'Play'}
+              </button>
+              <span className="inspector-value">
+                {scrub === null ? 'playing' : `${Math.round(scrub * 100)}%`}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={scrub === null ? 0 : Math.round(scrub * 100)}
+              onChange={(e) => setScrub(Number(e.target.value) / 100)}
+            />
+          </>
+        )}
+
         <h2 style={{ marginTop: '1.5rem' }}>View</h2>
         <button onClick={() => setSpin((s) => !s)}>{spin ? 'Stop' : 'Spin'}</button>
 
@@ -210,7 +257,14 @@ export function ModelInspector() {
           dpr={[1, 1.5]}
           camera={{ fov: 40, near: 0.05, far: 2000 }}
         >
-          <InspectorScene object={built.object} spin={spin} height={built.height} mixer={mixer} />
+          <InspectorScene
+            object={built.object}
+            spin={spin}
+            height={built.height}
+            mixer={mixer}
+            scrub={scrub}
+            action={actionRef.current}
+          />
         </Canvas>
       </div>
     </div>

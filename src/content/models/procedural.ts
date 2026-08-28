@@ -427,35 +427,57 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   const torsoH = shoulderY - hipY
   const torsoDepth = h * 0.075 * build
 
-  const torso = new THREE.Mesh(
-    // Square frustum: waist at the bottom, shoulders at the top. A straight box
-    // reads as a fridge; the taper is most of what makes a figure look human.
-    new THREE.CylinderGeometry(1, waistHalf / shoulderHalf, 1, 4, 1),
-    mat(topColor),
-  )
-  torso.rotation.y = Math.PI / 4
-  torso.scale.set((shoulderHalf * 2) / Math.SQRT2, torsoH, (torsoDepth * 2) / Math.SQRT2)
-  torso.position.y = torsoH / 2
-  torso.castShadow = true
-  g.add(pivot('torso', [0, hipY, 0], torso, [0, torsoH / 2, 0]))
+  /**
+   * One segment of the torso: a square frustum from `halfBottom` to `halfTop`.
+   *
+   * Stripes are built as stacked segments of the same taper rather than boxes
+   * laid over it. A straight box inside a tapered torso pokes its corners out at
+   * the wide end and disappears at the narrow one, which reads as patches rather
+   * than bands — the first version did exactly that.
+   */
+  const torsoSegment = (
+    halfBottom: number,
+    halfTop: number,
+    height: number,
+    y: number,
+    color: number,
+    name: string,
+  ) => {
+    const mesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(halfTop / halfBottom, 1, 1, 4, 1),
+      mat(color),
+    )
+    mesh.rotation.y = Math.PI / 4
+    mesh.scale.set((halfBottom * 2) / Math.SQRT2, height, (torsoDepth * 2) / Math.SQRT2)
+    mesh.position.y = y + height / 2
+    mesh.name = name
+    mesh.castShadow = true
+    return mesh
+  }
 
+  const halfAt = (f: number) => waistHalf + (shoulderHalf - waistHalf) * f
+
+  g.add(pivot('torso', [0, hipY, 0], torsoSegment(waistHalf, shoulderHalf, torsoH, 0, topColor, 'torsoShell'), [0, 0, 0]))
   const torsoGroup = g.getObjectByName('torso') as THREE.Group
 
-  // Striped tops are stacked bands of real geometry — the boxes are already
-  // there, so it costs nothing and reads at photo distance.
   if (stripes) {
+    // Replace the single shell with alternating bands that follow the taper.
+    torsoGroup.remove(torsoGroup.children[0]!)
     const accent = pickFrom(spec.top)
-    const bands = 4
+    const bands = 5
     for (let i = 0; i < bands; i++) {
-      if (i % 2 === 0) continue
       const bandH = torsoH / bands
-      const f = (i + 0.5) / bands
-      const halfAt = waistHalf + (shoulderHalf - waistHalf) * f
-      const band = new THREE.Mesh(BOX, mat(accent))
-      band.scale.set(halfAt * 2.04, bandH, torsoDepth * 2.04)
-      band.position.y = bandH * (i + 0.5)
-      band.name = `stripe${i}`
-      torsoGroup.add(band)
+      const y = bandH * i
+      torsoGroup.add(
+        torsoSegment(
+          halfAt(i / bands),
+          halfAt((i + 1) / bands),
+          bandH,
+          y,
+          i % 2 === 0 ? topColor : accent,
+          `torsoBand${i}`,
+        ),
+      )
     }
   }
 
@@ -476,7 +498,9 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   const armLen = h * 0.36
   const armW = h * 0.045 * build
   const sleeveColor = coat ? pickFrom(spec.bottom) : topColor
-  const armX = shoulderHalf + armW * 0.6
+  // Tucked slightly inside the shoulder rather than butted against it: a hair
+  // of overlap hides the seam, where a hair of gap reads as a detached arm.
+  const armX = shoulderHalf + armW * 0.35
 
   g.add(
     limb('armL', [-armX, shoulderY - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor),
@@ -517,8 +541,9 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   if (has('cap')) {
     const capColor = pickFrom(spec.top)
     g.add(
-      part('cap', BOX, capColor, [0, headY + headH * 0.56, 0], [headW * 1.12, headH * 0.26, headW * 1.12]),
-      part('peak', BOX, capColor, [0, headY + headH * 0.46, -headW * 0.86], [headW * 0.96, headH * 0.1, headW * 0.62]),
+      // Seated down onto the skull so it doesn't hover.
+      part('cap', BOX, capColor, [0, headY + headH * 0.44, 0], [headW * 1.1, headH * 0.3, headW * 1.1]),
+      part('peak', BOX, capColor, [0, headY + headH * 0.36, -headW * 0.82], [headW * 0.94, headH * 0.1, headW * 0.6]),
     )
   }
   if (has('sunhat')) {
