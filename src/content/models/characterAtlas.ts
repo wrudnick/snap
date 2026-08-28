@@ -311,3 +311,58 @@ export function facedBox(cell: AtlasCell): THREE.BufferGeometry {
   uv.needsUpdate = true
   return geometry
 }
+
+/**
+ * A tapered torso whose front and back quads carry atlas cells.
+ *
+ * The torso is a four-sided cylinder frustum rotated a quarter-turn so its faces
+ * align with the axes. Which quad ends up facing front isn't obvious, so it was
+ * measured rather than guessed: after that rotation the −Z (front) quad occupies
+ * u ∈ [0.25, 0.5] and the +Z (back) quad u ∈ [0.75, 1.0]. The two side quads and
+ * both caps get the blank cell.
+ *
+ * Converted to non-indexed first. A cylinder shares the vertices on each quad
+ * boundary, and a shared vertex can't hold two different UVs — so remapping an
+ * indexed cylinder smears one cell into its neighbour. Non-indexed also gives
+ * the flat shading the rest of the look uses.
+ */
+export function facedFrustum(
+  radiusTop: number,
+  front: AtlasCell,
+  back: AtlasCell,
+): THREE.BufferGeometry {
+  const geometry = new THREE.CylinderGeometry(radiusTop, 1, 1, 4, 1).toNonIndexed()
+  const uv = geometry.getAttribute('uv') as THREE.BufferAttribute
+
+  const remap = (i0: number, cell: AtlasCell, uLo: number) => {
+    for (let v = 0; v < 3; v++) {
+      const i = i0 + v
+      // Local coordinate within this quad, 0..1 across and 0..1 up.
+      const local = (uv.getX(i) - uLo) / 0.25
+      const up = uv.getY(i)
+      uv.setXY(
+        i,
+        cell.offset[0] + local * cell.repeat[0],
+        cell.offset[1] + up * cell.repeat[1],
+      )
+    }
+  }
+
+  for (let tri = 0; tri < uv.count / 3; tri++) {
+    const i0 = tri * 3
+    const meanU = (uv.getX(i0) + uv.getX(i0 + 1) + uv.getX(i0 + 2)) / 3
+
+    // Caps come after the eight side triangles.
+    if (tri >= 8) {
+      remap(i0, BLANK_CELL, 0)
+      continue
+    }
+
+    if (meanU > 0.25 && meanU < 0.5) remap(i0, front, 0.25)
+    else if (meanU > 0.75) remap(i0, back, 0.75)
+    else remap(i0, BLANK_CELL, meanU < 0.25 ? 0 : 0.5)
+  }
+
+  uv.needsUpdate = true
+  return geometry
+}

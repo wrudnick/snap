@@ -1,6 +1,16 @@
 import * as THREE from 'three'
 
-import { cellAt, characterAtlas, facedBox, FACE_ROW, OLD_FACE_ROW, COLS } from './characterAtlas'
+import {
+  cellAt,
+  characterAtlas,
+  facedBox,
+  facedFrustum,
+  COLS,
+  FACE_ROW,
+  OLD_FACE_ROW,
+  TORSO_BACK_ROW,
+  TORSO_FRONT_ROW,
+} from './characterAtlas'
 import type { HumanSpec, SubjectDef } from '@/content/subjects/types'
 import { makeRng } from '@/lib/rng'
 import { toonRamp } from '@/render/palette'
@@ -503,6 +513,8 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
    * the wide end and disappears at the narrow one, which reads as patches rather
    * than bands — the first version did exactly that.
    */
+  const garmentCol = Math.floor(rng() * COLS)
+
   const torsoSegment = (
     halfBottom: number,
     halfTop: number,
@@ -511,9 +523,15 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     color: number,
     name: string,
   ) => {
+    // Garment detail — placket, lapels, zip, seams — comes from the atlas, with
+    // the material colour showing through the white base underneath.
     const mesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(halfTop / halfBottom, 1, 1, 4, 1),
-      mat(color),
+      facedFrustum(
+        halfTop / halfBottom,
+        cellAt(garmentCol, TORSO_FRONT_ROW),
+        cellAt(garmentCol, TORSO_BACK_ROW),
+      ),
+      texMat(color),
     )
     mesh.rotation.y = Math.PI / 4
     mesh.scale.set((halfBottom * 2) / Math.SQRT2, height, (torsoDepth * 2) / Math.SQRT2)
