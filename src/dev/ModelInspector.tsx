@@ -38,9 +38,13 @@ function Turntable({
   useEffect(() => {
     // Frame the subject: pull back proportional to its size and look at its
     // middle, so a pigeon and a 340 m tower both fill the view.
+    //
+    // Camera sits on -Z because models face local -Z. Viewing from +Z shows
+    // every character from behind, which is exactly the wrong angle for judging
+    // a face.
     const distance = Math.max(1.6, height * 1.9)
-    camera.position.set(distance * 0.75, height * 0.62, distance)
-    camera.lookAt(0, height * 0.45, 0)
+    camera.position.set(distance * 0.55, height * 0.66, -distance)
+    camera.lookAt(0, height * 0.5, 0)
     camera.updateProjectionMatrix()
   }, [camera, height])
 

@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 
+import { cellAt, characterAtlas, facedBox, FACE_ROW, OLD_FACE_ROW, COLS } from './characterAtlas'
 import type { HumanSpec, SubjectDef } from '@/content/subjects/types'
 import { makeRng } from '@/lib/rng'
 import { toonRamp } from '@/render/palette'
-import { disposeToonMaterials, toonMaterial } from '@/render/toonPatch'
+import { disposeToonMaterials, patchToonMaterial, toonMaterial } from '@/render/toonPatch'
 
 /**
  * Procedural placeholder subjects.
@@ -30,6 +31,29 @@ const CYL = new THREE.CylinderGeometry(0.5, 0.5, 1, 10)
 // Toon-shaded, and patched for hue-shifted shadow plus rim light.
 function mat(color: number): THREE.MeshToonMaterial {
   return toonMaterial(color, toonRamp())
+}
+
+/**
+ * Materials carrying the character atlas.
+ *
+ * Cached separately from the plain ones because they differ by map as well as
+ * colour. The atlas is one shared texture, so this stays a small pool however
+ * many people are on the street.
+ */
+const texturedCache = new Map<number, THREE.MeshToonMaterial>()
+function texMat(color: number): THREE.MeshToonMaterial {
+  let m = texturedCache.get(color)
+  if (!m) {
+    m = patchToonMaterial(
+      new THREE.MeshToonMaterial({
+        color,
+        gradientMap: toonRamp(),
+        map: characterAtlas(),
+      }),
+    )
+    texturedCache.set(color, m)
+  }
+  return m
 }
 
 function part(
@@ -524,7 +548,17 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     part('neck', CYL, skin, [0, shoulderY + neckH / 2 - h * 0.005, 0], [h * 0.032, neckH, h * 0.032]),
   )
 
-  g.add(part('head', BOX, skin, [0, headY, 0], [headW, headH, headW * 1.02]))
+  // The head carries a painted face from the atlas. This is where the reference
+  // art puts its detail: a box with a face reads as a person, a box without one
+  // reads as a box, and no amount of extra geometry closes that gap.
+  const faceRow = spec.stoop ? OLD_FACE_ROW : FACE_ROW
+  const faceCol = Math.floor(rng() * COLS)
+  const head = new THREE.Mesh(facedBox(cellAt(faceCol, faceRow)), texMat(skin))
+  head.name = 'head'
+  head.position.set(0, headY, 0)
+  head.scale.set(headW, headH, headW * 1.02)
+  head.castShadow = true
+  g.add(head)
 
   // Nose: tiny, but it tells you which way a figure is facing at 20 m, which
   // matters because facing is a scored variable.
