@@ -144,6 +144,27 @@ describe('humanoid construction', () => {
       expect(gap, 'arm buried in torso').toBeGreaterThan(-0.2)
     })
 
+    it(`${def.species}: chest reaches the shoulders`, () => {
+      // The torso must span hip to shoulder. A pivot helper that overwrote the
+      // mesh offset dropped it half its own height, leaving the chest at the
+      // hip — visible in game on every class that didn't take the striped path.
+      const built = buildModel(def, 5)
+      const torso = built.group.getObjectByName('torso')!
+      const neck = built.group.getObjectByName('neck')!
+      const torsoBox = new THREE.Box3().setFromObject(torso)
+      const neckBox = new THREE.Box3().setFromObject(neck)
+      const whole = new THREE.Box3().setFromObject(built.group)
+      const height = whole.max.y - whole.min.y
+
+      // Torso top should be near the neck's base, not a torso-length below it.
+      const gap = neckBox.min.y - torsoBox.max.y
+      expect(gap, 'gap between chest and neck').toBeLessThan(height * 0.06)
+
+      // And the torso should occupy roughly its share of the figure.
+      const torsoHeight = torsoBox.max.y - torsoBox.min.y
+      expect(torsoHeight).toBeGreaterThan(height * 0.2)
+    })
+
     it(`${def.species}: stands on the ground`, () => {
       const built = buildModel(def, 11)
       const box = new THREE.Box3().setFromObject(built.group)

@@ -98,12 +98,21 @@ function pivot(
   name: string,
   at: [number, number, number],
   mesh: THREE.Mesh,
-  meshOffset: [number, number, number],
+  /**
+   * Where the mesh sits inside the joint. Omit when the mesh has already
+   * positioned itself.
+   *
+   * This was mandatory, and passing [0,0,0] for a mesh that had set its own
+   * offset silently clobbered it — which dropped the torso half its own height,
+   * leaving the chest sitting at the hip on every class that didn't take the
+   * striped path.
+   */
+  meshOffset?: [number, number, number],
 ): THREE.Group {
   const g = new THREE.Group()
   g.name = name
   g.position.set(...at)
-  mesh.position.set(...meshOffset)
+  if (meshOffset) mesh.position.set(...meshOffset)
   mesh.name = `${name}_mesh`
   g.add(mesh)
   return g
@@ -543,7 +552,9 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
 
   const halfAt = (f: number) => waistHalf + (shoulderHalf - waistHalf) * f
 
-  g.add(pivot('torso', [0, hipY, 0], torsoSegment(waistHalf, shoulderHalf, torsoH, 0, topColor, 'torsoShell'), [0, 0, 0]))
+  // No offset argument: torsoSegment already places the shell so it spans hip
+  // to shoulder.
+  g.add(pivot('torso', [0, hipY, 0], torsoSegment(waistHalf, shoulderHalf, torsoH, 0, topColor, 'torsoShell')))
   const torsoGroup = g.getObjectByName('torso') as THREE.Group
 
   if (stripes) {
@@ -580,6 +591,18 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     g.add(skirt)
   }
 
+  /**
+   * Everything above the waist parents to the torso.
+   *
+   * `rest` leans the torso sideways and `gawk` tips it back; with arms and head
+   * as siblings, those clips left them behind — a body leaning out from under a
+   * stationary head. Parenting means the torso carries them, which is also just
+   * what a spine does.
+   *
+   * Positions inside it are relative to the torso pivot at the hip.
+   */
+  const rel = (absoluteY: number) => absoluteY - hipY
+
   // --- arms, from the shoulder ---
   const armLen = h * 0.36
   const armW = h * 0.045 * build
@@ -588,9 +611,9 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   // of overlap hides the seam, where a hair of gap reads as a detached arm.
   const armX = shoulderHalf + armW * 0.35
 
-  g.add(
-    limb('armL', [-armX, shoulderY - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor),
-    limb('armR', [armX, shoulderY - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor),
+  torsoGroup.add(
+    limb('armL', [-armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor),
+    limb('armR', [armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor),
   )
 
   // Hands at the end of each arm, inside the pivot so they swing along.
@@ -599,15 +622,16 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     hand.scale.set(armW * 1.15, h * 0.05, armW * 1.15)
     hand.position.set(0, -armLen * 0.86 - h * 0.018, 0)
     hand.name = `hand${side}`
-    ;(g.getObjectByName(`arm${side}`) as THREE.Group).add(hand)
+    hand.castShadow = true
+    ;(torsoGroup.getObjectByName(`arm${side}`) as THREE.Group).add(hand)
   }
 
   // --- neck and head ---
   // The neck spans shoulder to head with no gap, by construction.
   const neckTop = h * NECK_TOP
   const neckH = neckTop - shoulderY + h * 0.01
-  g.add(
-    part('neck', CYL, skin, [0, shoulderY + neckH / 2 - h * 0.005, 0], [h * 0.032, neckH, h * 0.032]),
+  torsoGroup.add(
+    part('neck', CYL, skin, [0, rel(shoulderY) + neckH / 2 - h * 0.005, 0], [h * 0.032, neckH, h * 0.032]),
   )
 
   // The head carries a painted face from the atlas. This is where the reference
@@ -615,12 +639,21 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   // reads as a box, and no amount of extra geometry closes that gap.
   const faceRow = spec.stoop ? OLD_FACE_ROW : FACE_ROW
   const faceCol = Math.floor(rng() * COLS)
-  const head = new THREE.Mesh(facedBox(cellAt(faceCol, faceRow)), texMat(skin))
-  head.name = 'head'
-  head.position.set(0, headY, 0)
-  head.scale.set(headW, headH, headW * 1.02)
-  head.castShadow = true
-  g.add(head)
+  /**
+   * The head hangs off a pivot at the top of the neck.
+   *
+   * Rotating the head mesh directly turns it about its own centre, which swings
+   * the chin forward and opens a gap above the collar every time someone looks
+   * up — and looking up is the tourist's highest-scoring pose. A neck joint is
+   * where a head actually rotates.
+   */
+  const headMesh = new THREE.Mesh(facedBox(cellAt(faceCol, faceRow)), texMat(skin))
+  headMesh.name = 'headMesh'
+  headMesh.scale.set(headW, headH, headW * 1.02)
+  headMesh.castShadow = true
+
+  const head = pivot('head', [0, rel(neckTop), 0], headMesh, [0, headY - neckTop, 0])
+  torsoGroup.add(head)
 
   // Nose: tiny, but it tells you which way a figure is facing at 20 m, which
   // matters because facing is a scored variable.
@@ -636,28 +669,28 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   }
   if (has('cap')) {
     const capColor = pickFrom(spec.top)
-    g.add(
+    headMesh.add(
       // Seated down onto the skull so it doesn't hover.
-      part('cap', BOX, capColor, [0, headY + headH * 0.44, 0], [headW * 1.1, headH * 0.3, headW * 1.1]),
-      part('peak', BOX, capColor, [0, headY + headH * 0.36, -headW * 0.82], [headW * 0.94, headH * 0.1, headW * 0.6]),
+      part('cap', BOX, capColor, [0, 0.44, 0], [1.1, 0.3, 1.1]),
+      part('peak', BOX, capColor, [0, 0.36, -0.82], [0.94, 0.1, 0.6]),
     )
   }
   if (has('sunhat')) {
     const hatColor = pickFrom(spec.top)
-    g.add(
-      part('brim', CYL, hatColor, [0, headY + headH * 0.5, 0], [headW * 2.4, headH * 0.08, headW * 2.4]),
-      part('crown', CYL, hatColor, [0, headY + headH * 0.72, 0], [headW * 1.15, headH * 0.4, headW * 1.15]),
+    headMesh.add(
+      part('brim', CYL, hatColor, [0, 0.5, 0], [2.4, 0.08, 2.4]),
+      part('crown', CYL, hatColor, [0, 0.72, 0], [1.15, 0.4, 1.15]),
     )
   }
   if (has('bag')) {
-    g.add(
-      part('bag', BOX, 0x3a3128, [armX + armW, hipY + h * 0.08, h * 0.05], [h * 0.075, h * 0.09, h * 0.045]),
-      part('strap', BOX, 0x2a231c, [shoulderHalf * 0.5, shoulderY - h * 0.08, h * 0.02], [h * 0.012, h * 0.2, h * 0.012]),
+    torsoGroup.add(
+      part('bag', BOX, 0x3a3128, [armX + armW, h * 0.08, h * 0.05], [h * 0.075, h * 0.09, h * 0.045]),
+      part('strap', BOX, 0x2a231c, [shoulderHalf * 0.5, rel(shoulderY) - h * 0.08, h * 0.02], [h * 0.012, h * 0.2, h * 0.012]),
     )
   }
   if (has('tote')) {
-    g.add(
-      part('tote', BOX, pickFrom(spec.top), [-(armX + armW), hipY + h * 0.02, h * 0.02], [h * 0.09, h * 0.11, h * 0.05]),
+    torsoGroup.add(
+      part('tote', BOX, pickFrom(spec.top), [-(armX + armW), h * 0.02, h * 0.02], [h * 0.09, h * 0.11, h * 0.05]),
     )
   }
 
