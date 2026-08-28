@@ -302,3 +302,60 @@ h2 {
   color: var(--bad);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
 }
+
+/* ------------------------------------------------------------ debug screens */
+
+/* Model inspector (?debug=models). A workshop, not the game — deliberately
+   plain, and laid out so the model gets the space. */
+.inspector {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  background: #0f1318;
+  pointer-events: auto;
+}
+
+.inspector-list {
+  padding: 1.2rem 1rem;
+  overflow-y: auto;
+  border-right: 1px solid var(--edge);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.inspector-list button {
+  text-align: left;
+  padding: 0.42rem 0.7rem;
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.inspector-list h2 { margin: 0 0 0.4rem; }
+
+.inspector-value {
+  font-size: 0.72rem;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector-stats {
+  margin-top: auto;
+  padding-top: 1.5rem;
+  font-size: 0.7rem;
+  color: var(--dim);
+  display: grid;
+  gap: 0.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector-back {
+  margin-top: 0.8rem;
+  font-size: 0.72rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.inspector-view { position: relative; }

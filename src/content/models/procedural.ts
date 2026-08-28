@@ -355,9 +355,8 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   const hairColor = pickFrom(spec.hair)
   const topColor = pickFrom(spec.top)
   const bottomColor = pickFrom(spec.bottom)
-  const shoeColor = 0x2a2622
+  const shoeColor = 0x241f1b
 
-  // Per-person proportions, so a crowd has a range of heights and builds.
   const h = spec.height * (0.94 + rng() * 0.12)
   const build = spec.build * (0.92 + rng() * 0.18)
 
@@ -366,18 +365,36 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   const heels = has('heels')
   const bald = has('bald')
 
-  const shoulder = 0.19 * build
-  const hipY = h * 0.50
-  const chestY = h * 0.68
-  const headY = h * 0.90
-  const legLen = hipY
-  const bootLift = heels ? 0.05 : 0
+  /**
+   * Proportions as fractions of total height.
+   *
+   * The previous version placed the head at 0.90h while the torso only reached
+   * 0.75h, leaving a visible gap — a floating head. Anchoring every joint to a
+   * shared table of real anatomical ratios makes that class of mistake
+   * impossible: shoulders, neck and head can't drift apart because they're all
+   * derived from the same number.
+   *
+   * Slightly stylised on purpose — a larger head and bigger shoes read better at
+   * distance and sit closer to the reference art than strict realism does.
+   */
+  const HIP = 0.50
+  const SHOULDER = 0.80
+  const NECK_TOP = 0.855
+  const HEAD_CENTRE = 0.925
+
+  const hipY = h * HIP
+  const shoulderY = h * SHOULDER
+  const headY = h * HEAD_CENTRE
+  const headH = h * 0.145
+  const headW = h * 0.115 * (0.95 + build * 0.05)
+
+  const shoulderHalf = h * 0.125 * build
+  const waistHalf = h * 0.098 * build
+  const bootLift = heels ? h * 0.03 : 0
 
   const g = new THREE.Group()
 
-  // Legs and arms hang off pivots at hip and shoulder, so a swing rotates from
-  // the joint. Rotating the mesh itself pivots about its centre, which makes a
-  // limb detach from the body halfway through every stride.
+  /** A limb that swings from its joint. */
   const limb = (name: string, at: [number, number, number], size: [number, number, number], color: number) => {
     const mesh = new THREE.Mesh(BOX, mat(color))
     mesh.scale.set(...size)
@@ -385,97 +402,152 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     return pivot(name, at, mesh, [0, -size[1] / 2, 0])
   }
 
+  // --- legs, from the hip ---
+  const legLen = hipY - bootLift
+  const legW = h * 0.062 * build
+  const stance = h * 0.05 * build
+
   g.add(
-    limb('legL', [-0.09 * build, legLen + bootLift, 0], [0.11 * build, legLen, 0.13 * build], bottomColor),
-    limb('legR', [0.09 * build, legLen + bootLift, 0], [0.11 * build, legLen, 0.13 * build], bottomColor),
+    limb('legL', [-stance, hipY, 0], [legW, legLen, legW * 1.15], bottomColor),
+    limb('legR', [stance, hipY, 0], [legW, legLen, legW * 1.15], bottomColor),
   )
 
-  // Shoes ride inside the leg pivots so they swing with the foot.
-  const shoeL = new THREE.Mesh(BOX, mat(shoeColor))
-  shoeL.scale.set(0.12 * build, 0.07, 0.2)
-  shoeL.position.set(0, -legLen + 0.035, -0.03)
-  shoeL.name = 'shoeL'
-  const shoeR = shoeL.clone()
-  shoeR.name = 'shoeR'
-  ;(g.getObjectByName('legL') as THREE.Group).add(shoeL)
-  ;(g.getObjectByName('legR') as THREE.Group).add(shoeR)
-
-  // Torso. Striped tops stack alternating bands; plain tops are one box.
-  const torsoH = chestY - hipY + 0.14
-  if (stripes) {
-    const bands = 5
-    const accent = pickFrom(spec.top)
-    for (let i = 0; i < bands; i++) {
-      const bandH = torsoH / bands
-      g.add(
-        part(
-          i === 2 ? 'torso' : `torsoBand${i}`,
-          BOX,
-          i % 2 === 0 ? topColor : accent,
-          [0, hipY + bandH * (i + 0.5) - 0.02, 0],
-          [shoulder * 2, bandH, 0.19 * build],
-        ),
-      )
-    }
-  } else {
-    g.add(
-      part('torso', BOX, topColor, [0, (hipY + chestY) / 2 + 0.05, 0], [shoulder * 2, torsoH, 0.19 * build]),
-    )
+  // Shoes ride inside the leg pivots so they swing with the foot. Deliberately
+  // oversized — big feet anchor a stylised figure and read at distance.
+  for (const side of ['L', 'R'] as const) {
+    const shoe = new THREE.Mesh(BOX, mat(shoeColor))
+    shoe.scale.set(legW * 1.35, h * 0.038, h * 0.105)
+    shoe.position.set(0, -legLen + h * 0.019, -h * 0.022)
+    shoe.name = `shoe${side}`
+    shoe.castShadow = true
+    ;(g.getObjectByName(`leg${side}`) as THREE.Group).add(shoe)
   }
 
-  g.add(part('hips', BOX, bottomColor, [0, hipY - 0.03, 0], [shoulder * 1.85, 0.14, 0.18 * build]))
+  // --- torso: tapered, shoulders wider than waist ---
+  const torsoH = shoulderY - hipY
+  const torsoDepth = h * 0.075 * build
+
+  const torso = new THREE.Mesh(
+    // Square frustum: waist at the bottom, shoulders at the top. A straight box
+    // reads as a fridge; the taper is most of what makes a figure look human.
+    new THREE.CylinderGeometry(1, waistHalf / shoulderHalf, 1, 4, 1),
+    mat(topColor),
+  )
+  torso.rotation.y = Math.PI / 4
+  torso.scale.set((shoulderHalf * 2) / Math.SQRT2, torsoH, (torsoDepth * 2) / Math.SQRT2)
+  torso.position.y = torsoH / 2
+  torso.castShadow = true
+  g.add(pivot('torso', [0, hipY, 0], torso, [0, torsoH / 2, 0]))
+
+  const torsoGroup = g.getObjectByName('torso') as THREE.Group
+
+  // Striped tops are stacked bands of real geometry — the boxes are already
+  // there, so it costs nothing and reads at photo distance.
+  if (stripes) {
+    const accent = pickFrom(spec.top)
+    const bands = 4
+    for (let i = 0; i < bands; i++) {
+      if (i % 2 === 0) continue
+      const bandH = torsoH / bands
+      const f = (i + 0.5) / bands
+      const halfAt = waistHalf + (shoulderHalf - waistHalf) * f
+      const band = new THREE.Mesh(BOX, mat(accent))
+      band.scale.set(halfAt * 2.04, bandH, torsoDepth * 2.04)
+      band.position.y = bandH * (i + 0.5)
+      band.name = `stripe${i}`
+      torsoGroup.add(band)
+    }
+  }
+
+  g.add(part('hips', BOX, bottomColor, [0, hipY - h * 0.02, 0], [waistHalf * 2, h * 0.075, torsoDepth * 2]))
 
   if (coat) {
-    g.add(
-      part('coat', BOX, pickFrom(spec.bottom), [0, hipY + 0.02, 0], [shoulder * 2.25, torsoH * 0.95, 0.23 * build]),
-    )
+    // A coat flares below the waist, which changes the silhouette more than any
+    // colour choice does.
+    const skirt = new THREE.Mesh(BOX, mat(pickFrom(spec.bottom)))
+    skirt.scale.set(shoulderHalf * 2.1, h * 0.2, torsoDepth * 2.3)
+    skirt.position.y = hipY - h * 0.07
+    skirt.name = 'coatSkirt'
+    skirt.castShadow = true
+    g.add(skirt)
   }
 
-  // Arms pivot at the shoulder for the same reason.
-  const armLen = h * 0.34
+  // --- arms, from the shoulder ---
+  const armLen = h * 0.36
+  const armW = h * 0.045 * build
   const sleeveColor = coat ? pickFrom(spec.bottom) : topColor
-  g.add(
-    limb('armL', [-(shoulder + 0.055), chestY + 0.06, 0], [0.085 * build, armLen, 0.1 * build], sleeveColor),
-    limb('armR', [shoulder + 0.055, chestY + 0.06, 0], [0.085 * build, armLen, 0.1 * build], sleeveColor),
-  )
+  const armX = shoulderHalf + armW * 0.6
 
   g.add(
-    part('neck', CYL, skin, [0, chestY + 0.09, 0], [0.055, 0.08, 0.055]),
-    part('head', BOX, skin, [0, headY, 0], [0.17, 0.21, 0.19]),
+    limb('armL', [-armX, shoulderY - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor),
+    limb('armR', [armX, shoulderY - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor),
   )
+
+  // Hands at the end of each arm, inside the pivot so they swing along.
+  for (const side of ['L', 'R'] as const) {
+    const hand = new THREE.Mesh(BOX, mat(skin))
+    hand.scale.set(armW * 1.15, h * 0.05, armW * 1.15)
+    hand.position.set(0, -armLen * 0.86 - h * 0.018, 0)
+    hand.name = `hand${side}`
+    ;(g.getObjectByName(`arm${side}`) as THREE.Group).add(hand)
+  }
+
+  // --- neck and head ---
+  // The neck spans shoulder to head with no gap, by construction.
+  const neckTop = h * NECK_TOP
+  const neckH = neckTop - shoulderY + h * 0.01
+  g.add(
+    part('neck', CYL, skin, [0, shoulderY + neckH / 2 - h * 0.005, 0], [h * 0.032, neckH, h * 0.032]),
+  )
+
+  g.add(part('head', BOX, skin, [0, headY, 0], [headW, headH, headW * 1.02]))
+
+  // Nose: tiny, but it tells you which way a figure is facing at 20 m, which
+  // matters because facing is a scored variable.
+  g.add(part('nose', BOX, skin, [0, headY - headH * 0.05, -headW * 0.56], [headW * 0.2, headH * 0.16, headW * 0.14]))
 
   if (!bald) {
-    g.add(part('hair', BOX, hairColor, [0, headY + 0.09, 0.012], [0.185, 0.07, 0.2]))
+    // Hair as a mass with a back, not a slab on top — most of a head's
+    // silhouette is the hair.
+    g.add(
+      part('hair', BOX, hairColor, [0, headY + headH * 0.42, headW * 0.03], [headW * 1.08, headH * 0.4, headW * 1.1]),
+      part('hairBack', BOX, hairColor, [0, headY + headH * 0.02, headW * 0.5], [headW * 1.02, headH * 0.72, headW * 0.22]),
+    )
   }
   if (has('cap')) {
+    const capColor = pickFrom(spec.top)
     g.add(
-      part('cap', BOX, pickFrom(spec.top), [0, headY + 0.12, 0], [0.19, 0.055, 0.2]),
-      part('peak', BOX, pickFrom(spec.top), [0, headY + 0.10, -0.16], [0.17, 0.03, 0.12]),
+      part('cap', BOX, capColor, [0, headY + headH * 0.56, 0], [headW * 1.12, headH * 0.26, headW * 1.12]),
+      part('peak', BOX, capColor, [0, headY + headH * 0.46, -headW * 0.86], [headW * 0.96, headH * 0.1, headW * 0.62]),
     )
   }
   if (has('sunhat')) {
+    const hatColor = pickFrom(spec.top)
     g.add(
-      part('hat', CYL, pickFrom(spec.top), [0, headY + 0.13, 0], [0.4, 0.03, 0.4]),
-      part('crown', CYL, pickFrom(spec.top), [0, headY + 0.17, 0], [0.19, 0.09, 0.19]),
+      part('brim', CYL, hatColor, [0, headY + headH * 0.5, 0], [headW * 2.4, headH * 0.08, headW * 2.4]),
+      part('crown', CYL, hatColor, [0, headY + headH * 0.72, 0], [headW * 1.15, headH * 0.4, headW * 1.15]),
     )
   }
   if (has('bag')) {
-    g.add(part('bag', BOX, 0x3a3128, [shoulder + 0.05, hipY + 0.12, 0.09], [0.13, 0.16, 0.08]))
+    g.add(
+      part('bag', BOX, 0x3a3128, [armX + armW, hipY + h * 0.08, h * 0.05], [h * 0.075, h * 0.09, h * 0.045]),
+      part('strap', BOX, 0x2a231c, [shoulderHalf * 0.5, shoulderY - h * 0.08, h * 0.02], [h * 0.012, h * 0.2, h * 0.012]),
+    )
   }
   if (has('tote')) {
-    g.add(part('tote', BOX, pickFrom(spec.top), [-(shoulder + 0.07), hipY + 0.06, 0.02], [0.16, 0.2, 0.09]))
+    g.add(
+      part('tote', BOX, pickFrom(spec.top), [-(armX + armW), hipY + h * 0.02, h * 0.02], [h * 0.09, h * 0.11, h * 0.05]),
+    )
   }
 
-  // A stooped class leans the whole body forward from the feet.
   if (spec.stoop) g.rotation.x = spec.stoop
 
   const armSwing = 0.55
+
   const clips = [
-    // Weight shift and a slow look around. The default state of a person
-    // standing on a street.
     new THREE.AnimationClip('idle', 3.4, [
       num('head.rotation[y]', [0, 1.1, 2.2, 3.4], [-0.25, 0.3, -0.1, -0.25]),
-      num('torso.position[y]', [0, 1.7, 3.4], [(hipY + chestY) / 2 + 0.05, (hipY + chestY) / 2 + 0.07, (hipY + chestY) / 2 + 0.05]),
+      num('torso.position[y]', [0, 1.7, 3.4], [hipY, hipY + h * 0.008, hipY]),
       num('armL.rotation[x]', [0, 1.7, 3.4], [0.04, -0.05, 0.04]),
       num('armR.rotation[x]', [0, 1.7, 3.4], [-0.04, 0.05, -0.04]),
     ]),
@@ -485,11 +557,10 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
       num('legR.rotation[x]', [0, 0.26, 0.52, 0.79, 1.05], [-0.5, 0, 0.5, 0, -0.5]),
       num('armL.rotation[x]', [0, 0.26, 0.52, 0.79, 1.05], [-armSwing, 0, armSwing, 0, -armSwing]),
       num('armR.rotation[x]', [0, 0.26, 0.52, 0.79, 1.05], [armSwing, 0, -armSwing, 0, armSwing]),
+      num('torso.rotation[y]', [0, 0.52, 1.05], [0.08, -0.08, 0.08]),
       num('head.rotation[y]', [0, 0.52, 1.05], [0.06, -0.06, 0.06]),
     ]),
 
-    // Head back, arms up: the tourist looking at a building, and the highest
-    // scoring pose most of these classes have.
     new THREE.AnimationClip('gawk', 2.6, [
       num('head.rotation[x]', [0, 0.7, 1.9, 2.6], [0, -0.62, -0.6, 0]),
       num('armL.rotation[x]', [0, 0.7, 1.9, 2.6], [0.04, -1.15, -1.2, 0.04]),
@@ -497,14 +568,12 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
       num('torso.rotation[x]', [0, 0.7, 1.9, 2.6], [0, -0.14, -0.13, 0]),
     ]),
 
-    // Talking: one hand gesturing, head turned to a companion.
     new THREE.AnimationClip('talk', 2.2, [
       num('armR.rotation[x]', [0, 0.55, 1.1, 1.65, 2.2], [-0.1, -0.85, -0.4, -0.9, -0.1]),
       num('head.rotation[y]', [0, 1.1, 2.2], [0.42, 0.3, 0.42]),
       num('head.rotation[x]', [0, 0.55, 1.1, 1.65, 2.2], [0, -0.12, 0.05, -0.1, 0]),
     ]),
 
-    // Leaning on something, weight on one leg. Reads as waiting.
     new THREE.AnimationClip('rest', 4.0, [
       num('torso.rotation[z]', [0, 4.0], [0.13, 0.13]),
       num('legL.rotation[x]', [0, 4.0], [0.18, 0.18]),

@@ -6,8 +6,22 @@ import { Menu } from '@/ui/Menu'
 import { Results } from '@/ui/Results'
 import { Review } from '@/ui/Review'
 
+import { ModelInspector } from './dev/ModelInspector'
 import { Game } from './scene/Game'
 import './ui/ui.css'
+
+/**
+ * Debug screens, reachable by URL rather than by a menu.
+ *
+ * `?debug=models` opens the model inspector. Routing on a query param keeps the
+ * debug tools out of the game's own state machine entirely — they're a separate
+ * app that happens to share a bundle, and nothing in the game has to know they
+ * exist.
+ */
+function debugScreen(): string | null {
+  if (typeof window === 'undefined') return null
+  return new URLSearchParams(window.location.search).get('debug')
+}
 
 /**
  * The scene stays mounted across every phase.
@@ -17,6 +31,13 @@ import './ui/ui.css'
  * memory nobody needed back. The phase only decides which UI layer sits on top.
  */
 export function App() {
+  const debug = debugScreen()
+  if (debug === 'models') return <ModelInspector />
+
+  return <GameApp />
+}
+
+function GameApp() {
   const phase = useGame((s) => s.phase)
   const routeId = useGame((s) => s.routeId)
   const { route, rail, resolved } = useRouteBundle(routeId)
