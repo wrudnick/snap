@@ -110,15 +110,87 @@ export function halfWidths(street: CityStreet, points: Array<[number, number]>):
   return raw
 }
 
-function laneProfileFor(half: number): GroundLane[] {
+function laneProfileFor(half: number, twin = 0): GroundLane[] {
+  const road = (offset: number): GroundLane => ({
+    offset,
+    y: ROAD_Y,
+    color: ASPHALT,
+    kind: SURFACE.asphalt,
+  })
+  const walk = (offset: number): GroundLane => ({
+    offset,
+    y: WALK_Y,
+    color: SIDEWALK,
+    kind: SURFACE.sidewalk,
+  })
+
+  if (twin !== 0) {
+    // Half a street. Carriageway reaches past the centreline toward the twin so
+    // the two overlap rather than leaving a seam; pavement only on the outside.
+    const inner = half * 1.6 * twin
+    const outer = -half * twin
+    return [
+      road(inner),
+      road(inner - 0.001 * twin),
+      road(outer),
+      road(outer),
+      walk(outer - KERB * twin),
+      walk(outer - (KERB + WALK) * twin),
+    ]
+  }
+
   return [
-    { offset: -(half + KERB + WALK), y: WALK_Y, color: SIDEWALK, kind: SURFACE.sidewalk },
-    { offset: -(half + KERB), y: WALK_Y, color: SIDEWALK, kind: SURFACE.sidewalk },
-    { offset: -half, y: ROAD_Y, color: ASPHALT, kind: SURFACE.asphalt },
-    { offset: half, y: ROAD_Y, color: ASPHALT, kind: SURFACE.asphalt },
-    { offset: half + KERB, y: WALK_Y, color: SIDEWALK, kind: SURFACE.sidewalk },
-    { offset: half + KERB + WALK, y: WALK_Y, color: SIDEWALK, kind: SURFACE.sidewalk },
+    walk(-(half + KERB + WALK)),
+    walk(-(half + KERB)),
+    road(-half),
+    road(half),
+    walk(half + KERB),
+    walk(half + KERB + WALK),
   ]
+}
+
+/**
+ * Which side a street's parallel twin is on, if it has one.
+ *
+ * Michigan Avenue and Lake Shore Drive are mapped as two ways about 14 m apart
+ * — the two directions of one road. Paving each as a whole street gives two
+ * carriageways with a strip of pavement invented between them, so the
+ * Magnificent Mile came out as a dual carriageway with a central reservation
+ * nobody has ever stood on.
+ *
+ * A way that has a twin gets paved as half a street: carriageway on the inner
+ * side out to meet its twin, kerb and pavement on the outer side only. The two
+ * halves join in the middle into one wide road with pavements down the outside,
+ * which is what the street actually is.
+ *
+ * Returns +1 or −1 for the side the twin lies on, or 0 for an ordinary street.
+ */
+function twinSide(street: CityStreet, points: Array<[number, number]>): number {
+  const mid = points[Math.floor(points.length / 2)]
+  const next = points[Math.floor(points.length / 2) + 1] ?? points[Math.floor(points.length / 2) - 1]
+  if (!mid || !next) return 0
+
+  const dx = next[0] - mid[0]
+  const dz = next[1] - mid[1]
+  const length = Math.hypot(dx, dz) || 1
+  const rx = -dz / length
+  const rz = dx / length
+
+  for (const other of CITY.streets) {
+    if (other === street || other.n !== street.n) continue
+    for (const [x, z] of other.p) {
+      const ox = x - mid[0]
+      const oz = z - mid[1]
+      const lateral = ox * rx + oz * rz
+      const along = ox * -rz + oz * rx
+      // Beside us rather than ahead: a twin runs alongside, a continuation
+      // carries on in front.
+      if (Math.abs(along) < 12 && Math.abs(lateral) > 6 && Math.abs(lateral) < 26) {
+        return lateral > 0 ? 1 : -1
+      }
+    }
+  }
+  return 0
 }
 
 /** Insert points so no segment is longer than MAX_SEGMENT. */
@@ -225,6 +297,7 @@ export function buildCityGround(): CityGroundResult {
 
     const dirs = directions(points)
     const halves = halfWidths(street, points)
+    const twin = twinSide(street, points)
     // Streets bend too, and a ribbon offset sideways folds wherever the bend is
     // tighter than the ribbon is wide. Gentler here than on the old route
     // ribbon, but a right-angled OSM corner would still do it.
@@ -263,7 +336,7 @@ export function buildCityGround(): CityGroundResult {
         continue
       }
 
-      const lanes = laneProfileFor(half).map((lane) => ({
+      const lanes = laneProfileFor(half, twin).map((lane) => ({
         ...lane,
         offset: applyLimits(lane.offset, limits, i),
       }))

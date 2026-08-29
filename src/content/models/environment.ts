@@ -5,7 +5,7 @@ import type { Rail } from '@/game/rail'
 import type { ResolvedSection } from '@/game/sections'
 import { makeRng, pick, range, rangeInt } from '@/lib/rng'
 
-import { inCarriageway, lateralClearance, nearestStreet } from './footprints'
+import { buildingAt, inCarriageway, lateralClearance, nearestStreet } from './footprints'
 
 /**
  * Props alongside the route.
@@ -82,6 +82,69 @@ function buildProps(
   const point = new THREE.Vector3()
   const right = new THREE.Vector3()
 
+  /**
+   * The camera's path, for keeping things out of it.
+   *
+   * Props are placed at an offset from the rail with no idea what the rail does
+   * next, so where the route bends the inside of a curve swings into it — the
+   * underpass walls clipped the camera for nine separate metres of the tunnel.
+   * Sampled every two metres and every prop checked against the whole thing,
+   * which is cheap enough at load and impossible to get wrong per-section.
+   */
+  const railPoints: Array<[number, number]> = []
+  {
+    const p = new THREE.Vector3()
+    const steps = Math.ceil(rail.length / 2)
+    for (let i = 0; i <= steps; i++) {
+      rail.positionAt(i / steps, p)
+      railPoints.push([p.x, p.z])
+    }
+  }
+  const nearRail = (x: number, z: number, radius: number) =>
+    railPoints.some(([px, pz]) => Math.hypot(x - px, z - pz) < radius)
+
+  /**
+   * Does this box's footprint come near the path?
+   *
+   * Corners, not the centre. A tunnel wall is eight metres long and sits four
+   * metres off the rail, so its middle clears the path comfortably while both
+   * of its ends sweep across it on the inside of a bend — which is exactly what
+   * the underpass was doing.
+   */
+  const boxNearRail = (
+    x: number,
+    z: number,
+    depth: number,
+    width: number,
+    rotationY: number,
+    margin: number,
+  ): boolean => {
+    const cos = Math.cos(rotationY)
+    const sin = Math.sin(rotationY)
+    // Sampled along the length rather than at the corners. A six-metre wall
+    // tested only at its ends has four metres of face between the samples, and
+    // the restaurant's walls slipped through exactly there.
+    const steps = Math.max(2, Math.ceil(width))
+    for (let i = 0; i <= steps; i++) {
+      const dz = -width / 2 + (width * i) / steps
+      for (const dx of [-depth / 2, 0, depth / 2]) {
+        if (nearRail(x + dx * cos - dz * sin, z + dx * sin + dz * cos, margin)) return true
+      }
+    }
+    return false
+  }
+
+  /**
+   * Small props already placed, so two don't occupy the same spot.
+   *
+   * Placement is random within a band, and random placement collides: a bin
+   * inside a planter inside a table reads as one broken object rather than as
+   * three.
+   */
+  const placed: Array<[number, number, number]> = []
+  const clashes = (x: number, z: number, radius: number) =>
+    placed.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < (radius + pr) * 0.75)
+
   const at = (t: number, offset: number): [number, number, number] => {
     rail.positionAt(t, point)
     rail.rightAt(t, right)
@@ -126,6 +189,7 @@ function buildProps(
         // Corners, not the centre: a 16 m deep wall alongside a street clears
         // it at the middle and still has both ends in the carriageway.
         if (footprintInRoad(x, z, depth, width, headingAt(t))) continue
+        if (boxNearRail(x, z, depth, width, headingAt(t), 1.3)) continue
         buildings.push({
           position: [x, y + height / 2, z],
           scale: [depth, height, width],
@@ -156,7 +220,8 @@ function buildProps(
         const street = nearestStreet(rx, rz)
         if (!street) {
           const [x, y, z] = at(t, side * furniture.offset)
-          return inCarriageway(x, z) ? null : [x, y, z]
+          if (inCarriageway(x, z) || buildingAt(x, z) || nearRail(x, z, 1.6)) return null
+          return [x, y, z]
         }
 
         const inset = furniture.inset ?? 1.2
@@ -169,7 +234,8 @@ function buildProps(
 
         const x = street.x + street.rx * lateral * side
         const z = street.z + street.rz * lateral * side
-        return inCarriageway(x, z) ? null : [x, ry, z]
+        if (inCarriageway(x, z) || buildingAt(x, z) || nearRail(x, z, 1.6)) return null
+        return [x, ry, z]
       }
 
       for (let side of [-1, 1] as const) {
@@ -179,6 +245,10 @@ function buildProps(
           const place = placeFor(t, side)
           if (!place) continue
           const [x, y, z] = place
+          // Claimed, so a patio umbrella isn't later planted through an
+          // awning's support pole.
+          if (clashes(x, z, 1.4)) continue
+          placed.push([x, z, 1.4])
           const segment = Math.min(
             route.segmentCount - 1,
             Math.floor(t * route.segmentCount),
@@ -210,8 +280,10 @@ function buildProps(
       const t = range(rng, section.tStart, section.tEnd)
       const side = rng() < 0.5 ? -1 : 1
       const [x, y, z] = at(t, side * range(rng, clutterSpec[0], clutterSpec[1]))
-      if (inCarriageway(x, z)) continue
       const size = range(rng, 0.6, 1.2)
+      if (inCarriageway(x, z) || buildingAt(x, z)) continue
+      if (nearRail(x, z, size / 2 + 1.2) || clashes(x, z, size)) continue
+      placed.push([x, z, size])
       clutter.push({
         position: [x, y + size / 2, z],
         scale: [size, size * range(rng, 0.8, 1.5), size],
@@ -222,11 +294,61 @@ function buildProps(
     }
 
     if (section.kind === 'dining') {
-      addPatios(section, route, rail.length, rng, at, poles, heads, clutter)
+      addPatios(section, route, rail.length, rng, at, poles, heads, clutter, {
+        nearRail,
+        clashes,
+        claim: (x, z, r) => placed.push([x, z, r]),
+      })
+    }
+
+    if (section.kind === 'tunnel') {
+      addTunnelRoof(section, route, rail.length, at, buildings)
     }
   }
 
   return { buildings, poles, heads, clutter }
+}
+
+/**
+ * The deck over the underpass.
+ *
+ * Without it the section is a trench with the sky overhead, not a tunnel — and
+ * the whole point of the underpass is that Lake Shore Drive runs over the top
+ * of you. Slabs are placed at a fixed world height rather than at a height
+ * above the floor, so the roof appears only across the deep middle and the
+ * ramps at either end stay open to the sky, which is how you see where you are
+ * going in and coming out.
+ */
+function addTunnelRoof(
+  section: ResolvedSection,
+  route: RouteDef,
+  railLength: number,
+  at: (t: number, offset: number) => [number, number, number],
+  buildings: Prop[],
+): void {
+  const span = section.tEnd - section.tStart
+  const steps = Math.max(4, Math.round((span * railLength) / 6))
+  /** Underside of the deck. Below grade, so the road above is unbroken. */
+  const DECK_Y = -0.55
+  const THICKNESS = 0.5
+  /** Eye height above the floor, plus room to spare over the top of your head. */
+  const HEADROOM = 1.7 + 1.5
+
+  for (let i = 0; i <= steps; i++) {
+    const t = section.tStart + (i / steps) * span
+    const [x, y, z] = at(t, 0)
+    // `y` is the floor. Roofing a stretch with less than head height under it
+    // puts the deck through the camera, which is exactly what it did on the
+    // ramps at either end.
+    if (y + HEADROOM > DECK_Y) continue
+    buildings.push({
+      position: [x, DECK_Y + THICKNESS / 2, z],
+      scale: [9.5, THICKNESS, 7.5],
+      rotationY: 0,
+      color: 0x2e2822,
+      segment: Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount)),
+    })
+  }
 }
 
 /** Does any corner of this box's footprint land in a carriageway? */
@@ -270,7 +392,13 @@ function addPatios(
   poles: Prop[],
   heads: Prop[],
   clutter: Prop[],
+  guards: {
+    nearRail: (x: number, z: number, radius: number) => boolean
+    clashes: (x: number, z: number, radius: number) => boolean
+    claim: (x: number, z: number, radius: number) => void
+  },
 ): void {
+  const { nearRail, clashes, claim } = guards
   const span = section.tEnd - section.tStart
   const spanMetres = span * railLength
   // One cluster every eight metres, alternating sides.
@@ -288,13 +416,18 @@ function addPatios(
     const [railX, railY, railZ] = at(t, 0)
     const street = nearestStreet(railX, railZ)
     if (!street) continue
+    // Patios went in without any of the placement guards, so they were the last
+    // things left standing inside buildings and on top of one another.
+    const clear = (x: number, z: number, radius: number) =>
+      !inCarriageway(x, z) && !buildingAt(x, z) && !nearRail(x, z, radius) && !clashes(x, z, radius)
 
     // Against the frontage, a table's depth in from it.
     const room = lateralClearance(street.x, street.z, street.rx, street.rz, 26)
     const band = Math.max(street.half + 1.6, room - range(rng, 1.4, 3.2))
     const centreX = street.x + street.rx * band * side
     const centreZ = street.z + street.rz * band * side
-    if (inCarriageway(centreX, centreZ)) continue
+    if (!clear(centreX, centreZ, 1.6)) continue
+    claim(centreX, centreZ, 1.6)
 
     // A local frame: along the street, and across it.
     const alongX = -street.rz
@@ -318,6 +451,7 @@ function addPatios(
     for (let c = 0; c < chairs; c++) {
       const angle = (c / chairs) * Math.PI * 2 + range(rng, -0.3, 0.3)
       const [cx, cz] = place(Math.cos(angle) * 0.95, Math.sin(angle) * 0.95)
+      if (buildingAt(cx, cz) || nearRail(cx, cz, 1.1)) continue
       clutter.push({
         position: [cx, railY + 0.45, cz],
         scale: [0.44, 0.9, 0.44],
@@ -350,7 +484,8 @@ function addPatios(
     // A planter marking the patio's edge toward the road.
     if (rng() < 0.55) {
       const [px, pz] = place(range(rng, -1.5, 1.5), -1.6)
-      if (!inCarriageway(px, pz)) {
+      if (clear(px, pz, 0.9)) {
+        claim(px, pz, 0.9)
         clutter.push({
           position: [px, railY + 0.4, pz],
           scale: [0.8, 0.8, 0.8],
@@ -388,8 +523,10 @@ function frontageSpec(kind: SectionKind): FrontageSpec | null {
     case 'park':
       return null
     case 'tunnel':
-      // The tunnel's "buildings" are its walls — tall, tight, unbroken.
-      return { frontage: 8, setback: 3.6, depth: [1.2, 1.6], height: [4, 4.4], gapChance: 0 }
+      // The tunnel's "buildings" are its walls. Short segments, because an
+      // eight-metre box cannot follow a curve — the ends swing inward and clip
+      // the camera, and consecutive boxes pile into each other on the inside.
+      return { frontage: 3.5, setback: 4.4, depth: [1.2, 1.6], height: [4, 4.4], gapChance: 0 }
     case 'alley':
       return { frontage: 10, setback: 2.8, depth: [10, 16], height: [16, 30], gapChance: 0 }
     case 'interior':

@@ -66,6 +66,12 @@ describe('roads', () => {
     const { buildings } = generateEnvironment(route, rail, resolveRoute(route, rail).sections)
 
     const offenders = buildings.filter((p) => {
+      // Anything entirely below grade is not standing in the street — it is
+      // under it. The underpass's deck is exactly that: it sits in Lake Shore
+      // Drive's carriageway because it is what carries Lake Shore Drive over
+      // the tunnel.
+      if (p.position[1] + p.scale[1] / 2 < 0.05) return false
+
       const [w, , d] = p.scale
       const cos = Math.cos(p.rotationY)
       const sin = Math.sin(p.rotationY)

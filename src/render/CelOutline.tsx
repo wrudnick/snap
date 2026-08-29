@@ -137,7 +137,13 @@ class CelOutlineEffect extends Effect {
         // curvature of a sphere.
         ['uNormalThreshold', new THREE.Uniform(options.normalThreshold ?? 0.1)],
         ['uThickness', new THREE.Uniform(options.thickness ?? 1.5)],
-        ['uDistanceFade', new THREE.Uniform(options.distanceFade ?? 0.002)],
+        // How fast the thresholds loosen with distance. Raised from 0.002: at
+        // the horizon every building base lands on the same few pixels and
+        // their outlines stack into a solid black bar across the frame — the
+        // first thing you see on the beach. Lines fade out before they can pile
+        // up, which also stops distant facades reading as ink rather than as
+        // buildings.
+        ['uDistanceFade', new THREE.Uniform(options.distanceFade ?? 0.011)],
         ['uTexel', new THREE.Uniform(new THREE.Vector2(1 / 1280, 1 / 800))],
       ]),
     })

@@ -107,36 +107,42 @@ function marianoPark(): Array<[number, number]> | null {
  * Oak Street Beach.
  *
  * The lakefront is the one place with no street to pave and no footprints to
- * measure against, so these are drawn by hand against the satellite image: the
- * sand runs north-east from the Drive out to the waterline, and the lake goes
- * on past the far plane.
+ * measure against — so it is measured against Lake Shore Drive instead. The
+ * beach waypoints all sit 19 to 70 m from the Drive on its lake side, so the
+ * shoreline is a band running parallel to it: sand, then a strip of wet sand,
+ * then water out past the far plane.
+ *
+ * The first version of this was drawn by hand from the satellite image and put
+ * the sand 250 m from where the route actually walks, so the game opened on a
+ * screen captioned OAK STREET BEACH with paving slabs underfoot. Bands off a
+ * real street cannot miss that way.
  */
 const BEACH_SAND: Array<[number, number]> = [
-  [330, -120],
-  [560, -30],
-  [520, 60],
-  [300, -20],
+  [7, -177],
+  [286, -39],
+  [320, -109],
+  [42, -247],
 ]
 
 const WET: Array<[number, number]> = [
-  [520, -70],
-  [600, -35],
-  [560, 45],
-  [485, 10],
+  [42, -247],
+  [320, -109],
+  [328, -125],
+  [50, -263],
 ]
 
 const LAKE: Array<[number, number]> = [
-  [560, -90],
-  [1100, 120],
-  [900, 520],
-  [430, 140],
+  [50, -263],
+  [328, -125],
+  [517, -504],
+  [239, -643],
 ]
 
 const DEEP_LAKE: Array<[number, number]> = [
-  [900, -60],
-  [1600, 300],
-  [1300, 900],
-  [700, 420],
+  [185, -535],
+  [464, -397],
+  [909, -1292],
+  [630, -1430],
 ]
 
 /**
@@ -197,10 +203,10 @@ const RESTAURANT: Array<[number, number]> = [
 export const GROUND_PATCHES: GroundPatch[] = [
   // Water first, then sand over it, so the shoreline is a hard edge rather than
   // a seam that has to line up.
-  { id: 'lake-deep', kind: SURFACE.water, color: LAKE_DEEP, y: -0.9, ring: DEEP_LAKE, patternAngle: -0.35, layer: 0 },
-  { id: 'lake', kind: SURFACE.water, color: LAKE_SHALLOW, y: -0.6, ring: LAKE, patternAngle: -0.35, layer: 1 },
-  { id: 'wet-sand', kind: SURFACE.sand, color: WET_SAND, y: -0.1, ring: WET, patternAngle: -0.35, layer: 2 },
-  { id: 'beach', kind: SURFACE.sand, color: SAND, y: 0.05, ring: BEACH_SAND, patternAngle: -0.35, layer: 3 },
+  { id: 'lake-deep', kind: SURFACE.water, color: LAKE_DEEP, y: -0.9, ring: DEEP_LAKE, patternAngle: 0.461, layer: 0 },
+  { id: 'lake', kind: SURFACE.water, color: LAKE_SHALLOW, y: -0.6, ring: LAKE, patternAngle: 0.461, layer: 1 },
+  { id: 'wet-sand', kind: SURFACE.sand, color: WET_SAND, y: -0.1, ring: WET, patternAngle: 0.461, layer: 2 },
+  { id: 'beach', kind: SURFACE.sand, color: SAND, y: 0.05, ring: BEACH_SAND, patternAngle: 0.461, layer: 3 },
   { id: 'mariano-park', kind: SURFACE.park, color: PARK_GREEN, y: 0.18, ring: marianoPark() ?? [], layer: 4 },
   { id: 'alley', kind: SURFACE.concrete, color: ALLEY_FLOOR, y: 0.02, ring: ALLEY, patternAngle: 0.76, layer: 4 },
   { id: 'restaurant', kind: SURFACE.interior, color: INTERIOR_FLOOR, y: 0.05, ring: RESTAURANT, patternAngle: 1.05, layer: 5 },

@@ -1,6 +1,7 @@
 import { useGame } from '@/game/state'
 import { useRouteBundle } from '@/game/useRoute'
 import { MiniMap } from '@/ui/MiniMap'
+import { Scrub } from '@/ui/Scrub'
 import { Hud } from '@/ui/Hud'
 import { Menu } from '@/ui/Menu'
 import { Results } from '@/ui/Results'
@@ -39,6 +40,15 @@ export function App() {
   return <GameApp />
 }
 
+/**
+ * The scrub bar is a review tool, not a game control — on by default in
+ * development, off with `?scrub=0`, and never in a build.
+ */
+const SCRUB =
+  import.meta.env.DEV &&
+  (typeof window === 'undefined' ||
+    new URLSearchParams(window.location.search).get('scrub') !== '0')
+
 function GameApp() {
   const phase = useGame((s) => s.phase)
   const routeId = useGame((s) => s.routeId)
@@ -51,6 +61,13 @@ function GameApp() {
         <>
           <Hud />
           <MiniMap route={route} rail={rail} checkpoints={resolved.checkpoints} />
+          {SCRUB && (
+            <Scrub
+              sections={resolved.sections}
+              checkpoints={resolved.checkpoints}
+              length={rail.length}
+            />
+          )}
         </>
       )}
       {phase === 'menu' && <Menu />}

@@ -614,3 +614,98 @@ h2 {
   color: #e8607a;
   line-height: 1.5;
 }
+
+/* --- Route scrub bar (dev review tool) ------------------------------------ */
+
+.scrub {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(10, 12, 16, 0.82);
+  border: 1px solid #2b313c;
+  border-radius: 4px;
+  color: #c9d1d9;
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  backdrop-filter: blur(4px);
+}
+
+.scrub button {
+  background: #161b22;
+  border: 1px solid #2b313c;
+  border-radius: 3px;
+  color: #c9d1d9;
+  font: inherit;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+
+.scrub button.on {
+  border-color: #ffd45e;
+  color: #ffd45e;
+}
+
+.scrub__play {
+  min-width: 38px;
+}
+
+.scrub__bar {
+  position: relative;
+  flex: 1;
+  height: 26px;
+  background: #10141a;
+  border-radius: 3px;
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.scrub__section {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #ffd45e;
+}
+
+.scrub__tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.scrub__head {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  margin-left: -1px;
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+}
+
+.scrub__readout {
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  line-height: 1.4;
+}
+
+.scrub__readout strong {
+  color: #ffd45e;
+  font-weight: 400;
+}
+
+.scrub__readout span {
+  color: #7d859a;
+}
+
+.scrub__speed {
+  display: flex;
+  gap: 4px;
+}

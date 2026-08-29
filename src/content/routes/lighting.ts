@@ -35,16 +35,21 @@ export const BEACH_DAWN: LightingProfile = {
  * tunnel is worth having.
  */
 export const TUNNEL: LightingProfile = {
-  sky: 0x14100e,
-  fogNear: 8,
-  fogFar: 46,
-  key: 0xff9a3c,
-  keyIntensity: 0.9,
-  skyFill: 0x4a3524,
-  groundFill: 0x1a1512,
-  fillIntensity: 0.8,
-  shadowTint: 0x2a2440,
-  shadowTintStrength: 0.9,
+  sky: 0x1c1714,
+  fogNear: 14,
+  fogFar: 90,
+  key: 0xffb45c,
+  keyIntensity: 1.35,
+  // Sodium light bouncing off tiled walls, not a cave. The first version was
+  // dark enough that the underpass — 169 m, an eighth of the route — was
+  // effectively unviewable: you could not see the walls, let alone photograph
+  // anything in it. A tunnel reads as a tunnel because it is *lit differently*,
+  // not because it is unlit.
+  skyFill: 0x8a6642,
+  groundFill: 0x3a2c22,
+  fillIntensity: 1.5,
+  shadowTint: 0x3a3050,
+  shadowTintStrength: 0.7,
   // No sun down here; a shadow map would cost a pass to render nothing.
   castShadows: false,
 }

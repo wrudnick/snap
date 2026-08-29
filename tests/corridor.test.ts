@@ -48,3 +48,25 @@ describe('route corridor', () => {
     expect(corridor.some((s) => !s.indoors)).toBe(true)
   })
 })
+
+/**
+ * People need room; animals do not.
+ *
+ * A tourist is 1.8 m tall, so one standing two metres off the rail fills a
+ * third of the frame as you walk past and clips the near plane — that is what
+ * the figure looming in the corner of the Michigan Avenue shots was. A pigeon
+ * or a cat at the same distance is a good photograph, which is why this is a
+ * rule about people rather than about subjects.
+ */
+describe('subject placement', () => {
+  const PEOPLE = new Set(['tourist-man', 'tourist-woman', 'old-man', 'escort', 'doorman'])
+  const MIN_METRES = 2.8
+
+  it('keeps people far enough off the rail to photograph', () => {
+    const tooClose = route.subjects
+      .filter((s) => PEOPLE.has(s.species) && s.at && Math.abs(s.at.offset) < MIN_METRES)
+      .map((s) => `${s.id} at ${s.at!.offset}m`)
+
+    expect(tooClose).toEqual([])
+  })
+})

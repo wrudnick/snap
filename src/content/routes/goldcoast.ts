@@ -72,10 +72,10 @@ export const GOLD_COAST: RouteDef = {
     [160.971, 1.7, -103.513], //  2
 
     // — The Underpass —
-    [109.514, 0.4, -137.055], //  3
-    [65.7509, -2, -98.873], //  4
-    [43.2658, -2, -76.3298], //  5
-    [34.9721, -0.4, -40.5951], //  6
+    [109.514, 0.1, -137.055], //  3
+    [65.7509, -3.2, -98.873], //  4
+    [43.2658, -3.2, -76.3298], //  5
+    [34.9721, -0.7, -40.5951], //  6
 
     // — East Lake Shore Drive —
     [28.7218, 1.7, -19.8772], //  7
@@ -247,14 +247,14 @@ export const GOLD_COAST: RouteDef = {
     // — People. Placed where each class actually belongs: tourists gawking on
     //   the Magnificent Mile, a doorman outside the hotels, the Rush Street
     //   crowd around the Triangle. —
-    { id: 'tour-elsd-1', species: 'tourist-woman', at: { section: 'lakeshore', u: 0.33, offset: 2.5 }, rotationY: 1.4, seed: 301 },
+    { id: 'tour-elsd-1', species: 'tourist-woman', at: { section: 'lakeshore', u: 0.33, offset: 3.3 }, rotationY: 1.4, seed: 301 },
     { id: 'tour-elsd-2', species: 'tourist-man', at: { section: 'lakeshore', u: 0.36, offset: 4.5 }, rotationY: 1.2, seed: 302 },
-    { id: 'old-elsd', species: 'old-man', at: { section: 'lakeshore', u: 0.72, offset: -2.5 }, rotationY: -1.4, seed: 303 },
+    { id: 'old-elsd', species: 'old-man', at: { section: 'lakeshore', u: 0.72, offset: -3.3 }, rotationY: -1.4, seed: 303 },
 
     { id: 'door-mich', species: 'doorman', at: { section: 'michigan', u: 0.12, offset: 4.5 }, rotationY: -1.5, seed: 311 },
-    { id: 'tour-mich-1', species: 'tourist-man', at: { section: 'michigan', u: 0.25, offset: 2.0 }, rotationY: 2.6, seed: 312 },
+    { id: 'tour-mich-1', species: 'tourist-man', at: { section: 'michigan', u: 0.25, offset: 3.4 }, rotationY: 2.6, seed: 312 },
     { id: 'tour-mich-2', species: 'tourist-woman', at: { section: 'michigan', u: 0.28, offset: 4.0 }, rotationY: 2.9, seed: 313 },
-    { id: 'tour-mich-3', species: 'tourist-woman', at: { section: 'michigan', u: 0.48, offset: 2.5 }, rotationY: 0.3, seed: 314 },
+    { id: 'tour-mich-3', species: 'tourist-woman', at: { section: 'michigan', u: 0.48, offset: 3.2 }, rotationY: 0.3, seed: 314 },
     { id: 'tour-mich-4', species: 'tourist-man', at: { section: 'michigan', u: 0.52, offset: 5.0 }, rotationY: 0.1, seed: 315 },
     { id: 'old-mich', species: 'old-man', at: { section: 'michigan', u: 0.66, offset: 3.5 }, rotationY: 1.8, seed: 316 },
     { id: 'esc-mich', species: 'escort', at: { section: 'michigan', u: 0.72, offset: 5.5 }, rotationY: 2.2, seed: 317 },
@@ -272,7 +272,7 @@ export const GOLD_COAST: RouteDef = {
     // the far side for depth.
     { id: 'old-rush-1', species: 'old-man', at: { section: 'rush', u: 0.20, offset: -3.0 }, rotationY: 1.5, seed: 331 },
     { id: 'esc-rush-1', species: 'escort', at: { section: 'rush', u: 0.21, offset: -4.6 }, rotationY: 1.7, seed: 332 },
-    { id: 'door-rush-1', species: 'doorman', at: { section: 'rush', u: 0.26, offset: -2.2 }, rotationY: 1.5, seed: 337 },
+    { id: 'door-rush-1', species: 'doorman', at: { section: 'rush', u: 0.26, offset: -3.2 }, rotationY: 1.5, seed: 337 },
 
     { id: 'old-rush-2', species: 'old-man', at: { section: 'rush', u: 0.34, offset: -5.2 }, rotationY: 1.2, seed: 333 },
     { id: 'esc-rush-2', species: 'escort', at: { section: 'rush', u: 0.35, offset: -3.4 }, rotationY: 1.9, seed: 334 },
@@ -281,11 +281,11 @@ export const GOLD_COAST: RouteDef = {
     { id: 'old-rush-3', species: 'old-man', at: { section: 'rush', u: 0.47, offset: -4.0 }, rotationY: 1.4, seed: 339 },
     { id: 'esc-rush-3', species: 'escort', at: { section: 'rush', u: 0.48, offset: -5.6 }, rotationY: 1.6, seed: 340 },
 
-    { id: 'tour-rush-2', species: 'tourist-man', at: { section: 'rush', u: 0.55, offset: -2.6 }, rotationY: -1.1, seed: 344 },
+    { id: 'tour-rush-2', species: 'tourist-man', at: { section: 'rush', u: 0.55, offset: -3.4 }, rotationY: -1.1, seed: 344 },
     { id: 'esc-rush-4', species: 'escort', at: { section: 'rush', u: 0.57, offset: -6.0 }, rotationY: 2.1, seed: 345 },
     { id: 'old-rush-4', species: 'old-man', at: { section: 'rush', u: 0.58, offset: -4.4 }, rotationY: 1.3, seed: 346 },
 
-    { id: 'door-rush-2', species: 'doorman', at: { section: 'rush', u: 0.66, offset: -1.8 }, rotationY: 1.5, seed: 335 },
+    { id: 'door-rush-2', species: 'doorman', at: { section: 'rush', u: 0.66, offset: -3.0 }, rotationY: 1.5, seed: 335 },
     { id: 'tour-rush-3', species: 'tourist-man', at: { section: 'rush', u: 0.68, offset: -5.0 }, rotationY: -1.1, seed: 336 },
     { id: 'esc-rush-5', species: 'escort', at: { section: 'rush', u: 0.70, offset: -3.2 }, rotationY: 1.8, seed: 347 },
 
@@ -300,10 +300,10 @@ export const GOLD_COAST: RouteDef = {
 
     { id: 'old-tri', species: 'old-man', at: { section: 'triangle', u: 0.3, offset: -3.0 }, rotationY: -0.8, seed: 341 },
     { id: 'esc-tri', species: 'escort', at: { section: 'triangle', u: 0.35, offset: -4.5 }, rotationY: -0.6, seed: 342 },
-    { id: 'tour-tri', species: 'tourist-woman', at: { section: 'triangle', u: 0.5, offset: 2.5 }, rotationY: 2.0, seed: 343 },
+    { id: 'tour-tri', species: 'tourist-woman', at: { section: 'triangle', u: 0.5, offset: 3.3 }, rotationY: 2.0, seed: 343 },
 
-    { id: 'esc-bar', species: 'escort', at: { section: 'inside', u: 0.5, offset: 1.4 }, rotationY: 1.4, seed: 351 },
-    { id: 'old-bar', species: 'old-man', at: { section: 'inside', u: 0.7, offset: -1.4 }, rotationY: -1.2, seed: 352 },
+    { id: 'esc-bar', species: 'escort', at: { section: 'inside', u: 0.5, offset: 2.9 }, rotationY: 1.4, seed: 351 },
+    { id: 'old-bar', species: 'old-man', at: { section: 'inside', u: 0.7, offset: -2.9 }, rotationY: -1.2, seed: 352 },
   ],
 }
 
