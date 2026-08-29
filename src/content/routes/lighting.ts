@@ -154,3 +154,64 @@ export const INTERIOR: LightingProfile = {
   shadowTintStrength: 0.7,
   castShadows: false,
 }
+
+/**
+ * Delaware Place, with the sun going down.
+ *
+ * The route turns west here, straight into it, and it is the last daylight
+ * section before the strip. A long blend so the sky reddens across the whole
+ * block rather than at the corner.
+ */
+export const BOUTIQUE_SUNSET: LightingProfile = {
+  sky: 0xe0a06a,
+  fogNear: 70,
+  fogFar: 420,
+  key: 0xffb066,
+  keyIntensity: 2.2,
+  skyFill: 0xd89a72,
+  groundFill: 0x8a6a4c,
+  fillIntensity: 1.3,
+  // Long shadows from a low sun go blue against a warm sky, which is most of
+  // what makes an evening read as an evening.
+  shadowTint: 0x5a5f9a,
+  shadowTintStrength: 0.8,
+  castShadows: true,
+  blendIn: 0.85,
+}
+
+/**
+ * Rush Street after dark.
+ *
+ * The sun has gone. Everything readable here comes from the awnings, the
+ * windows and the string lights, so the fill is warm and carries almost all of
+ * it — the key is barely more than a rim.
+ */
+export const DINING_DUSK: LightingProfile = {
+  sky: 0x2b2740,
+  fogNear: 60,
+  fogFar: 320,
+  key: 0xff8a52,
+  keyIntensity: 0.55,
+  skyFill: 0x4a4468,
+  groundFill: 0x6b4a38,
+  fillIntensity: 1.9,
+  shadowTint: 0x3a3560,
+  shadowTintStrength: 0.55,
+  castShadows: false,
+  blendIn: 0.5,
+}
+
+/** Mariano Park, same evening. */
+export const PARK_DUSK: LightingProfile = {
+  sky: 0x272441,
+  fogNear: 60,
+  fogFar: 300,
+  key: 0xffa070,
+  keyIntensity: 0.5,
+  skyFill: 0x494365,
+  groundFill: 0x4a4a42,
+  fillIntensity: 1.7,
+  shadowTint: 0x38345c,
+  shadowTintStrength: 0.55,
+  castShadows: false,
+}

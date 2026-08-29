@@ -25,6 +25,15 @@ export interface VehicleSpec {
   sign?: 'taxi' | 'rideshare' | 'delivery' | 'none'
   /** Livery stripe down the side, for a cruiser. */
   stripe?: number
+  /**
+   * Body colours to draw from, per instance.
+   *
+   * Traffic is the one place where sameness reads worst: eight identical grey
+   * sedans on a street is obviously eight copies of one object, where eight
+   * differently-coloured ones is traffic. Picked from the placement seed like
+   * a person's outfit, so the same car is the same car on every load.
+   */
+  bodyPalette?: number[]
 }
 
 /**

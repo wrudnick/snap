@@ -29,9 +29,16 @@ interface GroupProps {
   limit: number
   castShadow?: boolean
   receiveShadow?: boolean
+  /**
+   * Which primitive the whole group is drawn from.
+   *
+   * One instanced mesh per shape, not per object — so every tree canopy and
+   * every string-light bulb in the world is a single draw call between them.
+   */
+  shape?: 'box' | 'sphere'
 }
 
-function PropInstances({ props, limit, castShadow, receiveShadow }: GroupProps) {
+function PropInstances({ props, limit, castShadow, receiveShadow, shape }: GroupProps) {
   const material = useToonMaterial(0xffffff)
 
   return (
@@ -45,7 +52,7 @@ function PropInstances({ props, limit, castShadow, receiveShadow }: GroupProps) 
       // Segment gating is our culling anyway.
       frustumCulled={false}
     >
-      <boxGeometry />
+      {shape === 'sphere' ? <sphereGeometry args={[0.5, 10, 8]} /> : <boxGeometry />}
       <primitive object={material} attach="material" dispose={null} />
       {props.map((p, i) => (
         <Instance
@@ -226,6 +233,7 @@ export function Environment({
       poles: data.poles.filter(keep(w?.furniture ?? route.activeWindow)),
       heads: data.heads.filter(keep(w?.furniture ?? route.activeWindow)),
       clutter: data.clutter.filter(keep(w?.clutter ?? route.activeWindow)),
+      blobs: data.blobs.filter(keep(w?.furniture ?? route.activeWindow)),
     }
   }, [data, segment, route.activeWindow, route.activeWindows])
 
@@ -239,6 +247,7 @@ export function Environment({
       <PropInstances props={visible.poles} limit={80} castShadow />
       <PropInstances props={visible.heads} limit={80} castShadow />
       <PropInstances props={visible.clutter} limit={80} castShadow receiveShadow />
+      <PropInstances props={visible.blobs} limit={420} shape="sphere" castShadow />
     </group>
   )
 }

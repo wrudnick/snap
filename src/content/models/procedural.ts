@@ -499,9 +499,11 @@ function wheelPivot(
   return pivot(name, at, mesh, [0, 0, 0])
 }
 
-function buildVehicle(def: SubjectDef): BuiltModel {
-  const { body: c, accent: a } = def.palette
+function buildVehicle(def: SubjectDef, seed: number): BuiltModel {
+  const { accent: a } = def.palette
   const spec = def.vehicle ?? {}
+  const rng = makeRng((seed + 91) * 2654435761)
+  const c = spec.bodyPalette?.length ? pick(rng, spec.bodyPalette) : def.palette.body
   const g = new THREE.Group()
   const wheel: [number, number, number] = [0.34, 0.14, 0.34]
 

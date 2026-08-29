@@ -299,13 +299,26 @@ const DRIVING_POSES = {
   turn: { label: 'Pulling away', value: 0.75, peak: [0.3, 0.6] as [number, number], peakBonus: 0.1 },
 }
 
+/**
+ * What cars in a city are actually painted.
+ *
+ * Mostly greys, white and black — that is genuinely what a street looks like —
+ * with enough red, blue and green in the mix that a row of parked cars is a row
+ * of different cars rather than one car repeated.
+ */
+const CAR_COLOURS = [
+  0xd8dade, 0xb4b8bd, 0x8e9299, 0x5f646b, 0x33363b, 0x1b1d22,
+  0x8c3a35, 0xa8443c, 0x2f4a6b, 0x3d5f7a, 0x35543f, 0x6b5a34,
+  0xc9b48a, 0x7a3f52,
+]
+
 const SEDAN: SubjectDef = {
   species: 'sedan',
   displayName: 'Car',
   rarity: 1,
   model: 'vehicle',
   palette: { body: 0x8e9299, accent: 0x1b1d22 },
-  vehicle: { body: 'sedan', sign: 'none' },
+  vehicle: { body: 'sedan', sign: 'none', bodyPalette: CAR_COLOURS },
   scale: 1,
   fallbackPose: 0.3,
   idealSize: 0.1,
@@ -321,7 +334,13 @@ const SUV: SubjectDef = {
   // The blacked-out Suburban idling outside a Rush Street restaurant is as much
   // a fixture of this street as the restaurants are.
   palette: { body: 0x14161a, accent: 0x0d0f12 },
-  vehicle: { body: 'suv', sign: 'none' },
+  vehicle: {
+    body: 'suv',
+    sign: 'none',
+    // Black, mostly. A few dark greys so the row outside the restaurants is not
+    // literally identical.
+    bodyPalette: [0x14161a, 0x14161a, 0x1c1f24, 0x2a2d33, 0x3a3e45],
+  },
   scale: 1,
   fallbackPose: 0.3,
   idealSize: 0.115,
@@ -335,7 +354,11 @@ const RIDESHARE: SubjectDef = {
   rarity: 2,
   model: 'vehicle',
   palette: { body: 0x3c4a63, accent: 0x1b1d22 },
-  vehicle: { body: 'sedan', sign: 'rideshare' },
+  vehicle: {
+    body: 'sedan',
+    sign: 'rideshare',
+    bodyPalette: [0x3c4a63, 0x2f3540, 0x5f646b, 0xb4b8bd, 0x33363b],
+  },
   scale: 1,
   fallbackPose: 0.3,
   idealSize: 0.1,

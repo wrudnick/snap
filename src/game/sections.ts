@@ -107,10 +107,16 @@ export function lightingAt(
   const span = Math.max(current.tEnd - current.tStart, 1e-6)
   const progress = (t - current.tStart) / span
 
-  if (!previous || progress >= blend) return current.lighting
+  // A section can ask for a longer fade in. Most transitions want to be quick —
+  // walking into a tunnel should get dark promptly — but the sun going down
+  // over Rush Street has to happen across most of the block before it, or it
+  // reads as a light switch rather than as an evening.
+  const width = current.lighting.blendIn ?? blend
+
+  if (!previous || progress >= width) return current.lighting
 
   // Ease so the transition doesn't start and stop abruptly.
-  const raw = progress / blend
+  const raw = progress / width
   const amount = raw * raw * (3 - 2 * raw)
 
   const from = previous.lighting

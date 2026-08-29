@@ -3,9 +3,10 @@ import {
   AVENUE_DAWN,
   BEACH_DAWN,
   BOUTIQUE_DAWN,
-  DINING_DAWN,
+  BOUTIQUE_SUNSET,
+  DINING_DUSK,
   INTERIOR,
-  PARK_DAWN,
+  PARK_DUSK,
   TUNNEL,
 } from './lighting'
 import type { RouteDef } from './types'
@@ -123,9 +124,9 @@ export const GOLD_COAST: RouteDef = {
     { id: 'underpass', kind: 'tunnel', title: 'The Underpass', waypoints: [3, 6], lighting: TUNNEL },
     { id: 'lakeshore', kind: 'boutique', title: 'East Lake Shore Drive', waypoints: [7, 8], lighting: BOUTIQUE_DAWN },
     { id: 'michigan', kind: 'avenue', title: 'Michigan Avenue', waypoints: [9, 13], lighting: AVENUE_DAWN },
-    { id: 'delaware', kind: 'boutique', title: 'Delaware Place', waypoints: [14, 16], lighting: BOUTIQUE_DAWN },
-    { id: 'rush', kind: 'dining', title: 'Rush Street', waypoints: [17, 21], lighting: DINING_DAWN },
-    { id: 'triangle', kind: 'park', title: 'The Triangle', waypoints: [22, 24], lighting: PARK_DAWN },
+    { id: 'delaware', kind: 'boutique', title: 'Delaware Place', waypoints: [14, 16], lighting: BOUTIQUE_SUNSET },
+    { id: 'rush', kind: 'dining', title: 'Rush Street', waypoints: [17, 21], lighting: DINING_DUSK },
+    { id: 'triangle', kind: 'park', title: 'The Triangle', waypoints: [22, 24], lighting: PARK_DUSK },
     { id: 'alley', kind: 'alley', title: 'The Alley', waypoints: [25, 28], lighting: ALLEY },
     { id: 'inside', kind: 'interior', title: 'Through the Kitchen', waypoints: [29, 32], lighting: INTERIOR },
   ],
@@ -181,7 +182,7 @@ export const GOLD_COAST: RouteDef = {
   ],
 
   seed: 20260826,
-  film: 64,
+  film: 72,
 
   /**
    * Subjects anchored to the rail, not the world.
@@ -360,6 +361,52 @@ export const GOLD_COAST: RouteDef = {
     { id: 'squad-mich', species: 'police-car', at: { section: 'michigan', u: 0.50, offset: -6.4 }, rotationY: 0, seed: 440 },
     { id: 'squad-tri', species: 'police-car', at: { section: 'triangle', u: 0.30, offset: -5.6 }, rotationY: 0, seed: 441 },
     { id: 'squad-lsd', species: 'police-car', at: { section: 'lakeshore', u: 0.72, offset: 5.6 }, rotationY: Math.PI, seed: 442 },
+
+    // More traffic. A city street is not three cars: these fill the lanes and
+    // the kerbside on every block, and the body colour comes from the placement
+    // seed so no two are the same car.
+    { id: 'sedan-mich-4', species: 'sedan', at: { section: 'michigan', u: 0.06, offset: 5.4 }, rotationY: Math.PI, seed: 501 },
+    { id: 'sedan-mich-5', species: 'sedan', at: { section: 'michigan', u: 0.19, offset: -6.5 }, rotationY: 0, seed: 502 },
+    { id: 'sedan-mich-6', species: 'sedan', at: { section: 'michigan', u: 0.27, offset: 2.7 }, rotationY: Math.PI, seed: 503 },
+    { id: 'sedan-mich-7', species: 'sedan', at: { section: 'michigan', u: 0.38, offset: -2.6 }, rotationY: 0, seed: 504 },
+    { id: 'sedan-mich-8', species: 'sedan', at: { section: 'michigan', u: 0.49, offset: 6.5 }, rotationY: Math.PI, seed: 505 },
+    { id: 'sedan-mich-9', species: 'sedan', at: { section: 'michigan', u: 0.60, offset: 2.7 }, rotationY: Math.PI, seed: 506 },
+    { id: 'sedan-mich-10', species: 'sedan', at: { section: 'michigan', u: 0.74, offset: 5.4 }, rotationY: Math.PI, seed: 507 },
+    { id: 'sedan-mich-11', species: 'sedan', at: { section: 'michigan', u: 0.83, offset: -6.5 }, rotationY: 0, seed: 508 },
+    { id: 'sedan-mich-12', species: 'sedan', at: { section: 'michigan', u: 0.92, offset: -2.6 }, rotationY: 0, seed: 509 },
+
+    { id: 'sedan-del-3', species: 'sedan', at: { section: 'delaware', u: 0.10, offset: -6.3 }, rotationY: 0, seed: 510 },
+    { id: 'sedan-del-4', species: 'sedan', at: { section: 'delaware', u: 0.20, offset: 6.3 }, rotationY: Math.PI, seed: 511 },
+    { id: 'sedan-del-5', species: 'sedan', at: { section: 'delaware', u: 0.44, offset: -2.7 }, rotationY: 0, seed: 512 },
+    { id: 'sedan-del-6', species: 'sedan', at: { section: 'delaware', u: 0.58, offset: -6.3 }, rotationY: 0, seed: 513 },
+    { id: 'sedan-del-7', species: 'sedan', at: { section: 'delaware', u: 0.82, offset: 6.3 }, rotationY: Math.PI, seed: 514 },
+    { id: 'sedan-del-8', species: 'sedan', at: { section: 'delaware', u: 0.92, offset: 2.7 }, rotationY: Math.PI, seed: 515 },
+
+    { id: 'sedan-rush-3', species: 'sedan', at: { section: 'rush', u: 0.08, offset: 6.4 }, rotationY: Math.PI, seed: 520 },
+    { id: 'sedan-rush-4', species: 'sedan', at: { section: 'rush', u: 0.22, offset: -6.4 }, rotationY: 0, seed: 521 },
+    { id: 'sedan-rush-5', species: 'sedan', at: { section: 'rush', u: 0.33, offset: 2.6 }, rotationY: Math.PI, seed: 522 },
+    { id: 'sedan-rush-6', species: 'sedan', at: { section: 'rush', u: 0.44, offset: -2.6 }, rotationY: 0, seed: 523 },
+    { id: 'sedan-rush-7', species: 'sedan', at: { section: 'rush', u: 0.53, offset: 6.4 }, rotationY: Math.PI, seed: 524 },
+    { id: 'sedan-rush-8', species: 'sedan', at: { section: 'rush', u: 0.62, offset: -6.4 }, rotationY: 0, seed: 525 },
+    { id: 'sedan-rush-9', species: 'sedan', at: { section: 'rush', u: 0.74, offset: 2.6 }, rotationY: Math.PI, seed: 526 },
+    { id: 'sedan-rush-10', species: 'sedan', at: { section: 'rush', u: 0.88, offset: -6.4 }, rotationY: 0, seed: 527 },
+    { id: 'sedan-rush-11', species: 'sedan', at: { section: 'rush', u: 0.95, offset: 6.4 }, rotationY: Math.PI, seed: 528 },
+
+    { id: 'sedan-lsd-2', species: 'sedan', at: { section: 'lakeshore', u: 0.62, offset: -6.2 }, rotationY: 0, seed: 530 },
+    { id: 'sedan-lsd-3', species: 'sedan', at: { section: 'lakeshore', u: 0.86, offset: 2.8 }, rotationY: Math.PI, seed: 531 },
+    { id: 'sedan-tri-1', species: 'sedan', at: { section: 'triangle', u: 0.18, offset: 5.8 }, rotationY: Math.PI, seed: 532 },
+    { id: 'sedan-tri-2', species: 'sedan', at: { section: 'triangle', u: 0.66, offset: -5.8 }, rotationY: 0, seed: 533 },
+    { id: 'sedan-tri-3', species: 'sedan', at: { section: 'triangle', u: 0.86, offset: 2.6 }, rotationY: Math.PI, seed: 534 },
+
+    { id: 'suv-mich-2', species: 'suv', at: { section: 'michigan', u: 0.31, offset: -6.4 }, rotationY: 0, seed: 540 },
+    { id: 'suv-del', species: 'suv', at: { section: 'delaware', u: 0.68, offset: -6.4 }, rotationY: 0, seed: 541 },
+    { id: 'suv-rush-4', species: 'suv', at: { section: 'rush', u: 0.14, offset: -6.4 }, rotationY: 0, seed: 542 },
+    { id: 'suv-rush-5', species: 'suv', at: { section: 'rush', u: 0.71, offset: -6.4 }, rotationY: 0, seed: 543 },
+
+    { id: 'uber-mich-2', species: 'rideshare', at: { section: 'michigan', u: 0.58, offset: 6.2 }, rotationY: Math.PI, seed: 550 },
+    { id: 'uber-rush-2', species: 'rideshare', at: { section: 'rush', u: 0.80, offset: 6.2 }, rotationY: Math.PI, seed: 551 },
+    { id: 'uber-tri', species: 'rideshare', at: { section: 'triangle', u: 0.48, offset: -5.8 }, rotationY: 0, seed: 552 },
+    { id: 'dash-car-del', species: 'delivery-car', at: { section: 'delaware', u: 0.36, offset: 6.2 }, rotationY: Math.PI, seed: 553 },
 
     // — Riders. In the bike lane, which is the outside of the carriageway. —
     { id: 'cyc-mich-1', species: 'cyclist', at: { section: 'michigan', u: 0.28, offset: -7.2 }, rotationY: 0, seed: 450 },

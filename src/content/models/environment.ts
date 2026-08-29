@@ -35,6 +35,11 @@ export interface EnvironmentData {
   heads: Prop[]
   clutter: Prop[]
   /**
+   * Everything drawn from a sphere rather than a box: tree canopies and the
+   * bulbs on a string of lights. One instanced mesh covers the lot.
+   */
+  blobs: Prop[]
+  /**
    * Buildings on streets the player never walks — the grid running south to the
    * river. Never gated: they exist to be seen from a long way off, and they are
    * one instanced draw call regardless of count.
@@ -72,12 +77,13 @@ function buildProps(
   route: RouteDef,
   rail: Rail,
   sections: ResolvedSection[],
-): Pick<EnvironmentData, 'buildings' | 'poles' | 'heads' | 'clutter'> {
+): Pick<EnvironmentData, 'buildings' | 'poles' | 'heads' | 'clutter' | 'blobs'> {
   const rng = makeRng(route.seed)
   const buildings: Prop[] = []
   const poles: Prop[] = []
   const heads: Prop[] = []
   const clutter: Prop[] = []
+  const blobs: Prop[] = []
 
   const point = new THREE.Vector3()
   const right = new THREE.Vector3()
@@ -265,21 +271,16 @@ function buildProps(
             segment,
           })
           if (furniture.canopy) {
-            const [cw, ch, cd] = furniture.headSize
-            const base = y + furniture.poleHeight
-            for (const [lift, scale, sway] of [
-              [ch * 0.28, 1.0, 0],
-              [ch * 0.62, 0.78, 0.22],
-              [ch * 0.86, 0.5, -0.16],
-            ] as const) {
-              heads.push({
-                position: [x + sway * cw * 0.3, base + lift, z + sway * cd * 0.2],
-                scale: [cw * scale, ch * 0.5, cd * scale],
-                rotationY: headingAt(t) + sway * 2,
-                color: furniture.headColor,
-                segment,
-              })
-            }
+            addCanopy(
+              blobs,
+              rngFor(section.id, i, side),
+              x,
+              y + furniture.poleHeight,
+              z,
+              furniture.headSize,
+              furniture.headColor,
+              segment,
+            )
           } else {
             heads.push({
               position: [x, y + furniture.poleHeight + furniture.headSize[1] / 2, z],
@@ -315,6 +316,7 @@ function buildProps(
     }
 
     if (section.kind === 'dining') {
+      addStringLights(section, route, rail.length, at, poles, blobs)
       addPatios(section, route, rail.length, rng, at, poles, heads, clutter, {
         nearRail,
         clashes,
@@ -326,6 +328,10 @@ function buildProps(
       addTunnelRoof(section, route, rail.length, at, buildings)
     }
 
+    if (section.kind === 'boutique') {
+      addShopfronts(section, route, rail.length, rng, at, headingAt, poles, heads, clutter)
+    }
+
     if (section.kind === 'interior') {
       addBar(section, route, rail.length, rng, at, headingAt, poles, heads, clutter, {
         nearRail,
@@ -335,7 +341,7 @@ function buildProps(
     }
   }
 
-  return { buildings, poles, heads, clutter }
+  return { buildings, poles, heads, clutter, blobs }
 }
 
 /**
@@ -481,6 +487,242 @@ function addTunnelRoof(
       rotationY: 0,
       color: 0x2e2822,
       segment: Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount)),
+    })
+  }
+}
+
+/**
+ * Bulbs strung across the street, catenary and all.
+ *
+ * Rush Street after dark is lit almost entirely from below and from these —
+ * the sun is gone by the time the route gets here, so without them the whole
+ * strip is a dark corridor. They also do the thing a photograph wants: a line
+ * of warm points receding down the street, which gives the shot depth that a
+ * flat wall of shopfronts cannot.
+ */
+function addStringLights(
+  section: ResolvedSection,
+  route: RouteDef,
+  railLength: number,
+  at: (t: number, offset: number) => [number, number, number],
+  poles: Prop[],
+  blobs: Prop[],
+): void {
+  const span = section.tEnd - section.tStart
+  const spanMetres = span * railLength
+  /** One span of cable between two poles. */
+  const SPACING = 16
+  const runs = Math.max(2, Math.round(spanMetres / SPACING))
+  const HEIGHT = 4.6
+  const SAG = 1.05
+  const SIDE = 8.6
+
+  const segmentOf = (t: number) =>
+    Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount))
+
+  for (let side of [-1, 1] as const) {
+    for (let i = 0; i <= runs; i++) {
+      const t = section.tStart + (i / runs) * span
+      const [px, py, pz] = at(t, SIDE * side)
+      if (!buildingAt(px, pz) && !inCarriageway(px, pz)) {
+        poles.push({
+          position: [px, py + HEIGHT / 2, pz],
+          scale: [0.09, HEIGHT, 0.09],
+          rotationY: 0,
+          color: 0x241f1a,
+          segment: segmentOf(t),
+        })
+      }
+
+      if (i === runs) continue
+
+      // Bulbs along the span, dipping in the middle. A straight line of lights
+      // reads as a strip light; the sag is what makes it a string.
+      const BULBS = 9
+      for (let b = 1; b < BULBS; b++) {
+        const along = b / BULBS
+        const bt = t + (along / runs) * span
+        const dip = Math.sin(along * Math.PI) * SAG
+        const [bx, by, bz] = at(bt, SIDE * side)
+        blobs.push({
+          position: [bx, by + HEIGHT - dip, bz],
+          scale: [0.17, 0.17, 0.17],
+          rotationY: 0,
+          color: 0xffcf8a,
+          segment: segmentOf(bt),
+        })
+      }
+    }
+  }
+}
+
+/**
+ * Shopfronts for the block before Rush.
+ *
+ * Delaware Place is the quiet, expensive stretch, and it was a street of blank
+ * frontages. Awnings, a fascia sign and a lit window per unit turn a wall into
+ * a row of shops — and because it faces the sunset, the glass carries most of
+ * the colour in the section.
+ */
+function addShopfronts(
+  section: ResolvedSection,
+  route: RouteDef,
+  railLength: number,
+  rng: () => number,
+  at: (t: number, offset: number) => [number, number, number],
+  headingAt: (t: number) => number,
+  poles: Prop[],
+  heads: Prop[],
+  clutter: Prop[],
+): void {
+  const span = section.tEnd - section.tStart
+  const spanMetres = span * railLength
+  const units = Math.max(4, Math.round(spanMetres / 11))
+  const segmentOf = (t: number) =>
+    Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount))
+
+  // Restrained: black, cream, deep green, oxblood. The point of an expensive
+  // street is that nothing on it shouts.
+  const FASCIA = [0x1b1a18, 0x2a2622, 0x1f2e28, 0x3a2024, 0x24283a]
+  const AWNING = [0x1b1a18, 0x2f2b26, 0x243530, 0x3a2428]
+
+  for (let i = 0; i < units; i++) {
+    const t = section.tStart + ((i + 0.5) / units) * span
+    const segment = segmentOf(t)
+    const heading = headingAt(t)
+    const side: -1 | 1 = i % 2 === 0 ? -1 : 1
+
+    const [railX, railY, railZ] = at(t, 0)
+    const street = nearestStreet(railX, railZ)
+    if (!street) continue
+
+    const room = lateralClearance(street.x, street.z, street.rx, street.rz, 26)
+    const frontage = Math.max(street.half + 2.0, room - 0.6)
+    const place = (lateral: number): [number, number] => [
+      street.x + street.rx * lateral * side,
+      street.z + street.rz * lateral * side,
+    ]
+
+    const [fx, fz] = place(frontage - 0.5)
+    if (inCarriageway(fx, fz)) continue
+
+    // Fascia board above the window, with the shop's colour.
+    heads.push({
+      position: [fx, railY + 3.5, fz],
+      scale: [0.5, 0.7, 6.2],
+      rotationY: heading,
+      color: pick(rng, FASCIA),
+      segment,
+    })
+
+    // Awning out over the pavement.
+    const [ax, az] = place(frontage - 1.6)
+    heads.push({
+      position: [ax, railY + 2.85, az],
+      scale: [1.9, 0.16, 5.0],
+      rotationY: heading,
+      color: pick(rng, AWNING),
+      segment,
+    })
+    for (const end of [-2.2, 2.2]) {
+      const [sx, sz] = place(frontage - 2.5)
+      // The awning's front supports stand on the pavement, so they have to
+      // clear the wall the rest of the shopfront is mounted on.
+      const poleX = sx - Math.sin(heading) * end
+      const poleZ = sz - Math.cos(heading) * end
+      if (buildingAt(poleX, poleZ) || inCarriageway(poleX, poleZ)) continue
+      poles.push({
+        position: [poleX, railY + 1.42, poleZ],
+        scale: [0.06, 2.85, 0.06],
+        rotationY: 0,
+        color: 0x1b1a18,
+        segment,
+      })
+    }
+
+    // The lit window itself — the warm rectangle that makes a shop a shop.
+    const [wx, wz] = place(frontage - 0.15)
+    heads.push({
+      position: [wx, railY + 1.5, wz],
+      scale: [0.12, 2.1, 5.4],
+      rotationY: heading,
+      color: 0xffd9a8,
+      segment,
+    })
+
+    // A planter or a bollard on the kerb side.
+    if (rng() < 0.6) {
+      const [cx, cz] = place(street.half + 1.4)
+      if (!inCarriageway(cx, cz) && !buildingAt(cx, cz)) {
+        clutter.push({
+          position: [cx, railY + 0.45, cz],
+          scale: [0.7, 0.9, 0.7],
+          rotationY: heading,
+          color: pick(rng, [0x2b2f2a, 0x3a3630, 0x24282c]),
+          segment,
+        })
+      }
+    }
+  }
+}
+
+/**
+ * A deterministic stream per tree, so a canopy is the same canopy every load.
+ *
+ * Trees cannot draw from the shared generator: it is consumed in placement
+ * order, and adding one lamppost anywhere upstream would reshuffle every tree
+ * on the route.
+ */
+function rngFor(sectionId: string, index: number, side: number): () => number {
+  let hash = side + 7
+  for (let i = 0; i < sectionId.length; i++) hash = (hash * 31 + sectionId.charCodeAt(i)) >>> 0
+  return makeRng((hash * 2654435761 + index * 40503) >>> 0)
+}
+
+/**
+ * A tree canopy, as a cluster of overlapping spheres.
+ *
+ * Three stacked boxes read as a tree at fifty metres and as a stack of crates
+ * at five. A clump of spheres of different sizes gives a lumpy, cauliflower
+ * outline that holds up at both — and it is the shape the reference art uses
+ * for foliage, which is much closer to a bunch of grapes than to a cone.
+ *
+ * Every blob is one instance of one shared sphere, so a tree costs nothing in
+ * draw calls no matter how many lumps it has.
+ */
+function addCanopy(
+  blobs: Prop[],
+  rng: () => number,
+  x: number,
+  base: number,
+  z: number,
+  size: [number, number, number],
+  color: number,
+  segment: number,
+): void {
+  const [width, height] = size
+  const shape = Math.floor(rng() * 3)
+
+  // Three silhouettes: a broad round crown, a tall narrow one, and a low wide
+  // one. A street of identical trees reads as wallpaper however good the tree.
+  const spread = shape === 1 ? 0.62 : shape === 2 ? 1.15 : 0.88
+  const rise = shape === 1 ? 1.35 : shape === 2 ? 0.72 : 1.0
+  const lumps = 5 + Math.floor(rng() * 4)
+
+  for (let i = 0; i < lumps; i++) {
+    // First lump is the mass; the rest are pushed out around it.
+    const t = i === 0 ? 0 : rng()
+    const angle = rng() * Math.PI * 2
+    const reach = i === 0 ? 0 : (0.2 + t * 0.45) * width * spread
+    const lift = i === 0 ? height * 0.34 : height * (0.16 + rng() * 0.55) * rise
+    const scale = (i === 0 ? 0.92 : 0.42 + rng() * 0.4) * width * spread
+
+    blobs.push({
+      position: [x + Math.cos(angle) * reach, base + lift, z + Math.sin(angle) * reach],
+      scale: [scale, scale * (0.72 + rng() * 0.4), scale],
+      rotationY: rng() * Math.PI,
+      color,
+      segment,
     })
   }
 }
@@ -671,7 +913,7 @@ function frontageSpec(kind: SectionKind): FrontageSpec | null {
   }
 }
 
-interface FurnitureSpec {
+export interface FurnitureSpec {
   spacing: number
   /**
    * Where on the sidewalk this stands.
@@ -703,7 +945,7 @@ interface FurnitureSpec {
   headColor: number
 }
 
-function furnitureSpec(kind: SectionKind): FurnitureSpec | null {
+export function furnitureSpec(kind: SectionKind): FurnitureSpec | null {
   switch (kind) {
     case 'avenue':
       // Chicago's double-globe standards, plus the flagpoles that give the

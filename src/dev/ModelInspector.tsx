@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
 import { buildLandmark, type LandmarkDef } from '@/content/models/landmarks'
+import { PROPS } from '@/content/models/props'
 import { FrameOnce, Gizmo, PartPanel, useOverrides, type GizmoMode } from './PartEditor'
 import { buildModel } from '@/content/models/procedural'
 import { GOLD_COAST } from '@/content/routes/goldcoast'
@@ -167,6 +168,7 @@ type Mode = 'turntable' | 'angles' | 'animation' | 'parts'
 type Entry =
   | { kind: 'subject'; id: string; label: string }
   | { kind: 'landmark'; id: string; label: string; def: LandmarkDef }
+  | { kind: 'prop'; id: string; label: string; build: () => THREE.Object3D }
 
 export function ModelInspector() {
   const entries = useMemo<Entry[]>(() => {
@@ -181,7 +183,13 @@ export function ModelInspector() {
       label: l.name,
       def: l,
     }))
-    return [...subjects, ...landmarks]
+    const props: Entry[] = PROPS.map((p) => ({
+      kind: 'prop',
+      id: p.id,
+      label: p.label,
+      build: p.build,
+    }))
+    return [...subjects, ...props, ...landmarks]
   }, [])
 
   const [selected, setSelected] = useState(entries[0]?.id ?? '')
@@ -200,6 +208,18 @@ export function ModelInspector() {
 
   const built = useMemo(() => {
     if (!entry) return null
+    if (entry.kind === 'prop') {
+      const object = entry.build()
+      const box = new THREE.Box3().setFromObject(object)
+      const size = box.getSize(new THREE.Vector3())
+      return {
+        object,
+        clips: [] as THREE.AnimationClip[],
+        height: size.y,
+        reach: Math.max(size.x, size.y, size.z),
+        parts: countParts(object),
+      }
+    }
     if (entry.kind === 'landmark') {
       const object = buildLandmark({ ...entry.def, position: [0, 0, 0] })
       const box = new THREE.Box3().setFromObject(object)
@@ -337,7 +357,7 @@ export function ModelInspector() {
           <button onClick={() => setSpin((s) => !s)}>{spin ? 'Stop' : 'Spin'}</button>
         )}
 
-        {mode === 'parts' && entry.kind === 'subject' && (
+        {mode === 'parts' && entry.kind !== 'landmark' && (
           <PartPanel
             root={built.object}
             species={entry.id}

@@ -84,6 +84,13 @@ export interface LightingProfile {
   shadowTintStrength: number
   /** Interiors and tunnels have no sun; shadow maps are wasted there. */
   castShadows: boolean
+  /**
+   * How much of this section the fade in from the previous one takes, 0..1.
+   *
+   * Defaults to a third. Long for the sunset over Rush Street, which has to
+   * happen across the block before it or it reads as a light switch.
+   */
+  blendIn?: number
 }
 
 export interface RouteSection {
