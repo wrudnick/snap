@@ -628,10 +628,13 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
 
   // --- neck and head ---
   // The neck spans shoulder to head with no gap, by construction.
+  // A thicker, taller neck than anatomy strictly wants. The head is a box, and
+  // a box rotating about the neck joint sweeps a wedge open above the collar —
+  // so the neck has to be substantial enough to fill it when someone looks up.
   const neckTop = h * NECK_TOP
-  const neckH = neckTop - shoulderY + h * 0.01
+  const neckH = neckTop - shoulderY + h * 0.035
   torsoGroup.add(
-    part('neck', CYL, skin, [0, rel(shoulderY) + neckH / 2 - h * 0.005, 0], [h * 0.032, neckH, h * 0.032]),
+    part('neck', CYL, skin, [0, rel(shoulderY) + neckH / 2 - h * 0.02, 0], [h * 0.046, neckH, h * 0.046]),
   )
 
   // The head carries a painted face from the atlas. This is where the reference
@@ -652,7 +655,10 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   headMesh.scale.set(headW, headH, headW * 1.02)
   headMesh.castShadow = true
 
-  const head = pivot('head', [0, rel(neckTop), 0], headMesh, [0, headY - neckTop, 0])
+  // Pivot sits a little below the neck's top and the head overlaps down onto
+  // it, so a tipped head rotates *into* the neck rather than away from it.
+  const headPivotY = neckTop - h * 0.02
+  const head = pivot('head', [0, rel(headPivotY), 0], headMesh, [0, headY - headPivotY - h * 0.012, 0])
   torsoGroup.add(head)
 
   // Nose: tiny, but it tells you which way a figure is facing at 20 m, which
@@ -716,7 +722,7 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     ]),
 
     new THREE.AnimationClip('gawk', 2.6, [
-      num('head.rotation[x]', [0, 0.7, 1.9, 2.6], [0, -0.62, -0.6, 0]),
+      num('head.rotation[x]', [0, 0.7, 1.9, 2.6], [0, -0.44, -0.42, 0]),
       num('armL.rotation[x]', [0, 0.7, 1.9, 2.6], [0.04, -1.15, -1.2, 0.04]),
       num('armR.rotation[x]', [0, 0.7, 1.9, 2.6], [-0.04, -1.1, -1.15, -0.04]),
       num('torso.rotation[x]', [0, 0.7, 1.9, 2.6], [0, -0.14, -0.13, 0]),

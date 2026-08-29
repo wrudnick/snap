@@ -8,6 +8,9 @@ import { GOLD_COAST } from '@/content/routes/goldcoast'
 import { SUBJECTS } from '@/content/subjects'
 import { DAWN, toonRamp } from '@/render/palette'
 
+import { DopeSheet } from './DopeSheet'
+import { AngleGrid, ANGLES } from './inspectorViews'
+
 /**
  * Model inspector — `?debug=models`.
  *
@@ -70,11 +73,13 @@ function InspectorScene({
   mixer,
   scrub,
   action,
+  mode,
 }: {
   object: THREE.Object3D
   spin: boolean
   height: number
   reach: number
+  mode: Mode
   mixer: THREE.AnimationMixer | null
   /** Null plays normally; a number holds the clip at that fraction of its length. */
   scrub: number | null
@@ -96,7 +101,7 @@ function InspectorScene({
     mixer.update(0)
   })
 
-  return (
+  const lights = (
     <>
       <color attach="background" args={[0x1a1f26]} />
       <hemisphereLight args={[DAWN.skyFill, DAWN.groundFill, 1.4]} />
@@ -111,7 +116,21 @@ function InspectorScene({
       <Turntable object={object} spin={spin} height={height} reach={reach} />
     </>
   )
+
+  // The angle grid takes over rendering, so the scene contents are the same —
+  // only the cameras differ.
+  if (mode === 'angles') {
+    return (
+      <AngleGrid height={height} reach={reach}>
+        {lights}
+      </AngleGrid>
+    )
+  }
+
+  return lights
 }
+
+type Mode = 'turntable' | 'angles' | 'animation'
 
 type Entry =
   | { kind: 'subject'; id: string; label: string }
@@ -138,6 +157,7 @@ export function ModelInspector() {
   const [spin, setSpin] = useState(true)
   const [clip, setClip] = useState<string | null>(null)
   const [scrub, setScrub] = useState<number | null>(null)
+  const [mode, setMode] = useState<Mode>('turntable')
   const actionRef = useRef<THREE.AnimationAction | null>(null)
 
   const entry = entries.find((e) => e.id === selected) ?? entries[0]
@@ -169,6 +189,8 @@ export function ModelInspector() {
     }
   }, [entry, seed])
 
+  const activeClip = built?.clips.find((c) => c.name === (clip ?? built.clips[0]?.name)) ?? null
+
   const mixer = useMemo(() => {
     if (!built || built.clips.length === 0) return null
     return new THREE.AnimationMixer(built.object)
@@ -197,6 +219,12 @@ export function ModelInspector() {
   useEffect(() => {
     setClip(null)
   }, [selected])
+
+  // Entering the keyframe view holds the clip: a dope sheet you can't stop is
+  // useless, because the pose has moved by the time you read the row.
+  useEffect(() => {
+    if (mode === 'animation') setScrub((v) => (v === null ? 0 : v))
+  }, [mode])
 
   if (!entry || !built) return <div className="layer interactive"><div className="screen">No models.</div></div>
 
@@ -258,7 +286,14 @@ export function ModelInspector() {
         )}
 
         <h2 style={{ marginTop: '1.5rem' }}>View</h2>
-        <button onClick={() => setSpin((s) => !s)}>{spin ? 'Stop' : 'Spin'}</button>
+        {(['turntable', 'angles', 'animation'] as const).map((m) => (
+          <button key={m} className={mode === m ? 'primary' : ''} onClick={() => setMode(m)}>
+            {m === 'turntable' ? 'Turntable' : m === 'angles' ? 'All angles' : 'Keyframes'}
+          </button>
+        ))}
+        {mode !== 'angles' && (
+          <button onClick={() => setSpin((s) => !s)}>{spin ? 'Stop' : 'Spin'}</button>
+        )}
 
         <div className="inspector-stats">
           <div>{entry.kind}</div>
@@ -269,22 +304,43 @@ export function ModelInspector() {
         <a className="inspector-back" href="?">← back to the game</a>
       </aside>
 
-      <div className="inspector-view">
-        <Canvas
-          key={`${selected}:${seed}`}
-          dpr={[1, 1.5]}
-          camera={{ fov: 40, near: 0.05, far: 2000 }}
-        >
-          <InspectorScene
-            object={built.object}
-            spin={spin}
-            height={built.height}
-            reach={built.reach}
-            mixer={mixer}
-            scrub={scrub}
-            action={actionRef.current}
+      <div className={`inspector-view ${mode === 'animation' ? 'with-dope' : ''}`}>
+        <div className="inspector-canvas">
+          <Canvas
+            key={`${selected}:${seed}:${mode}`}
+            dpr={[1, 1.5]}
+            camera={{ fov: 40, near: 0.05, far: 2000 }}
+          >
+            <InspectorScene
+              object={built.object}
+              spin={mode === 'angles' ? false : spin}
+              height={built.height}
+              reach={built.reach}
+              mixer={mixer}
+              scrub={scrub}
+              action={actionRef.current}
+              mode={mode}
+            />
+          </Canvas>
+
+          {mode === 'angles' && (
+            <div className="angle-labels">
+              {ANGLES.map((a) => (
+                <div key={a.label} className="angle-label">
+                  {a.label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {mode === 'animation' && activeClip && (
+          <DopeSheet
+            clip={activeClip}
+            time={(scrub ?? 0) * activeClip.duration}
+            onSeek={(seconds) => setScrub(seconds / (activeClip.duration || 1))}
           />
-        </Canvas>
+        )}
       </div>
     </div>
   )

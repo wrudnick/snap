@@ -359,3 +359,114 @@ h2 {
 }
 
 .inspector-view { position: relative; }
+
+/* Six-up angle grid. Labels are HTML over the canvas: the viewports are drawn
+   with scissor rects, and there is no text in a WebGL viewport. */
+.inspector-canvas { position: relative; width: 100%; height: 100%; }
+
+.angle-labels {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  pointer-events: none;
+}
+
+.angle-label {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(232, 230, 227, 0.45);
+  align-self: start;
+  border-left: 1px solid rgba(232, 230, 227, 0.06);
+  border-top: 1px solid rgba(232, 230, 227, 0.06);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Keyframe view: model above, dope sheet below. */
+.inspector-view.with-dope {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-height: 0;
+}
+
+.dope {
+  border-top: 1px solid var(--edge);
+  background: #0b0e12;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 0.6rem 0.9rem 0.9rem;
+  font-size: 0.68rem;
+}
+
+.dope-head {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+.dope-title { font-weight: 600; letter-spacing: 0.05em; }
+.dope-meta { color: var(--dim); font-variant-numeric: tabular-nums; }
+
+.dope-ruler,
+.dope-row {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr 3rem;
+  gap: 0.6rem;
+  align-items: center;
+  height: 1.35rem;
+}
+
+.dope-ruler { margin-bottom: 0.3rem; }
+
+.dope-label {
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  gap: 0.35rem;
+}
+.dope-node { color: var(--ink); }
+.dope-prop { color: var(--dim); }
+
+.dope-track {
+  position: relative;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 2px;
+}
+
+.dope-key {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: rotate(45deg);
+  cursor: pointer;
+}
+.dope-key:hover { background: #fff; }
+.dope-key-shared { background: #7fd18b; width: 10px; height: 10px; margin: -5px 0 0 -5px; }
+
+.dope-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.75);
+  pointer-events: none;
+}
+
+.dope-value {
+  text-align: right;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
