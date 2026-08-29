@@ -125,10 +125,22 @@ describe('route sweep', () => {
     // rather than an axis-aligned overlap. Long boxes here are rotated to the
     // street, so an axis-aligned test calls two consecutive tunnel wall
     // segments a collision purely because the wall runs diagonally.
-    // Poles are excluded: a support passing through the thing it supports is
-    // what a support is. An umbrella's pole goes through the middle of its own
-    // table by design, and flagging that is the test being wrong.
-    const bulky = boxes.filter((b) => Math.min(b.hx, b.hz) > 0.15)
+    // Only things standing on the ground. Two of those occupying one volume is
+    // a bin inside a planter and reads as broken; overlap up in the air is how
+    // the decorative pieces are built — a tree's canopy is three boxes pushed
+    // into each other on purpose, and a support passing through the thing it
+    // supports is what a support is.
+    const bulky = [...buildings, ...clutter]
+      .map((p) => ({
+        cx: p.position[0],
+        cy: p.position[1],
+        cz: p.position[2],
+        hx: p.scale[0] / 2,
+        hy: p.scale[1] / 2,
+        hz: p.scale[2] / 2,
+        rotationY: p.rotationY,
+      }))
+      .filter((b) => Math.min(b.hx, b.hz) > 0.15)
 
     const overlaps: string[] = []
     for (let i = 0; i < bulky.length && overlaps.length < 12; i++) {

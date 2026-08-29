@@ -261,13 +261,31 @@ function buildProps(
             color: furniture.poleColor,
             segment,
           })
-          heads.push({
-            position: [x, y + furniture.poleHeight + furniture.headSize[1] / 2, z],
-            scale: furniture.headSize,
-            rotationY: headingAt(t),
-            color: furniture.headColor,
-            segment,
-          })
+          if (furniture.canopy) {
+            const [cw, ch, cd] = furniture.headSize
+            const base = y + furniture.poleHeight
+            for (const [lift, scale, sway] of [
+              [ch * 0.28, 1.0, 0],
+              [ch * 0.62, 0.78, 0.22],
+              [ch * 0.86, 0.5, -0.16],
+            ] as const) {
+              heads.push({
+                position: [x + sway * cw * 0.3, base + lift, z + sway * cd * 0.2],
+                scale: [cw * scale, ch * 0.5, cd * scale],
+                rotationY: headingAt(t) + sway * 2,
+                color: furniture.headColor,
+                segment,
+              })
+            }
+          } else {
+            heads.push({
+              position: [x, y + furniture.poleHeight + furniture.headSize[1] / 2, z],
+              scale: furniture.headSize,
+              rotationY: headingAt(t),
+              color: furniture.headColor,
+              segment,
+            })
+          }
         }
       }
     }
@@ -551,6 +569,15 @@ interface FurnitureSpec {
   inset?: number
   /** Fallback lateral offset for kinds with no kerb — beach, park, tunnel. */
   offset: number
+  /**
+   * Build the head as a clump of boxes instead of one.
+   *
+   * A single 3.4 m cube on a pole is not a tree, it is a billboard, and a
+   * street lined with them was the most obviously wrong thing in frame. Three
+   * offset boxes of decreasing size read as a canopy from the ground, which is
+   * the only place this game has a camera.
+   */
+  canopy?: boolean
   poleHeight: number
   poleWidth: number
   poleColor: number
@@ -568,10 +595,11 @@ function furnitureSpec(kind: SectionKind): FurnitureSpec | null {
         poleColor: 0x2f3238, headSize: [0.5, 0.5, 0.5], headColor: 0xffe9c0,
       }
     case 'boutique':
-      // Street trees: trunk and canopy through the same instanced pair.
+      // Street trees. Tall bare trunk, canopy well above head height, so you
+      // walk under them rather than into them.
       return {
-        spacing: 12, from: 'kerb', inset: 1.6, offset: 6.6, poleHeight: 3.4, poleWidth: 0.26,
-        poleColor: 0x5a4636, headSize: [3.4, 2.6, 3.4], headColor: 0x5d7a46,
+        spacing: 12, from: 'kerb', inset: 1.6, offset: 6.6, poleHeight: 4.4, poleWidth: 0.22,
+        poleColor: 0x5a4636, headSize: [3.6, 3.4, 3.6], headColor: 0x5d7a46, canopy: true,
       }
     case 'dining':
       // Awnings, against the frontage they belong to.
@@ -581,8 +609,8 @@ function furnitureSpec(kind: SectionKind): FurnitureSpec | null {
       }
     case 'park':
       return {
-        spacing: 9, offset: 5.2, poleHeight: 3.8, poleWidth: 0.3,
-        poleColor: 0x574434, headSize: [4.2, 3.0, 4.2], headColor: 0x557040,
+        spacing: 9, offset: 5.2, poleHeight: 4.6, poleWidth: 0.28,
+        poleColor: 0x574434, headSize: [4.4, 4.0, 4.4], headColor: 0x557040, canopy: true,
       }
     case 'beach':
       return {
