@@ -1,6 +1,6 @@
 import type { SpeciesDef } from '@/game/scoring/types'
 
-import type { SubjectDef } from './types'
+import type { BehaviorDef, SubjectDef } from './types'
 
 /**
  * The subject registry.
@@ -274,6 +274,298 @@ const DOORMAN: SubjectDef = {
   ],
 }
 
+
+// ---------------------------------------------------------------------------
+// Traffic
+// ---------------------------------------------------------------------------
+
+/**
+ * Shared vehicle behaviour.
+ *
+ * A car has no interesting poses of its own — it is parked, moving, or turning
+ * — so every one of them scores the same way and the shot has to be carried by
+ * composition. Which is correct: the reason to photograph a car is what it is
+ * and where it is, not what it is doing.
+ */
+const DRIVING: BehaviorDef[] = [
+  { clip: 'parked', minSeconds: 3.0, maxSeconds: 6.0, weight: 3 },
+  { clip: 'cruise', minSeconds: 3.0, maxSeconds: 5.0, weight: 3 },
+  { clip: 'turn', minSeconds: 1.5, maxSeconds: 2.5, weight: 1 },
+]
+
+const DRIVING_POSES = {
+  parked: { label: 'Parked', value: 0.3 },
+  cruise: { label: 'Cruising', value: 0.6 },
+  turn: { label: 'Pulling away', value: 0.75, peak: [0.3, 0.6] as [number, number], peakBonus: 0.1 },
+}
+
+const SEDAN: SubjectDef = {
+  species: 'sedan',
+  displayName: 'Car',
+  rarity: 1,
+  model: 'vehicle',
+  palette: { body: 0x8e9299, accent: 0x1b1d22 },
+  vehicle: { body: 'sedan', sign: 'none' },
+  scale: 1,
+  fallbackPose: 0.3,
+  idealSize: 0.1,
+  poses: DRIVING_POSES,
+  behaviors: DRIVING,
+}
+
+const SUV: SubjectDef = {
+  species: 'suv',
+  displayName: 'Black SUV',
+  rarity: 1,
+  model: 'vehicle',
+  // The blacked-out Suburban idling outside a Rush Street restaurant is as much
+  // a fixture of this street as the restaurants are.
+  palette: { body: 0x14161a, accent: 0x0d0f12 },
+  vehicle: { body: 'suv', sign: 'none' },
+  scale: 1,
+  fallbackPose: 0.3,
+  idealSize: 0.115,
+  poses: DRIVING_POSES,
+  behaviors: DRIVING,
+}
+
+const RIDESHARE: SubjectDef = {
+  species: 'rideshare',
+  displayName: 'Rideshare',
+  rarity: 2,
+  model: 'vehicle',
+  palette: { body: 0x3c4a63, accent: 0x1b1d22 },
+  vehicle: { body: 'sedan', sign: 'rideshare' },
+  scale: 1,
+  fallbackPose: 0.3,
+  idealSize: 0.1,
+  poses: DRIVING_POSES,
+  behaviors: DRIVING,
+}
+
+const DELIVERY_CAR: SubjectDef = {
+  species: 'delivery-car',
+  displayName: 'Delivery Driver',
+  rarity: 2,
+  model: 'vehicle',
+  palette: { body: 0xb8352f, accent: 0x1b1d22 },
+  vehicle: { body: 'sedan', sign: 'delivery' },
+  scale: 1,
+  fallbackPose: 0.3,
+  idealSize: 0.1,
+  poses: DRIVING_POSES,
+  behaviors: DRIVING,
+}
+
+const POLICE_CAR: SubjectDef = {
+  species: 'police-car',
+  displayName: 'Squad Car',
+  rarity: 2,
+  model: 'vehicle',
+  palette: { body: 0xe8eaec, accent: 0x1b1d22 },
+  vehicle: { body: 'sedan', sign: 'none', lightBar: true, stripe: 0x1b3a6b },
+  scale: 1,
+  fallbackPose: 0.35,
+  idealSize: 0.105,
+  poses: {
+    ...DRIVING_POSES,
+    // The one thing a squad car does that nothing else does.
+    lights: { label: 'Lights on', value: 0.95, peak: [0.1, 0.4], peakBonus: 0.05 },
+  },
+  behaviors: [
+    { clip: 'parked', minSeconds: 3.0, maxSeconds: 5.0, weight: 3 },
+    { clip: 'cruise', minSeconds: 2.5, maxSeconds: 4.0, weight: 2 },
+    { clip: 'lights', minSeconds: 2.5, maxSeconds: 4.5, weight: 2 },
+  ],
+}
+
+const BUS: SubjectDef = {
+  species: 'bus',
+  displayName: 'CTA Bus',
+  rarity: 2,
+  model: 'bus',
+  palette: { body: 0xd9dde2, accent: 0x243044 },
+  scale: 1,
+  fallbackPose: 0.35,
+  // Enormous, so it fills a frame from much further away than a car does.
+  idealSize: 0.2,
+  poses: {
+    parked: { label: 'Standing', value: 0.35 },
+    cruise: { label: 'In service', value: 0.7 },
+    stop: { label: 'Kneeling at a stop', value: 0.9, peak: [0.25, 0.7], peakBonus: 0.05 },
+  },
+  behaviors: [
+    { clip: 'cruise', minSeconds: 3.0, maxSeconds: 5.0, weight: 3 },
+    { clip: 'stop', minSeconds: 3.0, maxSeconds: 4.0, weight: 2 },
+    { clip: 'parked', minSeconds: 2.0, maxSeconds: 4.0, weight: 1 },
+  ],
+}
+
+// ---------------------------------------------------------------------------
+// Riders
+// ---------------------------------------------------------------------------
+
+const CYCLIST: SubjectDef = {
+  species: 'cyclist',
+  displayName: 'Cyclist',
+  rarity: 2,
+  model: 'bicycle',
+  palette: { body: 0x2f3a45, accent: 0x2f7d74 },
+  rider: {
+    height: 1.75,
+    build: 1,
+    skin: SKIN,
+    hair: HAIR,
+    top: [0x2f7d74, 0xd8a53f, 0xc4553f, 0x3f5470],
+    bottom: [0x1f2430, 0x2a2f38],
+    accessories: ['helmet'],
+  },
+  scale: 1,
+  fallbackPose: 0.4,
+  idealSize: 0.075,
+  poses: {
+    idle: { label: 'Waiting at the lights', value: 0.4 },
+    ride: { label: 'Riding', value: 0.7 },
+    sprint: { label: 'Out of the saddle', value: 0.95, peak: [0.2, 0.6], peakBonus: 0.05 },
+  },
+  behaviors: [
+    { clip: 'ride', minSeconds: 3.0, maxSeconds: 6.0, weight: 4 },
+    { clip: 'idle', minSeconds: 2.0, maxSeconds: 4.0, weight: 2 },
+    { clip: 'sprint', minSeconds: 1.5, maxSeconds: 3.0, weight: 1 },
+  ],
+}
+
+const DELIVERY_RIDER: SubjectDef = {
+  species: 'delivery-rider',
+  displayName: 'Delivery Rider',
+  rarity: 2,
+  model: 'bicycle',
+  palette: { body: 0x25282e, accent: 0xd8453f },
+  rider: {
+    height: 1.75,
+    build: 1,
+    skin: SKIN,
+    hair: HAIR,
+    top: [0x2b2f38, 0x1f2933, 0x3a3f4a],
+    bottom: [0x1f2430, 0x2a2f38],
+    accessories: ['helmet', 'bag'],
+  },
+  scale: 1,
+  fallbackPose: 0.4,
+  idealSize: 0.078,
+  poses: {
+    idle: { label: 'Checking the order', value: 0.5 },
+    ride: { label: 'On a delivery', value: 0.75 },
+    sprint: { label: 'Late', value: 0.95, peak: [0.2, 0.6], peakBonus: 0.05 },
+  },
+  behaviors: [
+    { clip: 'ride', minSeconds: 3.0, maxSeconds: 5.0, weight: 4 },
+    { clip: 'sprint', minSeconds: 1.5, maxSeconds: 3.0, weight: 2 },
+    { clip: 'idle', minSeconds: 2.0, maxSeconds: 3.5, weight: 1 },
+  ],
+}
+
+const MOUNTED_POLICE: SubjectDef = {
+  species: 'mounted-police',
+  displayName: 'Mounted Police',
+  rarity: 3,
+  model: 'horse',
+  palette: { body: 0x4a3728, accent: 0x241a12 },
+  rider: {
+    height: 1.8,
+    build: 1.05,
+    skin: SKIN,
+    hair: HAIR,
+    top: [0x22304a, 0x1c2942],
+    bottom: [0x1a1f2b],
+    accessories: ['cap', 'badge'],
+  },
+  scale: 1,
+  fallbackPose: 0.5,
+  idealSize: 0.13,
+  poses: {
+    stand: { label: 'Standing', value: 0.5 },
+    walk: { label: 'On patrol', value: 0.75 },
+    alert: { label: 'Head up', value: 1.0, peak: [0.25, 0.7], peakBonus: 0.08 },
+  },
+  behaviors: [
+    { clip: 'stand', minSeconds: 3.0, maxSeconds: 5.0, weight: 3 },
+    { clip: 'walk', minSeconds: 3.0, maxSeconds: 6.0, weight: 3 },
+    { clip: 'alert', minSeconds: 2.5, maxSeconds: 4.0, weight: 2 },
+  ],
+}
+
+// ---------------------------------------------------------------------------
+// More people
+// ---------------------------------------------------------------------------
+
+const POLICE: SubjectDef = {
+  species: 'police',
+  displayName: 'Police Officer',
+  rarity: 2,
+  model: 'humanoid',
+  palette: { body: 0x22304a, accent: 0xf2e14a },
+  scale: 1,
+  fallbackPose: 0.45,
+  idealSize: 0.05,
+  human: {
+    height: 1.82,
+    build: 1.12,
+    skin: SKIN,
+    hair: HAIR,
+    // A uniform is a uniform: the narrow palette is the point, the way the
+    // doorman's is.
+    top: [0x22304a, 0x1c2942],
+    bottom: [0x1a1f2b, 0x232838],
+    accessories: ['cap', 'badge'],
+  },
+  poses: {
+    idle: { label: 'On the corner', value: 0.45 },
+    walk: { label: 'Walking the beat', value: 0.6 },
+    talk: { label: 'Talking to someone', value: 0.8 },
+    gawk: { label: 'Directing traffic', value: 0.95, peak: [0.3, 0.7], peakBonus: 0.05 },
+  },
+  behaviors: [
+    { clip: 'idle', minSeconds: 3.0, maxSeconds: 6.0, weight: 4 },
+    { clip: 'talk', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
+    { clip: 'gawk', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
+  ],
+}
+
+const HOMELESS: SubjectDef = {
+  species: 'homeless',
+  displayName: 'Rough Sleeper',
+  rarity: 2,
+  model: 'humanoid',
+  palette: { body: 0x6b5f4a, accent: 0x4a4235 },
+  scale: 1,
+  fallbackPose: 0.5,
+  idealSize: 0.052,
+  human: {
+    height: 1.74,
+    build: 1.15,
+    skin: SKIN,
+    hair: HAIR,
+    // Layers, and all of them weathered. Nothing bright, because everything has
+    // been outside for a long time.
+    top: [0x6b5f4a, 0x4a4235, 0x54503f, 0x3f4a4a, 0x5a4a3a],
+    bottom: [0x3a3730, 0x2f3330, 0x453e33],
+    accessories: ['coat', 'bag', 'bedroll'],
+    stoop: 0.18,
+  },
+  poses: {
+    idle: { label: 'Sitting', value: 0.55 },
+    walk: { label: 'Moving on', value: 0.6 },
+    talk: { label: 'Asking', value: 0.8 },
+    gawk: { label: 'Looking up', value: 0.9, peak: [0.3, 0.7], peakBonus: 0.05 },
+  },
+  behaviors: [
+    { clip: 'idle', minSeconds: 4.0, maxSeconds: 8.0, weight: 5 },
+    { clip: 'talk', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
+    { clip: 'gawk', minSeconds: 2.0, maxSeconds: 3.0, weight: 1 },
+  ],
+}
+
 export const SUBJECTS: Record<string, SubjectDef> = {
   pigeon: PIGEON,
   dog: DOG,
@@ -284,6 +576,17 @@ export const SUBJECTS: Record<string, SubjectDef> = {
   'old-man': OLD_MAN,
   escort: ESCORT,
   doorman: DOORMAN,
+  police: POLICE,
+  homeless: HOMELESS,
+  sedan: SEDAN,
+  suv: SUV,
+  rideshare: RIDESHARE,
+  'delivery-car': DELIVERY_CAR,
+  'police-car': POLICE_CAR,
+  bus: BUS,
+  cyclist: CYCLIST,
+  'delivery-rider': DELIVERY_RIDER,
+  'mounted-police': MOUNTED_POLICE,
 }
 
 /** The scoring core only needs the SpeciesDef half of each entry. */

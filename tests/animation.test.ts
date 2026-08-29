@@ -91,10 +91,16 @@ describe('subject animation clips', () => {
         const size = box.getSize(new THREE.Vector3())
         expect(size.y).toBeGreaterThan(0)
 
-        // Vehicles are exempt: a car really is three times longer than it is
-        // tall, so the ratio that catches a stray limb on a creature says
-        // nothing useful about a taxi.
-        if (def.model === 'vehicle') return
+        // Anything with wheels is exempt: a car really is three times longer
+        // than it is tall and a bus is five times, so the ratio that catches a
+        // stray limb on a creature says nothing useful about either. A horse is
+        // long too, but it is a creature and the check earns its place there.
+        if (def.model === 'vehicle' || def.model === 'bus' || def.model === 'bicycle') return
+        if (def.model === 'horse') {
+          expect(size.x).toBeLessThan(size.y * 3)
+          expect(size.z).toBeLessThan(size.y * 3.2)
+          return
+        }
 
         expect(size.x).toBeLessThan(size.y * 3)
         expect(size.z).toBeLessThan(size.y * 3)

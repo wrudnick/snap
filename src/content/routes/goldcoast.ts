@@ -181,7 +181,7 @@ export const GOLD_COAST: RouteDef = {
   ],
 
   seed: 20260826,
-  film: 54,
+  film: 64,
 
   /**
    * Subjects anchored to the rail, not the world.
@@ -328,6 +328,70 @@ export const GOLD_COAST: RouteDef = {
 
     // At the bar. `offset` is metres LEFT of travel and the counter runs down
     // the right, so these sit along it with a couple of staff behind.
+    // — Traffic. Vehicles sit in the carriageway, which with the route on the
+    //   centreline means offsets inside about seven metres; anything wider is
+    //   parked on the pavement. Lanes are roughly ±2.5 and ±5.5. —
+    { id: 'bus-mich-1', species: 'bus', at: { section: 'michigan', u: 0.22, offset: 3.0 }, rotationY: Math.PI, seed: 401 },
+    { id: 'bus-mich-2', species: 'bus', at: { section: 'michigan', u: 0.78, offset: -3.0 }, rotationY: 0, seed: 402 },
+    { id: 'bus-lsd', species: 'bus', at: { section: 'lakeshore', u: 0.55, offset: 3.2 }, rotationY: Math.PI, seed: 403 },
+
+    { id: 'sedan-mich-1', species: 'sedan', at: { section: 'michigan', u: 0.12, offset: -2.6 }, rotationY: 0, seed: 410 },
+    { id: 'sedan-mich-2', species: 'sedan', at: { section: 'michigan', u: 0.44, offset: 5.4 }, rotationY: Math.PI, seed: 411 },
+    { id: 'sedan-mich-3', species: 'sedan', at: { section: 'michigan', u: 0.66, offset: -5.4 }, rotationY: 0, seed: 412 },
+    { id: 'sedan-del-1', species: 'sedan', at: { section: 'delaware', u: 0.30, offset: 2.7 }, rotationY: Math.PI, seed: 413 },
+    { id: 'sedan-del-2', species: 'sedan', at: { section: 'delaware', u: 0.72, offset: -2.7 }, rotationY: 0, seed: 414 },
+    { id: 'sedan-rush-1', species: 'sedan', at: { section: 'rush', u: 0.18, offset: -2.6 }, rotationY: 0, seed: 415 },
+    { id: 'sedan-rush-2', species: 'sedan', at: { section: 'rush', u: 0.66, offset: 2.6 }, rotationY: Math.PI, seed: 416 },
+    { id: 'sedan-lsd', species: 'sedan', at: { section: 'lakeshore', u: 0.30, offset: -3.0 }, rotationY: 0, seed: 417 },
+
+    // Black SUVs idle outside the restaurants, which is most of what parks on
+    // Rush Street after dark.
+    { id: 'suv-rush-1', species: 'suv', at: { section: 'rush', u: 0.36, offset: -6.4 }, rotationY: 0, seed: 420 },
+    { id: 'suv-rush-2', species: 'suv', at: { section: 'rush', u: 0.58, offset: -6.4 }, rotationY: 0, seed: 421 },
+    { id: 'suv-rush-3', species: 'suv', at: { section: 'rush', u: 0.84, offset: 6.4 }, rotationY: Math.PI, seed: 422 },
+    { id: 'suv-mich', species: 'suv', at: { section: 'michigan', u: 0.55, offset: 6.2 }, rotationY: Math.PI, seed: 423 },
+
+    { id: 'uber-mich', species: 'rideshare', at: { section: 'michigan', u: 0.34, offset: -6.2 }, rotationY: 0, seed: 430 },
+    { id: 'uber-rush', species: 'rideshare', at: { section: 'rush', u: 0.47, offset: -6.2 }, rotationY: 0, seed: 431 },
+    { id: 'uber-del', species: 'rideshare', at: { section: 'delaware', u: 0.52, offset: 6.0 }, rotationY: Math.PI, seed: 432 },
+    { id: 'dash-car-mich', species: 'delivery-car', at: { section: 'michigan', u: 0.72, offset: -6.2 }, rotationY: 0, seed: 433 },
+    { id: 'dash-car-rush', species: 'delivery-car', at: { section: 'rush', u: 0.28, offset: 6.2 }, rotationY: Math.PI, seed: 434 },
+
+    { id: 'squad-mich', species: 'police-car', at: { section: 'michigan', u: 0.50, offset: -6.4 }, rotationY: 0, seed: 440 },
+    { id: 'squad-tri', species: 'police-car', at: { section: 'triangle', u: 0.30, offset: -5.6 }, rotationY: 0, seed: 441 },
+    { id: 'squad-lsd', species: 'police-car', at: { section: 'lakeshore', u: 0.72, offset: 5.6 }, rotationY: Math.PI, seed: 442 },
+
+    // — Riders. In the bike lane, which is the outside of the carriageway. —
+    { id: 'cyc-mich-1', species: 'cyclist', at: { section: 'michigan', u: 0.28, offset: -7.2 }, rotationY: 0, seed: 450 },
+    { id: 'cyc-mich-2', species: 'cyclist', at: { section: 'michigan', u: 0.62, offset: 7.2 }, rotationY: Math.PI, seed: 451 },
+    { id: 'cyc-del', species: 'cyclist', at: { section: 'delaware', u: 0.40, offset: -6.8 }, rotationY: 0, seed: 452 },
+    { id: 'cyc-rush', species: 'cyclist', at: { section: 'rush', u: 0.70, offset: -7.0 }, rotationY: 0, seed: 453 },
+    { id: 'cyc-lsd', species: 'cyclist', at: { section: 'lakeshore', u: 0.44, offset: -6.6 }, rotationY: 0, seed: 454 },
+
+    { id: 'dash-bike-mich', species: 'delivery-rider', at: { section: 'michigan', u: 0.40, offset: 7.0 }, rotationY: Math.PI, seed: 460 },
+    { id: 'dash-bike-rush-1', species: 'delivery-rider', at: { section: 'rush', u: 0.24, offset: -7.0 }, rotationY: 0, seed: 461 },
+    { id: 'dash-bike-rush-2', species: 'delivery-rider', at: { section: 'rush', u: 0.78, offset: 7.0 }, rotationY: Math.PI, seed: 462 },
+    { id: 'dash-bike-del', species: 'delivery-rider', at: { section: 'delaware', u: 0.62, offset: 6.8 }, rotationY: Math.PI, seed: 463 },
+
+    // — Police on foot, and the mounted pair the Triangle is known for. —
+    { id: 'cop-mich-1', species: 'police', at: { section: 'michigan', u: 0.20, offset: 9.4 }, rotationY: 1.7, seed: 470 },
+    { id: 'cop-mich-2', species: 'police', at: { section: 'michigan', u: 0.68, offset: -9.6 }, rotationY: -1.5, seed: 471 },
+    { id: 'cop-rush', species: 'police', at: { section: 'rush', u: 0.40, offset: -9.2 }, rotationY: -1.4, seed: 472 },
+    { id: 'cop-tri', species: 'police', at: { section: 'triangle', u: 0.55, offset: 8.8 }, rotationY: 1.6, seed: 473 },
+    { id: 'cop-beach', species: 'police', at: { section: 'beach', u: 0.60, offset: -8.0 }, rotationY: -1.3, seed: 474 },
+
+    { id: 'mounted-tri', species: 'mounted-police', at: { section: 'triangle', u: 0.42, offset: 9.6 }, rotationY: 1.8, seed: 480 },
+    { id: 'mounted-mich', species: 'mounted-police', at: { section: 'michigan', u: 0.86, offset: 10.2 }, rotationY: 1.6, seed: 481 },
+
+    // — Rough sleepers. The underpass and the quieter blocks, against the wall
+    //   rather than in the middle of the pavement. —
+    { id: 'rs-tunnel', species: 'homeless', at: { section: 'underpass', u: 0.62, offset: 3.4 }, rotationY: 1.5, seed: 490 },
+    { id: 'rs-mich-1', species: 'homeless', at: { section: 'michigan', u: 0.36, offset: 11.5 }, rotationY: 1.7, seed: 491 },
+    { id: 'rs-mich-2', species: 'homeless', at: { section: 'michigan', u: 0.76, offset: -11.5 }, rotationY: -1.6, seed: 492 },
+    { id: 'rs-del', species: 'homeless', at: { section: 'delaware', u: 0.24, offset: -10.5 }, rotationY: -1.5, seed: 493 },
+    { id: 'rs-rush', species: 'homeless', at: { section: 'rush', u: 0.56, offset: 10.8 }, rotationY: 1.6, seed: 494 },
+    { id: 'rs-lsd', species: 'homeless', at: { section: 'lakeshore', u: 0.20, offset: 9.8 }, rotationY: 1.5, seed: 495 },
+
     { id: 'old-bar-1', species: 'old-man', at: { section: 'inside', u: 0.60, offset: -2.0 }, rotationY: -1.4, seed: 351 },
     { id: 'esc-bar-1', species: 'escort', at: { section: 'inside', u: 0.63, offset: -2.0 }, rotationY: -1.5, seed: 352 },
     { id: 'old-bar-2', species: 'old-man', at: { section: 'inside', u: 0.74, offset: -2.0 }, rotationY: -1.3, seed: 353 },

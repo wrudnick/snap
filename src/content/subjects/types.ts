@@ -1,7 +1,31 @@
 import type { SpeciesDef } from '@/game/scoring/types'
 
 /** Which procedural placeholder builder to use, until real .glb models land. */
-export type ModelKind = 'bird' | 'quadruped' | 'vehicle' | 'humanoid'
+export type ModelKind =
+  | 'bird'
+  | 'quadruped'
+  | 'vehicle'
+  | 'humanoid'
+  | 'bicycle'
+  | 'horse'
+  | 'bus'
+
+/**
+ * What kind of vehicle, within the one builder.
+ *
+ * A police cruiser, an Uber and a plain sedan are the same shape with different
+ * things on the roof and in the windscreen, so they share a builder and differ
+ * by this rather than by three near-identical copies of the geometry.
+ */
+export interface VehicleSpec {
+  body?: 'sedan' | 'suv'
+  /** Roof light bar, in the two colours it alternates between. */
+  lightBar?: boolean
+  /** What is stuck to the car to say what it is doing. */
+  sign?: 'taxi' | 'rideshare' | 'delivery' | 'none'
+  /** Livery stripe down the side, for a cruiser. */
+  stripe?: number
+}
 
 /**
  * Appearance ranges for a class of person.
@@ -20,7 +44,19 @@ export interface HumanSpec {
   top: number[]
   bottom: number[]
   /** Accessories this class may carry; each is rolled independently. */
-  accessories?: Array<'cap' | 'sunhat' | 'coat' | 'bag' | 'tote' | 'heels' | 'bald'>
+  accessories?: Array<
+    | 'cap'
+    | 'sunhat'
+    | 'coat'
+    | 'bag'
+    | 'tote'
+    | 'heels'
+    | 'bald'
+    | 'helmet'
+    | 'hivis'
+    | 'bedroll'
+    | 'badge'
+  >
   /** How stooped, in radians of forward torso lean. */
   stoop?: number
 }
@@ -50,6 +86,10 @@ export interface SubjectDef extends SpeciesDef {
   palette: { body: number; accent: number }
   /** Required when `model` is 'humanoid'. */
   human?: HumanSpec
+  /** Required when `model` is 'vehicle'; also styles a bicycle's rider. */
+  vehicle?: VehicleSpec
+  /** The person on the bike or the horse. */
+  rider?: HumanSpec
   /** Uniform scale applied to the placeholder model. */
   scale: number
   behaviors: BehaviorDef[]

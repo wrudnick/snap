@@ -16,7 +16,7 @@ import {
 } from './characterAtlas'
 import { outfitFor, OUTFIT_PALETTES } from './outfits'
 import type { HumanSpec, SubjectDef } from '@/content/subjects/types'
-import { makeRng } from '@/lib/rng'
+import { makeRng, pick } from '@/lib/rng'
 import { toonRamp } from '@/render/palette'
 import { disposeToonMaterials, patchToonMaterial, toonMaterial } from '@/render/toonPatch'
 
@@ -388,18 +388,26 @@ function wheelPivot(
 
 function buildVehicle(def: SubjectDef): BuiltModel {
   const { body: c, accent: a } = def.palette
+  const spec = def.vehicle ?? {}
   const g = new THREE.Group()
   const wheel: [number, number, number] = [0.34, 0.14, 0.34]
+
+  // An SUV is the same car standing taller with a squarer back — which is most
+  // of what separates the black Suburbans on Rush from everything else.
+  const suv = spec.body === 'suv'
+  const lift = suv ? 0.16 : 0
+  const cabinH = suv ? 0.78 : 0.52
+  const width = suv ? 1.9 : 1.78
+
   g.add(
     // Body sits above the axle line so the wheels are visible rather than half
     // swallowed, and the cabin is inset from the body to break the slab.
-    part('body', BOX, c, [0, 0.72, 0], [1.78, 0.58, 4.2]),
-    part('hood', BOX, c, [0, 0.86, -1.42], [1.66, 0.3, 1.36]),
-    part('boot', BOX, c, [0, 0.86, 1.5], [1.66, 0.3, 1.2]),
-    part('cabin', BOX, c, [0, 1.16, 0.1], [1.52, 0.52, 1.9]),
-    part('glass', BOX, a, [0, 1.18, -0.86], [1.42, 0.4, 0.1]),
-    part('glassBack', BOX, a, [0, 1.18, 1.06], [1.42, 0.36, 0.1]),
-    part('sign', BOX, a, [0, 1.48, 0.1], [0.66, 0.16, 0.22]),
+    part('body', BOX, c, [0, 0.72 + lift, 0], [width, 0.58 + lift, 4.2]),
+    part('hood', BOX, c, [0, 0.86 + lift, -1.42], [width * 0.93, 0.3, 1.36]),
+    part('boot', BOX, c, [0, 0.86 + lift, 1.5], [width * 0.93, 0.3, suv ? 1.5 : 1.2]),
+    part('cabin', BOX, c, [0, 1.16 + lift + (cabinH - 0.52) / 2, 0.1], [width * 0.85, cabinH, suv ? 2.3 : 1.9]),
+    part('glass', BOX, a, [0, 1.18 + lift, -0.86], [width * 0.8, 0.4, 0.1]),
+    part('glassBack', BOX, a, [0, 1.18 + lift, suv ? 1.26 : 1.06], [width * 0.8, 0.36, 0.1]),
     // Wheels hang off pivots so they roll about X. The cylinder is laid on its
     // side *inside* the pivot, so the animated rotation never composes with the
     // orienting one — which is what made them spin like turntables.
@@ -408,6 +416,36 @@ function buildVehicle(def: SubjectDef): BuiltModel {
     wheelPivot('wheelBL', [-0.95, 0.34, 1.42], wheel, a),
     wheelPivot('wheelBR', [0.95, 0.34, 1.42], wheel, a),
   )
+
+  const roof = 1.44 + lift + (cabinH - 0.52)
+
+  if (spec.sign === 'taxi') {
+    g.add(part('sign', BOX, a, [0, roof + 0.1, 0.1], [0.66, 0.16, 0.22]))
+  } else if (spec.sign === 'rideshare') {
+    // The lit placard in the windscreen, which is the whole visual difference
+    // between an Uber and any other car on the street.
+    g.add(part('placard', BOX, 0xf2f2f2, [0.42, 1.02 + lift, -0.9], [0.34, 0.2, 0.06]))
+  } else if (spec.sign === 'delivery') {
+    g.add(
+      part('bag', BOX, 0xd8453f, [0, roof + 0.24, 0.5], [0.72, 0.5, 0.72]),
+      part('bagStrap', BOX, 0x2b2b2b, [0, roof + 0.02, 0.5], [0.78, 0.06, 0.78]),
+    )
+  }
+
+  if (spec.stripe !== undefined) {
+    g.add(
+      part('stripeL', BOX, spec.stripe, [-width / 2 - 0.01, 0.74 + lift, 0], [0.04, 0.26, 3.4]),
+      part('stripeR', BOX, spec.stripe, [width / 2 + 0.01, 0.74 + lift, 0], [0.04, 0.26, 3.4]),
+    )
+  }
+
+  if (spec.lightBar) {
+    g.add(
+      part('lightBar', BOX, 0x1b1d22, [0, roof + 0.09, -0.1], [1.12, 0.12, 0.26]),
+      part('lightRed', BOX, 0xe03b3b, [-0.32, roof + 0.11, -0.1], [0.34, 0.14, 0.24]),
+      part('lightBlue', BOX, 0x3b6fe0, [0.32, roof + 0.11, -0.1], [0.34, 0.14, 0.24]),
+    )
+  }
 
   // Rolling is rotation about X now that wheels hang off pivots.
   const spin = (path: string, dur: number) =>
@@ -435,11 +473,295 @@ function buildVehicle(def: SubjectDef): BuiltModel {
     ]),
   ]
 
+  if (spec.lightBar) {
+    // Lights alternate by scaling each lamp — there is no emissive channel to
+    // animate on a toon material, and a lamp that visibly swells and shrinks
+    // reads as flashing at the distance a photo is taken from.
+    clips.push(
+      new THREE.AnimationClip('lights', 0.8, [
+        num('lightRed.scale[y]', [0, 0.2, 0.4, 0.6, 0.8], [1, 2.2, 1, 1, 1]),
+        num('lightBlue.scale[y]', [0, 0.2, 0.4, 0.6, 0.8], [1, 1, 1, 2.2, 1]),
+        num('body.position[y]', [0, 0.8], [0.72 + lift, 0.72 + lift]),
+      ]),
+    )
+  }
+
   return { group: g, clips, bounds: boundsOf(g) }
 }
 
 // ---------------------------------------------------------------------------
 
+
+/**
+ * A CTA bus.
+ *
+ * The largest thing on the street by a long way, which is the point of it: a
+ * bus passing gives the avenue a sense of scale nothing else does, and it fills
+ * a frame at a distance where a car is a speck.
+ */
+function buildBus(def: SubjectDef): BuiltModel {
+  const { body: c, accent: a } = def.palette
+  const g = new THREE.Group()
+  const wheel: [number, number, number] = [0.52, 0.22, 0.52]
+  const L = 12.2
+  const W = 2.55
+  const H = 2.05
+
+  g.add(
+    part('body', BOX, c, [0, 1.62, 0], [W, H, L]),
+    // The window band: one dark strip down each side rather than punched
+    // windows, because at the size a bus appears in frame the band is what
+    // reads and the individual panes are noise.
+    part('windowL', BOX, a, [-W / 2 - 0.01, 2.1, 0.2], [0.05, 0.86, L * 0.82]),
+    part('windowR', BOX, a, [W / 2 + 0.01, 2.1, 0.2], [0.05, 0.86, L * 0.82]),
+    part('windscreen', BOX, a, [0, 2.12, -L / 2 - 0.01], [W * 0.86, 1.0, 0.06]),
+    part('rear', BOX, a, [0, 2.06, L / 2 + 0.01], [W * 0.86, 0.8, 0.06]),
+    // Destination blind over the windscreen.
+    part('blind', BOX, 0x1c1f26, [0, 2.78, -L / 2 + 0.06], [1.5, 0.3, 0.1]),
+    part('skirtL', BOX, 0x2b3038, [-W / 2 - 0.01, 0.9, 0], [0.05, 0.62, L * 0.94]),
+    part('skirtR', BOX, 0x2b3038, [W / 2 + 0.01, 0.9, 0], [0.05, 0.62, L * 0.94]),
+    part('roof', BOX, 0xd8dbe0, [0, 2.7, 0.4], [W * 0.86, 0.14, L * 0.7]),
+    wheelPivot('wheelFL', [-1.12, 0.52, -L / 2 + 1.9], wheel, 0x1b1d22),
+    wheelPivot('wheelFR', [1.12, 0.52, -L / 2 + 1.9], wheel, 0x1b1d22),
+    wheelPivot('wheelBL', [-1.12, 0.52, L / 2 - 2.6], wheel, 0x1b1d22),
+    wheelPivot('wheelBR', [1.12, 0.52, L / 2 - 2.6], wheel, 0x1b1d22),
+  )
+
+  const spin = (path: string, dur: number) =>
+    num(path, [0, dur / 2, dur], [0, -Math.PI, -Math.PI * 2])
+
+  const clips = [
+    new THREE.AnimationClip('parked', 4.0, [
+      num('body.position[y]', [0, 2.0, 4.0], [1.62, 1.63, 1.62]),
+    ]),
+    new THREE.AnimationClip('cruise', 1.2, [
+      spin('wheelFL.rotation[x]', 1.2),
+      spin('wheelFR.rotation[x]', 1.2),
+      spin('wheelBL.rotation[x]', 1.2),
+      spin('wheelBR.rotation[x]', 1.2),
+      num('body.position[y]', [0, 0.3, 0.6, 0.9, 1.2], [1.62, 1.64, 1.62, 1.64, 1.62]),
+    ]),
+    // Kneeling at a stop: the front dips, which is a real and very recognisable
+    // thing a CTA bus does.
+    new THREE.AnimationClip('stop', 3.0, [
+      num('body.position[y]', [0, 0.8, 2.2, 3.0], [1.62, 1.5, 1.5, 1.62]),
+      num('body.rotation[x]', [0, 0.8, 2.2, 3.0], [0, 0.02, 0.02, 0]),
+    ]),
+  ]
+
+  return { group: g, clips, bounds: boundsOf(g) }
+}
+
+/**
+ * Someone on a bike — couriers, delivery riders, anyone in the bike lane.
+ *
+ * The rider is built into the bike rather than reusing the humanoid: a person
+ * on a bicycle is folded forward with their knees up, which is a different
+ * shape from a person standing, and pedalling has to drive the legs from the
+ * cranks.
+ */
+function buildBicycle(def: SubjectDef, seed: number): BuiltModel {
+  const { body: c, accent: a } = def.palette
+  const rng = makeRng((seed + 17) * 2654435761)
+  const spec = def.rider
+  const skin = spec ? pick(rng, spec.skin) : 0xc79a72
+  const top = spec ? pick(rng, spec.top) : 0x2f6f8f
+  const bottom = spec ? pick(rng, spec.bottom) : 0x2a2f38
+  const g = new THREE.Group()
+  const wheel: [number, number, number] = [0.66, 0.07, 0.66]
+
+  g.add(
+    wheelPivot('wheelF', [0, 0.33, -0.52], wheel, 0x1b1d22),
+    wheelPivot('wheelB', [0, 0.33, 0.52], wheel, 0x1b1d22),
+    part('frame', BOX, c, [0, 0.6, 0], [0.07, 0.07, 1.02], [0, 0, 0.34]),
+    part('seatTube', BOX, c, [0, 0.68, 0.34], [0.07, 0.42, 0.07]),
+    part('forks', BOX, c, [0, 0.62, -0.5], [0.07, 0.52, 0.07], [0.2, 0, 0]),
+    part('saddle', BOX, 0x1f2126, [0, 0.9, 0.36], [0.12, 0.06, 0.3]),
+    part('bars', BOX, 0x1f2126, [0, 0.92, -0.46], [0.46, 0.05, 0.05]),
+  )
+
+  // Cranks on a pivot so the legs can be hung off them and driven by one track.
+  const cranks = pivot('cranks', [0, 0.34, 0.06], part('crankArm', BOX, a, [0, 0, 0], [0.05, 0.34, 0.05]))
+  cranks.add(
+    part('pedalL', BOX, 0x1f2126, [-0.11, -0.16, 0], [0.1, 0.04, 0.16]),
+    part('pedalR', BOX, 0x1f2126, [0.11, 0.16, 0], [0.1, 0.04, 0.16]),
+  )
+  g.add(cranks)
+
+  /**
+   * Rider, folded over the bars.
+   *
+   * Built around the contact points rather than by eye: hips on the saddle,
+   * hands on the bars, feet on the pedals. The first version placed the torso
+   * by guesswork and it came out sitting behind and above the bike with its
+   * legs ending in mid-air, which is what a person on a bicycle looks like if
+   * you forget the bicycle is holding them up.
+   */
+  const HIP = [0, 0.9, 0.34] as const
+  const torso = pivot(
+    'riderTorso',
+    [HIP[0], HIP[1], HIP[2]],
+    part('torsoBox', BOX, top, [0, 0.23, 0], [0.33, 0.5, 0.22]),
+  )
+  // Leaning far enough forward that the hands reach the bars.
+  torso.rotation.x = 0.72
+  torso.add(
+    part('head', SPHERE, skin, [0, 0.56, -0.04], [0.19, 0.22, 0.19]),
+    // Upper arms hang from the shoulders and run forward to the grips.
+    part('armL', BOX, top, [-0.15, 0.4, -0.2], [0.09, 0.09, 0.44], [0.55, 0, 0]),
+    part('armR', BOX, top, [0.15, 0.4, -0.2], [0.09, 0.09, 0.44], [0.55, 0, 0]),
+  )
+  g.add(torso)
+
+  /** Thigh down from the hip, shin down to the pedal. */
+  const leg = (name: string, x: number) => {
+    const thigh = pivot(
+      name,
+      [x, HIP[1] - 0.04, HIP[2] - 0.04],
+      part(`${name}Thigh`, BOX, bottom, [0, -0.17, 0], [0.12, 0.36, 0.13]),
+    )
+    const shin = pivot(
+      `${name}Shin`,
+      [0, -0.34, 0],
+      part(`${name}ShinBox`, BOX, bottom, [0, -0.16, 0], [0.1, 0.34, 0.11]),
+    )
+    shin.add(part(`${name}Foot`, BOX, 0x1f2126, [0, -0.33, -0.05], [0.1, 0.07, 0.19]))
+    thigh.add(shin)
+    return thigh
+  }
+
+  const thighL = leg('thighL', -0.11)
+  const thighR = leg('thighR', 0.11)
+  g.add(thighL, thighR)
+
+  if (spec?.accessories?.includes('helmet')) {
+    torso.add(part('helmet', SPHERE, a, [0, 0.63, -0.04], [0.22, 0.14, 0.22]))
+  }
+  if (spec?.accessories?.includes('bag')) {
+    // The insulated cube, on the rider's back where it actually rides.
+    torso.add(part('deliveryBag', BOX, a, [0, 0.3, 0.19], [0.34, 0.36, 0.2]))
+  }
+
+  const clips = [
+    new THREE.AnimationClip('idle', 3.0, [
+      num('riderTorso.rotation[x]', [0, 1.5, 3.0], [0.72, 0.67, 0.72]),
+      // Positive swings a leg FORWARD, toward the cranks. Negative reaches out
+      // behind the back wheel, which is where both legs were.
+      num('thighL.rotation[x]', [0, 3.0], [0.62, 0.62]),
+      num('thighR.rotation[x]', [0, 3.0], [0.34, 0.34]),
+      num('thighLShin.rotation[x]', [0, 3.0], [-0.55, -0.55]),
+      num('thighRShin.rotation[x]', [0, 3.0], [-0.3, -0.3]),
+    ]),
+    new THREE.AnimationClip('ride', 0.9, [
+      num('wheelF.rotation[x]', [0, 0.45, 0.9], [0, -Math.PI, -Math.PI * 2]),
+      num('wheelB.rotation[x]', [0, 0.45, 0.9], [0, -Math.PI, -Math.PI * 2]),
+      num('cranks.rotation[x]', [0, 0.45, 0.9], [0, -Math.PI, -Math.PI * 2]),
+      // Thigh and shin move together: the knee closes as the foot comes up and
+      // opens as it goes down, which is the whole read of pedalling.
+      num('thighL.rotation[x]', [0, 0.225, 0.45, 0.675, 0.9], [0.85, 0.55, 0.28, 0.55, 0.85]),
+      num('thighR.rotation[x]', [0, 0.225, 0.45, 0.675, 0.9], [0.28, 0.55, 0.85, 0.55, 0.28]),
+      num('thighLShin.rotation[x]', [0, 0.225, 0.45, 0.675, 0.9], [-0.85, -0.45, -0.15, -0.5, -0.85]),
+      num('thighRShin.rotation[x]', [0, 0.225, 0.45, 0.675, 0.9], [-0.15, -0.5, -0.85, -0.45, -0.15]),
+      num('riderTorso.rotation[z]', [0, 0.225, 0.45, 0.675, 0.9], [0.04, 0, -0.04, 0, 0.04]),
+    ]),
+    // Up out of the saddle, which is the shot worth waiting for.
+    new THREE.AnimationClip('sprint', 0.6, [
+      num('wheelF.rotation[x]', [0, 0.3, 0.6], [0, -Math.PI, -Math.PI * 2]),
+      num('wheelB.rotation[x]', [0, 0.3, 0.6], [0, -Math.PI, -Math.PI * 2]),
+      num('cranks.rotation[x]', [0, 0.3, 0.6], [0, -Math.PI, -Math.PI * 2]),
+      num('riderTorso.rotation[x]', [0, 0.3, 0.6], [0.86, 0.8, 0.86]),
+      num('riderTorso.position[y]', [0, 0.3, 0.6], [1.0, 1.05, 1.0]),
+      num('thighL.rotation[x]', [0, 0.15, 0.3, 0.45, 0.6], [0.95, 0.6, 0.3, 0.6, 0.95]),
+      num('thighR.rotation[x]', [0, 0.15, 0.3, 0.45, 0.6], [0.3, 0.6, 0.95, 0.6, 0.3]),
+      num('thighLShin.rotation[x]', [0, 0.15, 0.3, 0.45, 0.6], [-0.95, -0.5, -0.18, -0.55, -0.95]),
+      num('thighRShin.rotation[x]', [0, 0.15, 0.3, 0.45, 0.6], [-0.18, -0.55, -0.95, -0.5, -0.18]),
+    ]),
+  ]
+
+  return { group: g, clips, bounds: boundsOf(g) }
+}
+
+/**
+ * Mounted police.
+ *
+ * A horse is a quadruped with a very different silhouette — long neck, deep
+ * chest, high back — and the rider has to sit on it rather than beside it, so
+ * the rider hangs off a saddle pivot and moves with the animal.
+ */
+function buildHorse(def: SubjectDef, seed: number): BuiltModel {
+  const { body: c, accent: a } = def.palette
+  const rng = makeRng((seed + 31) * 2654435761)
+  const spec = def.rider
+  const skin = spec ? pick(rng, spec.skin) : 0xb9835c
+  const uniform = spec ? pick(rng, spec.top) : 0x2b3550
+  const g = new THREE.Group()
+
+  const body = new THREE.Group()
+  body.name = 'body'
+  body.position.set(0, 1.42, 0)
+  body.add(
+    part('barrel', BOX, c, [0, 0, 0], [0.62, 0.78, 1.9]),
+    part('chest', BOX, c, [0, 0.04, -0.86], [0.58, 0.7, 0.5]),
+    part('rump', BOX, c, [0, 0.02, 0.92], [0.6, 0.72, 0.42]),
+    part('tail', BOX, a, [0, 0.1, 1.16], [0.12, 0.5, 0.12], [-0.4, 0, 0]),
+  )
+
+  const neck = pivot('neck', [0, 0.24, -1.02], part('neckBox', BOX, c, [0, 0.32, -0.16], [0.32, 0.78, 0.36], [0.45, 0, 0]))
+  const head = pivot('head', [0, 0.62, -0.44], part('headBox', BOX, c, [0, 0, -0.16], [0.26, 0.3, 0.62]))
+  head.add(
+    part('muzzle', BOX, a, [0, -0.06, -0.46], [0.2, 0.2, 0.22]),
+    part('earL', CONE, c, [-0.09, 0.2, 0.06], [0.09, 0.18, 0.09]),
+    part('earR', CONE, c, [0.09, 0.2, 0.06], [0.09, 0.18, 0.09]),
+    part('eyeL', SPHERE, 0x14100c, [-0.13, 0.05, -0.2], [0.06, 0.06, 0.06]),
+    part('eyeR', SPHERE, 0x14100c, [0.13, 0.05, -0.2], [0.06, 0.06, 0.06]),
+  )
+  neck.add(head)
+  body.add(neck)
+
+  const leg = (name: string, x: number, z: number) =>
+    pivot(name, [x, -0.36, z], part(`${name}Box`, BOX, c, [0, -0.4, 0], [0.16, 0.86, 0.16]))
+  body.add(leg('legFL', -0.24, -0.66), leg('legFR', 0.24, -0.66), leg('legBL', -0.24, 0.72), leg('legBR', 0.24, 0.72))
+
+  // The rider sits on the saddle and therefore inside `body`, so everything the
+  // horse does carries them with it.
+  const rider = pivot('rider', [0, 0.5, 0.06], part('riderTorso', BOX, uniform, [0, 0.36, 0], [0.42, 0.62, 0.3]))
+  rider.add(
+    part('riderHead', SPHERE, skin, [0, 0.82, 0], [0.22, 0.25, 0.22]),
+    part('riderCap', BOX, uniform, [0, 0.95, 0], [0.26, 0.1, 0.28]),
+    part('riderArmL', BOX, uniform, [-0.26, 0.4, -0.1], [0.12, 0.12, 0.42], [0.6, 0, 0]),
+    part('riderArmR', BOX, uniform, [0.26, 0.4, -0.1], [0.12, 0.12, 0.42], [0.6, 0, 0]),
+    part('riderLegL', BOX, 0x1f2432, [-0.26, 0.02, 0.02], [0.15, 0.5, 0.18], [0.5, 0, 0]),
+    part('riderLegR', BOX, 0x1f2432, [0.26, 0.02, 0.02], [0.15, 0.5, 0.18], [0.5, 0, 0]),
+    part('riderVest', BOX, 0xf2e14a, [0, 0.4, -0.16], [0.36, 0.4, 0.06]),
+  )
+  body.add(rider)
+  g.add(body)
+
+  const clips = [
+    new THREE.AnimationClip('stand', 4.0, [
+      num('body.position[y]', [0, 2.0, 4.0], [1.42, 1.435, 1.42]),
+      num('neck.rotation[x]', [0, 2.0, 4.0], [0, 0.06, 0]),
+      num('head.rotation[y]', [0, 1.4, 2.8, 4.0], [0, 0.3, -0.25, 0]),
+    ]),
+    new THREE.AnimationClip('walk', 1.6, [
+      num('legFL.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [0.4, 0, -0.4, 0, 0.4]),
+      num('legFR.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [-0.4, 0, 0.4, 0, -0.4]),
+      num('legBL.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [-0.4, 0, 0.4, 0, -0.4]),
+      num('legBR.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [0.4, 0, -0.4, 0, 0.4]),
+      num('body.position[y]', [0, 0.4, 0.8, 1.2, 1.6], [1.42, 1.46, 1.42, 1.46, 1.42]),
+      num('neck.rotation[x]', [0, 0.8, 1.6], [0.04, -0.04, 0.04]),
+    ]),
+    // Head up, ears forward, looking at something — the photograph.
+    new THREE.AnimationClip('alert', 3.0, [
+      num('neck.rotation[x]', [0, 0.7, 2.2, 3.0], [0, -0.34, -0.34, 0]),
+      num('head.rotation[x]', [0, 0.7, 2.2, 3.0], [0, 0.2, 0.2, 0]),
+      num('rider.rotation[x]', [0, 0.7, 2.2, 3.0], [0, -0.08, -0.08, 0]),
+      num('body.position[y]', [0, 3.0], [1.42, 1.42]),
+    ]),
+  ]
+
+  return { group: g, clips, bounds: boundsOf(g) }
+}
 
 // ---------------------------------------------------------------------------
 // Humanoid — tourists, residents, staff
@@ -920,6 +1242,9 @@ const BUILDERS: Record<
   quadruped: buildQuadruped,
   vehicle: buildVehicle,
   humanoid: buildHumanoid,
+  bicycle: buildBicycle,
+  horse: buildHorse,
+  bus: buildBus,
 }
 
 /**
