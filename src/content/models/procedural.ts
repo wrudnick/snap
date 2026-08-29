@@ -36,10 +36,122 @@ import { disposeToonMaterials, patchToonMaterial, toonMaterial } from '@/render/
 
 // One geometry of each primitive, scaled per part. Keeps geometry count flat no
 // matter how many subjects exist.
-const BOX = new THREE.BoxGeometry(1, 1, 1)
-const SPHERE = new THREE.SphereGeometry(0.5, 12, 8)
-const CONE = new THREE.ConeGeometry(0.5, 1, 8)
-const CYL = new THREE.CylinderGeometry(0.5, 0.5, 1, 10)
+/**
+ * A box with its edges cut off.
+ *
+ * Every part in this file was a hard 90-degree box, which is why everything
+ * read as a crate: a right-angled edge catches the rim light in a single hard
+ * line and the ink pass draws it at full strength, so a person came out looking
+ * like stacked packing cases. A chamfer gives each edge a narrow third face
+ * that takes the light at its own angle, and softens the silhouette without
+ * making anything round — which is the register the reference art works in too.
+ *
+ * 44 triangles instead of 12. Irrelevant: the budget in this game is draw
+ * calls, not triangles, and this adds none — every part still shares the one
+ * cached geometry.
+ *
+ * Winding is fixed after the fact rather than reasoned about per face. For a
+ * convex solid centred on the origin, a triangle faces outward exactly when its
+ * normal agrees with its own centroid, so the faces can be emitted in whatever
+ * order reads clearly and corrected in one pass. Getting 44 windings right by
+ * hand is a much worse use of care than checking them.
+ */
+function chamferedBox(bevel: number): THREE.BufferGeometry {
+  const inner = 0.5 - bevel
+  const AXES = [0, 1, 2] as const
+
+  /** A corner, pushed out to the full half-extent along one axis only. */
+  const point = (signs: readonly [number, number, number], axis: number): [number, number, number] => {
+    const p: [number, number, number] = [signs[0] * inner, signs[1] * inner, signs[2] * inner]
+    p[axis] = (signs[axis] ?? 0) * 0.5
+    return p
+  }
+
+  type Vec = [number, number, number]
+  type Tri = [Vec, Vec, Vec]
+  const tris: Tri[] = []
+  const quad = (a: Vec, b: Vec, c: Vec, d: Vec) => {
+    tris.push([a, b, c], [a, c, d])
+  }
+
+  const CORNERS: Array<readonly [number, number, number]> = []
+  for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) CORNERS.push([x, y, z])
+
+  // Six faces, inset by the bevel.
+  for (const axis of AXES) {
+    const [b, c] = AXES.filter((v) => v !== axis) as [number, number]
+    for (const sign of [-1, 1]) {
+      const corner = (sb: number, sc: number) => {
+        const signs: [number, number, number] = [0, 0, 0]
+        signs[axis] = sign
+        signs[b] = sb
+        signs[c] = sc
+        return point(signs, axis)
+      }
+      quad(corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1))
+    }
+  }
+
+  // Twelve edge strips, one between each pair of faces.
+  for (const a of AXES) {
+    for (const b of AXES) {
+      if (b <= a) continue
+      const c = AXES.find((v) => v !== a && v !== b)!
+      for (const sa of [-1, 1]) {
+        for (const sb of [-1, 1]) {
+          const at = (sc: number, axis: number) => {
+            const signs: [number, number, number] = [0, 0, 0]
+            signs[a] = sa
+            signs[b] = sb
+            signs[c] = sc
+            return point(signs, axis)
+          }
+          quad(at(-1, a), at(1, a), at(1, b), at(-1, b))
+        }
+      }
+    }
+  }
+
+  // Eight corner triangles.
+  for (const signs of CORNERS) {
+    tris.push([point(signs, 0), point(signs, 1), point(signs, 2)])
+  }
+
+  const positions: number[] = []
+  for (const tri of tris) {
+    const [a, b, c] = tri
+    // Outward for a convex solid about the origin: the face normal agrees with
+    // the centroid it sits on.
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2]
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2]
+    const nx = uy * vz - uz * vy
+    const ny = uz * vx - ux * vz
+    const nz = ux * vy - uy * vx
+    const cx = (a[0] + b[0] + c[0]) / 3
+    const cy = (a[1] + b[1] + c[1]) / 3
+    const cz = (a[2] + b[2] + c[2]) / 3
+    const ordered: Vec[] = nx * cx + ny * cy + nz * cz >= 0 ? [a, b, c] : [a, c, b]
+    for (const v of ordered) positions.push(v[0], v[1], v[2])
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.computeVertexNormals()
+  return geometry
+}
+
+/**
+ * The shared primitives.
+ *
+ * One cached instance each, so a thousand parts across the street are a
+ * thousand transforms over four geometries. Segment counts are up from the
+ * original 8-12: a sphere at 8 rings is visibly faceted at the size a head
+ * appears in a photograph, and the extra triangles cost nothing that matters.
+ */
+const BOX = chamferedBox(0.07)
+const SPHERE = new THREE.SphereGeometry(0.5, 16, 12)
+const CONE = new THREE.ConeGeometry(0.5, 1, 12)
+const CYL = new THREE.CylinderGeometry(0.5, 0.5, 1, 16)
 
 // Materials are shared per colour — material switches are what draw calls cost.
 // Toon-shaded, and patched for hue-shifted shadow plus rim light.
