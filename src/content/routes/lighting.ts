@@ -35,23 +35,31 @@ export const BEACH_DAWN: LightingProfile = {
  * tunnel is worth having.
  */
 export const TUNNEL: LightingProfile = {
-  sky: 0x1c1714,
-  fogNear: 14,
-  fogFar: 90,
-  key: 0xffb45c,
-  keyIntensity: 1.35,
-  // Sodium light bouncing off tiled walls, not a cave. The first version was
-  // dark enough that the underpass — 169 m, an eighth of the route — was
-  // effectively unviewable: you could not see the walls, let alone photograph
-  // anything in it. A tunnel reads as a tunnel because it is *lit differently*,
-  // not because it is unlit.
-  skyFill: 0x8a6642,
-  groundFill: 0x3a2c22,
-  fillIntensity: 1.5,
-  shadowTint: 0x3a3050,
-  shadowTintStrength: 0.7,
-  // No sun down here; a shadow map would cost a pass to render nothing.
-  castShadows: false,
+  // Daylight, not a dungeon.
+  //
+  // This used to dim the whole scene — dark sky, short fog — which meant the
+  // one thing you can see from inside an underpass, the bright opening at the
+  // far end, came out as brown murk. The sky is the sky whether or not you are
+  // standing under a road.
+  //
+  // The darkness under the deck now comes from the deck: it casts a shadow into
+  // the cut like any other solid thing, so the covered stretch reads as covered
+  // because something is over it, rather than because a global multiplier says
+  // so. That also means the ramps stay properly lit, which is what makes the
+  // covered part read as darker at all.
+  sky: 0xa4c4e2,
+  fogNear: 140,
+  fogFar: 900,
+  key: 0xffdcb4,
+  keyIntensity: 2.0,
+  // A warm bounce off concrete walls close on both sides — the one thing that
+  // should differ down here, and it is a colour shift rather than a dimming.
+  skyFill: 0xa8bcd4,
+  groundFill: 0x8a7a62,
+  fillIntensity: 1.45,
+  shadowTint: 0x64709c,
+  shadowTintStrength: 0.72,
+  castShadows: true,
 }
 
 /** Michigan Avenue. Tall, hard-edged, plenty of sky between the towers. */

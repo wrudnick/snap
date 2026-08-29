@@ -66,6 +66,15 @@ export interface HumanSpec {
     | 'bedroll'
     | 'badge'
   >
+  /**
+   * Hair silhouettes this class may roll, as indexes into the style table in
+   * `buildHumanoid`: 0 cropped, 1 bob, 2 spikes, 3 volume.
+   *
+   * Unconstrained, a businesswoman rolls liberty spikes one time in four. The
+   * point of the styles is variety within what the class would plausibly wear,
+   * so classes that would not wear all four say so.
+   */
+  hairStyles?: number[]
   /** How stooped, in radians of forward torso lean. */
   stoop?: number
 }

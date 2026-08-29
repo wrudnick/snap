@@ -6,7 +6,12 @@ import { CITY, type CityStreet } from './city'
 import { ASPHALT, SIDEWALK } from './environment'
 import { buildingAt, dominantStreet, inCarriageway, lateralClearance } from './footprints'
 import { applyLimits, curveLimits } from './ribbon'
-import { GROUND_PATCHES, type GroundPatch } from './patches'
+import {
+  GROUND_PATCHES,
+  UNDERPASS_HALF,
+  UNDERPASS_PATH,
+  type GroundPatch,
+} from './patches'
 import { carriagewayHalfWidth, streetRank } from './streetWidths'
 
 export { carriagewayHalfWidth }
@@ -531,6 +536,8 @@ export function buildCityGround(): CityGroundResult {
     addPatch(patch, pushVertex, indices, () => positions.length / 3)
   }
 
+  addCutWalls(pushVertex, indices, () => positions.length / 3)
+
   // Ground faces up, always. Rather than get the winding right in four
   // different builders — street strips wind by which way the street bends, and
   // a hand-drawn patch winds however it was drawn — any triangle that came out
@@ -701,7 +708,13 @@ function addPatch(
   }
 }
 
-/** Flip any triangle whose normal points downwards. */
+/**
+ * Flip any triangle whose normal points downwards.
+ *
+ * Skips vertical faces: the retaining walls of the underpass are deliberately
+ * upright, their Y normal is zero, and "make it face up" is meaningless for
+ * them — applying it would flip them at random depending on rounding.
+ */
 function faceUp(positions: number[], indices: number[]): void {
   for (let i = 0; i < indices.length; i += 3) {
     const a = indices[i]! * 3
@@ -713,10 +726,81 @@ function faceUp(positions: number[], indices: number[]): void {
     const vx = positions[c]! - positions[a]!
     const vz = positions[c + 2]! - positions[a + 2]!
 
-    if (uz * vx - ux * vz < 0) {
+    const normalY = uz * vx - ux * vz
+    const spanY =
+      Math.max(positions[a + 1]!, positions[b + 1]!, positions[c + 1]!) -
+      Math.min(positions[a + 1]!, positions[b + 1]!, positions[c + 1]!)
+    if (spanY > 0.5 && Math.abs(normalY) < spanY) continue
+
+    if (normalY < 0) {
       const swap = indices[i + 1]!
       indices[i + 1] = indices[i + 2]!
       indices[i + 2] = swap
     }
+  }
+}
+
+/**
+ * The sides of the underpass cut.
+ *
+ * The floor is five metres down and the ground either side is at grade, and
+ * ground faces up — so from inside the trench there was simply nothing between
+ * the floor and the sky, and you could see straight out through the sides into
+ * the city. A dark tunnel sky hid it; a daylight one does not.
+ *
+ * These are the retaining walls, and they belong to the ground rather than to
+ * the props: a wall built from separate panels leaves gaps at every joint on a
+ * curve, which is exactly what you would see through.
+ */
+function addCutWalls(
+  pushVertex: (
+    x: number,
+    y: number,
+    z: number,
+    lateral: number,
+    along: number,
+    color: number,
+    kind: SurfaceKind,
+  ) => void,
+  indices: number[],
+  vertexCount: () => number,
+): void {
+  const WALL_COLOR = 0x6f6a61
+  const TOP = 0.06
+  let along = 0
+
+  for (let i = 1; i < UNDERPASS_PATH.length; i++) {
+    const [ax, ay, az] = UNDERPASS_PATH[i - 1]!
+    const [bx, by, bz] = UNDERPASS_PATH[i]!
+    const dx = bx - ax
+    const dz = bz - az
+    const length = Math.hypot(dx, dz) || 1
+    const rx = -dz / length
+    const rz = dx / length
+
+    // Nothing to retain where the ramp has climbed back to the street.
+    if (ay > -0.25 && by > -0.25) {
+      along += length
+      continue
+    }
+
+    for (const side of [-1, 1] as const) {
+      const x0 = ax + rx * UNDERPASS_HALF * side
+      const z0 = az + rz * UNDERPASS_HALF * side
+      const x1 = bx + rx * UNDERPASS_HALF * side
+      const z1 = bz + rz * UNDERPASS_HALF * side
+
+      const base = vertexCount()
+      pushVertex(x0, ay, z0, along, 0, WALL_COLOR, SURFACE.concrete)
+      pushVertex(x1, by, z1, along + length, 0, WALL_COLOR, SURFACE.concrete)
+      pushVertex(x1, TOP, z1, along + length, Math.abs(TOP - by), WALL_COLOR, SURFACE.concrete)
+      pushVertex(x0, TOP, z0, along, Math.abs(TOP - ay), WALL_COLOR, SURFACE.concrete)
+
+      // Wound to face into the cut, which is the only side anyone sees.
+      if (side < 0) indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+      else indices.push(base, base + 2, base + 1, base, base + 3, base + 2)
+    }
+
+    along += length
   }
 }

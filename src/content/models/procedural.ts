@@ -153,6 +153,18 @@ const BOX = chamferedBox(0.07)
 const SPHERE = new THREE.SphereGeometry(0.5, 16, 12)
 const CONE = new THREE.ConeGeometry(0.5, 1, 12)
 const CYL = new THREE.CylinderGeometry(0.5, 0.5, 1, 16)
+/**
+ * A tyre.
+ *
+ * Unit outer radius 0.5, so it scales like every other shared geometry here. A
+ * solid cylinder cannot be a bicycle wheel: anything drawn inside it — rim,
+ * hub, spokes — is buried behind the cylinder's own end cap, which is why the
+ * first spoked wheel came out as a plain black disc with a grey dot. The hole
+ * has to be in the geometry.
+ *
+ * Lies in the XY plane; rotate it like any other wheel part.
+ */
+const TORUS = new THREE.TorusGeometry(0.44, 0.06, 6, 18)
 
 // Materials are shared per colour — material switches are what draw calls cost.
 // Toon-shaded, and patched for hue-shifted shadow plus rim light.
@@ -252,6 +264,18 @@ export interface BuiltModel {
 // Bird
 // ---------------------------------------------------------------------------
 
+/**
+ * A lighter or darker version of a colour, for hems, shadow lines and the
+ * secondary bands that keep a single-coloured model from reading as one blob.
+ *
+ * Channels are clamped, so a factor above 1 brightens without wrapping.
+ */
+function shadeOf(color: number, factor: number): number {
+  const ch = (shift: number) =>
+    Math.min(255, Math.round(((color >> shift) & 0xff) * factor))
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0)
+}
+
 function buildBird(def: SubjectDef): BuiltModel {
   const { body: c, accent: a } = def.palette
   const g = new THREE.Group()
@@ -271,12 +295,62 @@ function buildBird(def: SubjectDef): BuiltModel {
     part('bodyShell', SPHERE, c, [0, 0.19, 0], [0.3, 0.26, 0.42]),
     part('head', SPHERE, c, [0, 0.33, -0.15], [0.17, 0.17, 0.17]),
     part('beak', CONE, a, [0, 0.32, -0.24], [0.05, 0.1, 0.05], [-Math.PI / 2, 0, 0]),
-    part('wingL', BOX, a, [-0.13, 0.21, 0.01], [0.03, 0.11, 0.28]),
-    part('wingR', BOX, a, [0.13, 0.21, 0.01], [0.03, 0.11, 0.28]),
-    part('tail', BOX, a, [0, 0.21, 0.24], [0.12, 0.03, 0.18]),
+    /**
+     * Folded wings, as ellipsoids hugging the body.
+     *
+     * These were flat pale boxes in the accent colour, which read as two plates
+     * bolted to the sides of the bird. A folded wing is barely distinguishable
+     * from the body except for its trailing edge and its bars — so it takes the
+     * body colour, curves with the body, and lets the markings do the work.
+     */
+    part('wingL', SPHERE, shadeOf(c, 0.92), [-0.125, 0.2, 0.02], [0.075, 0.17, 0.36], [0, 0.12, 0.1]),
+    part('wingR', SPHERE, shadeOf(c, 0.92), [0.125, 0.2, 0.02], [0.075, 0.17, 0.36], [0, -0.12, -0.1]),
+    // Primaries crossing over the tail, the way a settled pigeon holds them.
+    part('primaryL', BOX, shadeOf(c, 0.7), [-0.06, 0.17, 0.23], [0.05, 0.03, 0.2], [0, -0.16, 0]),
+    part('primaryR', BOX, shadeOf(c, 0.7), [0.06, 0.17, 0.23], [0.05, 0.03, 0.2], [0, 0.16, 0]),
+    part('tail', BOX, shadeOf(c, 0.85), [0, 0.2, 0.26], [0.13, 0.028, 0.2]),
     part('legL', CYL, a, [-0.05, 0.05, 0.02], [0.02, 0.11, 0.02]),
     part('legR', CYL, a, [0.05, 0.05, 0.02], [0.02, 0.11, 0.02]),
   )
+
+  /**
+   * Detail pass.
+   *
+   * A pigeon at photograph distance is a grey blob unless something breaks it
+   * up. The three things that actually read are the eye, the green neck ring,
+   * and the two dark bars across the folded wing — so those are what get built,
+   * rather than a uniform increase in polygon count everywhere.
+   */
+  const eye = 0x1a1613
+  const ring = 0x3f7a63
+  body.add(
+    part('eyeL', SPHERE, eye, [-0.075, 0.355, -0.185], [0.035, 0.035, 0.03]),
+    part('eyeR', SPHERE, eye, [0.075, 0.355, -0.185], [0.035, 0.035, 0.03]),
+    // Iridescent throat. Sat as a collar between head and body, where the two
+    // spheres meet, so it also hides that seam.
+    part('collar', SPHERE, ring, [0, 0.285, -0.105], [0.185, 0.13, 0.2]),
+    part('breast', SPHERE, shadeOf(c, 1.14), [0, 0.235, -0.115], [0.235, 0.17, 0.2]),
+    // Wing bars: the two dark stripes across a folded pigeon wing. They run
+    // across the wing, not along it — as blocks stacked lengthways they read as
+    // a pair of slots cut in the bird's side.
+    part('barL0', BOX, shadeOf(c, 0.6), [-0.128, 0.205, 0.06], [0.045, 0.115, 0.028]),
+    part('barL1', BOX, shadeOf(c, 0.6), [-0.122, 0.2, 0.14], [0.045, 0.095, 0.028]),
+    part('barR0', BOX, shadeOf(c, 0.6), [0.128, 0.205, 0.06], [0.045, 0.115, 0.028]),
+    part('barR1', BOX, shadeOf(c, 0.6), [0.122, 0.2, 0.14], [0.045, 0.095, 0.028]),
+    // Tail feathers splayed rather than one slab, with a dark terminal band.
+    part('tailBand', BOX, shadeOf(c, 0.45), [0, 0.2, 0.345], [0.125, 0.03, 0.05]),
+    part('rump', SPHERE, c, [0, 0.225, 0.185], [0.19, 0.15, 0.16]),
+  )
+  // Toes. Three forward, one back, per foot — tiny, but they stop the legs
+  // ending in a hard cylinder cap on the pavement.
+  for (const [side, x] of [['L', -0.05], ['R', 0.05]] as const) {
+    for (let i = 0; i < 3; i++) {
+      body.add(
+        part(`toe${side}${i}`, BOX, a, [x + (i - 1) * 0.018, 0.008, -0.018], [0.012, 0.012, 0.045]),
+      )
+    }
+    body.add(part(`spur${side}`, BOX, a, [x, 0.008, 0.026], [0.012, 0.012, 0.03]))
+  }
   g.add(body)
 
   const clips = [
@@ -365,6 +439,32 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
     part('earL', BOX, a, [-0.13, 0.97, -0.63], [0.1, 0.15, 0.05]),
     part('earR', BOX, a, [0.13, 0.97, -0.63], [0.1, 0.15, 0.05]),
     part('tail', BOX, a, [0, 0.62, 0.44], [0.1, 0.1, 0.4]),
+  )
+
+  /**
+   * Detail pass.
+   *
+   * The animal was a chain of boxes of one width, so from the side it had no
+   * waist and no shoulder. Haunch and shoulder masses proud of the body give it
+   * an actual profile; the markings break up the flat flank.
+   */
+  body.add(
+    part('shoulderL', BOX, c, [-0.235, 0.56, -0.24], [0.09, 0.3, 0.28]),
+    part('shoulderR', BOX, c, [0.235, 0.56, -0.24], [0.09, 0.3, 0.28]),
+    part('haunchL', BOX, c, [-0.235, 0.5, 0.3], [0.11, 0.34, 0.34]),
+    part('haunchR', BOX, c, [0.235, 0.5, 0.3], [0.11, 0.34, 0.34]),
+    // Belly in a lighter tone, the way most animals are pale underneath.
+    part('belly', BOX, shadeOf(c, 1.25), [0, 0.32, 0.02], [0.36, 0.1, 0.72]),
+    part('bib', BOX, shadeOf(c, 1.25), [0, 0.44, -0.48], [0.22, 0.2, 0.08]),
+    // Ear interiors, a shade in from the edge so a rim of ear remains.
+    part('earInL', BOX, shadeOf(a, 0.68), [-0.13, 0.96, -0.655], [0.055, 0.1, 0.03]),
+    part('earInR', BOX, shadeOf(a, 0.68), [0.13, 0.96, -0.655], [0.055, 0.1, 0.03]),
+    part('brow', BOX, shadeOf(c, 0.82), [0, 0.94, -0.79], [0.34, 0.06, 0.14]),
+    part('tailTip', BOX, shadeOf(a, 1.3), [0, 0.62, 0.62], [0.095, 0.095, 0.1]),
+    // Collar. Reads as a pet rather than a stray, and adds the one saturated
+    // note on an otherwise single-hue animal.
+    part('collar', BOX, 0x9c3a2e, [0, 0.66, -0.53], [0.27, 0.09, 0.19]),
+    part('tag', BOX, 0xd8b24a, [0, 0.575, -0.6], [0.05, 0.06, 0.02]),
   )
 
   // Legs on hip pivots so they swing from the shoulder/haunch rather than about
@@ -462,6 +562,42 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
     ]),
 
     // Front end down, hindquarters up, full extension in the middle.
+    /**
+     * Gone.
+     *
+     * A rat is under the kerb most of the time, and the cheapest honest way to
+     * say so is to put it there: the body drops below the floor and everything
+     * flattens with it, so the animal is genuinely not in the picture rather
+     * than being hidden by some visibility flag the scoring would have to know
+     * about. It scores as a very small, very low subject, which is correct —
+     * you cannot photograph a rat that is under a kerb.
+     */
+    new THREE.AnimationClip('hidden', 3.0, [
+      vec('body.position', [0, 3.0], [0, -1.05, 0, 0, -1.05, 0]),
+      num('legFL.rotation[x]', [0, 3.0], [-1.4, -1.4]),
+      num('legFR.rotation[x]', [0, 3.0], [-1.4, -1.4]),
+      num('legBL.rotation[x]', [0, 3.0], [1.4, 1.4]),
+      num('legBR.rotation[x]', [0, 3.0], [1.4, 1.4]),
+      num('head.rotation[x]', [0, 3.0], [0.9, 0.9]),
+    ]),
+
+    /**
+     * Out and across, fast and low.
+     *
+     * Twice the leg frequency of a trot with the body slung down, which at the
+     * second or so a rat is out for is all the read you get.
+     */
+    new THREE.AnimationClip('scurry', 0.45, [
+      num('legFL.rotation[x]', [0, 0.1125, 0.225, 0.3375, 0.45], [0.8, 0, -0.8, 0, 0.8]),
+      num('legFR.rotation[x]', [0, 0.1125, 0.225, 0.3375, 0.45], [-0.8, 0, 0.8, 0, -0.8]),
+      num('legBL.rotation[x]', [0, 0.1125, 0.225, 0.3375, 0.45], [-0.8, 0, 0.8, 0, -0.8]),
+      num('legBR.rotation[x]', [0, 0.1125, 0.225, 0.3375, 0.45], [0.8, 0, -0.8, 0, 0.8]),
+      vec('body.position', [0, 0.225, 0.45], [0, -0.06, 0, 0, -0.02, 0, 0, -0.06, 0]),
+      num('body.rotation[x]', [0, 0.45], [0.12, 0.12]),
+      num('tail.rotation[y]', [0, 0.15, 0.3, 0.45], [0.4, -0.4, 0.4, 0.4]),
+      num('head.rotation[x]', [0, 0.45], [0.25, 0.25]),
+    ]),
+
     new THREE.AnimationClip('stretch', 2.0, [
       num('body.rotation[x]', [0, 0.5, 1.0, 1.5, 2.0], [0, -0.4, -0.55, -0.4, 0]),
       vec(
@@ -505,7 +641,15 @@ function buildVehicle(def: SubjectDef, seed: number): BuiltModel {
   const rng = makeRng((seed + 91) * 2654435761)
   const c = spec.bodyPalette?.length ? pick(rng, spec.bodyPalette) : def.palette.body
   const g = new THREE.Group()
-  const wheel: [number, number, number] = [0.34, 0.14, 0.34]
+  /**
+   * Wheel diameter, not radius.
+   *
+   * This was 0.34, which on a shared cylinder of unit radius 0.5 is a 0.17 m
+   * wheel — while the pivots sit at y 0.34. Every car in the city was rolling
+   * on castors suspended 17 cm above the road. The two numbers have to agree:
+   * diameter 0.68 puts the contact patch exactly on the ground.
+   */
+  const wheel: [number, number, number] = [0.68, 0.24, 0.68]
 
   // An SUV is the same car standing taller with a squarer back — which is most
   // of what separates the black Suburbans on Rush from everything else.
@@ -526,16 +670,107 @@ function buildVehicle(def: SubjectDef, seed: number): BuiltModel {
     // Wheels hang off pivots so they roll about X. The cylinder is laid on its
     // side *inside* the pivot, so the animated rotation never composes with the
     // orienting one — which is what made them spin like turntables.
-    wheelPivot('wheelFL', [-0.95, 0.34, -1.34], wheel, a),
-    wheelPivot('wheelFR', [0.95, 0.34, -1.34], wheel, a),
-    wheelPivot('wheelBL', [-0.95, 0.34, 1.42], wheel, a),
-    wheelPivot('wheelBR', [0.95, 0.34, 1.42], wheel, a),
+    ...([
+      ['wheelFL', -0.95, -1.34],
+      ['wheelFR', 0.95, -1.34],
+      ['wheelBL', -0.95, 1.42],
+      ['wheelBR', 0.95, 1.42],
+    ] as const).map(([name, x, z]) => {
+      const p = wheelPivot(name, [x, 0.34 + lift * 0.5, z], wheel, 0x17191d)
+      // Hubcap proud of the tyre on the outboard face, so a wheel is not one
+      // flat black disc. Rotating with the pivot, it also makes the spin read.
+      const out = Math.sign(x) * 0.13
+      p.add(
+        part(`${name}Cap`, CYL, 0xa8adb4, [out, 0, 0], [0.38, 0.04, 0.38], [0, 0, Math.PI / 2]),
+        part(`${name}Nut`, CYL, 0x71767d, [out * 1.2, 0, 0], [0.12, 0.04, 0.12], [0, 0, Math.PI / 2]),
+        part(`${name}SpokeA`, BOX, 0x8f959d, [out * 1.1, 0, 0], [0.05, 0.32, 0.05]),
+        part(`${name}SpokeB`, BOX, 0x8f959d, [out * 1.1, 0, 0], [0.05, 0.32, 0.05], [Math.PI / 2, 0, 0]),
+      )
+      return p
+    }),
+  )
+
+  // Arches over each wheel. Without them the wheels look bolted to the outside
+  // of a slab; with them the body has a wing over the wheel, like a car.
+  for (const [name, x, z] of [
+    ['archFL', -1, -1.34], ['archFR', 1, -1.34],
+    ['archBL', -1, 1.42], ['archBR', 1, 1.42],
+  ] as const) {
+    g.add(
+      part(name, BOX, shadeOf(c, 0.86), [x * (width / 2 - 0.02), 0.62 + lift, z], [0.12, 0.34, 1.02]),
+    )
+  }
+
+  /**
+   * The details that make a box a car.
+   *
+   * None of these is individually visible from across the street; together they
+   * are the difference between "vehicle" and "crate on wheels". Lamps and glass
+   * in particular do most of the work, because they are the only parts that are
+   * not body colour and so they are what reads first.
+   */
+  const trim = 0x1b1d22
+  const glassEdge = 0x2b3138
+  g.add(
+    // Headlamps and tail lamps.
+    part('headL', BOX, 0xfff2cf, [-0.6, 0.78 + lift, -2.06], [0.42, 0.16, 0.12]),
+    part('headR', BOX, 0xfff2cf, [0.6, 0.78 + lift, -2.06], [0.42, 0.16, 0.12]),
+    part('tailL', BOX, 0xc23a35, [-0.6, 0.82 + lift, 2.06], [0.42, 0.14, 0.1]),
+    part('tailR', BOX, 0xc23a35, [0.6, 0.82 + lift, 2.06], [0.42, 0.14, 0.1]),
+    // Grille and bumpers.
+    part('grille', BOX, trim, [0, 0.66 + lift, -2.08], [1.1, 0.22, 0.1]),
+    part('bumperF', BOX, trim, [0, 0.5 + lift, -2.04], [width * 0.94, 0.2, 0.2]),
+    part('bumperB', BOX, trim, [0, 0.5 + lift, 2.06], [width * 0.94, 0.2, 0.2]),
+    part('plate', BOX, 0xd8d4c6, [0, 0.52 + lift, 2.14], [0.42, 0.14, 0.06]),
+    // Side glass, which is what separates a cabin from a block.
+    part('glassSideL', BOX, a, [-width * 0.43, 1.2 + lift + (cabinH - 0.52) / 2, 0.1], [0.05, cabinH * 0.62, suv ? 1.9 : 1.5]),
+    part('glassSideR', BOX, a, [width * 0.43, 1.2 + lift + (cabinH - 0.52) / 2, 0.1], [0.05, cabinH * 0.62, suv ? 1.9 : 1.5]),
+    // Pillars either side of the door glass.
+    part('pillarL', BOX, glassEdge, [-width * 0.43, 1.18 + lift, -0.72], [0.07, cabinH * 0.9, 0.1]),
+    part('pillarR', BOX, glassEdge, [width * 0.43, 1.18 + lift, -0.72], [0.07, cabinH * 0.9, 0.1]),
+    // Mirrors.
+    part('mirrorL', BOX, trim, [-width * 0.55, 1.18 + lift, -0.78], [0.2, 0.11, 0.1]),
+    part('mirrorR', BOX, trim, [width * 0.55, 1.18 + lift, -0.78], [0.2, 0.11, 0.1]),
+    // A shut line down each flank, so the side is a door rather than a slab.
+    part('doorL', BOX, trim, [-width / 2 - 0.005, 0.72 + lift, 0.3], [0.02, 0.5, 0.04]),
+    part('doorR', BOX, trim, [width / 2 + 0.005, 0.72 + lift, 0.3], [0.02, 0.5, 0.04]),
+    // Sills, which give the body a shadow line above the wheels.
+    part('sillL', BOX, trim, [-width / 2 - 0.005, 0.5 + lift, 0], [0.03, 0.14, 2.9]),
+    part('sillR', BOX, trim, [width / 2 + 0.005, 0.5 + lift, 0], [0.03, 0.14, 2.9]),
   )
 
   const roof = 1.44 + lift + (cabinH - 0.52)
 
   if (spec.sign === 'taxi') {
-    g.add(part('sign', BOX, a, [0, roof + 0.1, 0.1], [0.66, 0.16, 0.22]))
+    /**
+     * A lit roof sign and a checker band.
+     *
+     * The sign was a dark box the same colour as the glass, sitting on a yellow
+     * roof — invisible at any distance. A taxi is recognised by two things and
+     * these are both of them.
+     */
+    g.add(
+      part('signBase', BOX, 0x2b2e34, [0, roof + 0.04, -0.1], [0.7, 0.08, 0.3]),
+      part('sign', BOX, 0xf7e08a, [0, roof + 0.16, -0.1], [0.78, 0.2, 0.26]),
+      part('signFaceL', BOX, 0x24262b, [-0.32, roof + 0.16, -0.1], [0.08, 0.16, 0.28]),
+      part('signFaceR', BOX, 0x24262b, [0.32, roof + 0.16, -0.1], [0.08, 0.16, 0.28]),
+    )
+    // Chequers along both flanks, alternating light and dark.
+    for (let i = 0; i < 10; i++) {
+      const z = -1.6 + i * 0.36
+      const dark = i % 2 === 0
+      for (const side of [-1, 1]) {
+        g.add(
+          part(`check${side < 0 ? 'L' : 'R'}${i}`, BOX, dark ? 0x24262b : 0xf2f2ee,
+            [side * (width / 2 + 0.012), 0.62 + lift, z], [0.03, 0.18, 0.36]),
+        )
+      }
+    }
+    // Medallion number on the rear quarter.
+    g.add(
+      part('medallionL', BOX, 0x24262b, [-width / 2 - 0.015, 0.92 + lift, 1.5], [0.02, 0.16, 0.42]),
+      part('medallionR', BOX, 0x24262b, [width / 2 + 0.015, 0.92 + lift, 1.5], [0.02, 0.16, 0.42]),
+    )
   } else if (spec.sign === 'rideshare') {
     // The lit placard in the windscreen, which is the whole visual difference
     // between an Uber and any other car on the street.
@@ -642,6 +877,22 @@ function buildBus(def: SubjectDef): BuiltModel {
     wheelPivot('wheelBR', [1.12, 0.52, L / 2 - 2.6], wheel, 0x1b1d22),
   )
 
+  // CTA livery and the fittings that say bus rather than shipping container.
+  g.add(
+    part('stripe', BOX, 0x1d4f8f, [0, 1.12, 0], [W + 0.03, 0.24, L * 0.98]),
+    part('stripeRed', BOX, 0xb8352f, [0, 0.94, 0], [W + 0.03, 0.12, L * 0.98]),
+    part('doorFront', BOX, 0x2b3038, [W / 2 + 0.02, 1.5, -L / 2 + 2.6], [0.06, 1.8, 1.1]),
+    part('doorMid', BOX, 0x2b3038, [W / 2 + 0.02, 1.5, 1.2], [0.06, 1.8, 1.1]),
+    part('headL', BOX, 0xfff2cf, [-0.85, 1.02, -L / 2 - 0.02], [0.4, 0.22, 0.08]),
+    part('headR', BOX, 0xfff2cf, [0.85, 1.02, -L / 2 - 0.02], [0.4, 0.22, 0.08]),
+    part('tailL', BOX, 0xc23a35, [-0.9, 1.1, L / 2 + 0.02], [0.34, 0.3, 0.08]),
+    part('tailR', BOX, 0xc23a35, [0.9, 1.1, L / 2 + 0.02], [0.34, 0.3, 0.08]),
+    part('mirrorL', BOX, 0x1b1d22, [-W / 2 - 0.22, 2.5, -L / 2 + 0.5], [0.3, 0.34, 0.1]),
+    part('mirrorR', BOX, 0x1b1d22, [W / 2 + 0.22, 2.5, -L / 2 + 0.5], [0.3, 0.34, 0.1]),
+    part('vent', BOX, 0xb9bec5, [0, 2.82, -2.2], [1.1, 0.2, 1.6]),
+    part('poleAC', BOX, 0xb9bec5, [0, 2.82, 2.6], [0.9, 0.16, 1.2]),
+  )
+
   const spin = (path: string, dur: number) =>
     num(path, [0, dur / 2, dur], [0, -Math.PI, -Math.PI * 2])
 
@@ -683,16 +934,81 @@ function buildBicycle(def: SubjectDef, seed: number): BuiltModel {
   const top = spec ? pick(rng, spec.top) : 0x2f6f8f
   const bottom = spec ? pick(rng, spec.bottom) : 0x2a2f38
   const g = new THREE.Group()
-  const wheel: [number, number, number] = [0.66, 0.07, 0.66]
+
+  /**
+   * A wheel that isn't a black disc.
+   *
+   * The tyre cylinder alone read as a solid puck — at any distance a bicycle
+   * looked like it was rolling on two coins. A pale rim inside the tyre, a hub,
+   * and six spoke bars give it the see-through quality a wheel needs. The
+   * spokes are children of the pivot so they turn with it.
+   */
+  const spoked = (name: string, at: [number, number, number]) => {
+    // A torus lies in the XY plane, so the thin axis is Z. Passing the old
+    // cylinder's [d, thickness, d] here squashed the wheel into an ellipse.
+    const p = pivot(name, at, part(`${name}Tyre`, TORUS, 0x191b20, [0, 0, 0], [0.66, 0.66, 0.1], [0, Math.PI / 2, 0]))
+    p.add(
+      // The rim sits just inside the tyre and is visible through the hole.
+      part(`${name}Rim`, TORUS, 0x8f959d, [0, 0, 0], [0.55, 0.55, 0.06], [0, Math.PI / 2, 0]),
+      part(`${name}Hub`, CYL, 0x8b9098, [0, 0, 0], [0.1, 0.09, 0.1], [0, 0, Math.PI / 2]),
+    )
+    for (let i = 0; i < 6; i++) {
+      p.add(
+        // Spun about X: the wheel lies in the YZ plane, so rotating about Z
+        // would swing the spokes out of the wheel entirely.
+        part(`${name}Spoke${i}`, BOX, 0x9aa0a8, [0, 0, 0], [0.012, 0.56, 0.012],
+          [(i / 6) * Math.PI, 0, 0]),
+      )
+    }
+    return p
+  }
 
   g.add(
-    wheelPivot('wheelF', [0, 0.33, -0.52], wheel, 0x1b1d22),
-    wheelPivot('wheelB', [0, 0.33, 0.52], wheel, 0x1b1d22),
+    spoked('wheelF', [0, 0.33, -0.52]),
+    spoked('wheelB', [0, 0.33, 0.52]),
     part('frame', BOX, c, [0, 0.6, 0], [0.07, 0.07, 1.02], [0, 0, 0.34]),
     part('seatTube', BOX, c, [0, 0.68, 0.34], [0.07, 0.42, 0.07]),
     part('forks', BOX, c, [0, 0.62, -0.5], [0.07, 0.52, 0.07], [0.2, 0, 0]),
     part('saddle', BOX, 0x1f2126, [0, 0.9, 0.36], [0.12, 0.06, 0.3]),
     part('bars', BOX, 0x1f2126, [0, 0.92, -0.46], [0.46, 0.05, 0.05]),
+  )
+
+  /**
+   * Detail pass.
+   *
+   * A bike read as three sticks and two discs. Chainstays and a down tube give
+   * it the diamond every bicycle actually has, and the small hardware — grips,
+   * lamp, mudguard, bottle — is what makes it look owned rather than diagrammed.
+   */
+  g.add(
+    // Chainstays and seatstays: the rear triangle.
+    part('chainstayL', BOX, c, [-0.055, 0.35, 0.29], [0.04, 0.04, 0.5]),
+    part('chainstayR', BOX, c, [0.055, 0.35, 0.29], [0.04, 0.04, 0.5]),
+    part('seatstayL', BOX, c, [-0.055, 0.6, 0.44], [0.04, 0.5, 0.04], [0.42, 0, 0]),
+    part('seatstayR', BOX, c, [0.055, 0.6, 0.44], [0.04, 0.5, 0.04], [0.42, 0, 0]),
+    part('downTube', BOX, c, [0, 0.52, -0.16], [0.06, 0.06, 0.78], [-0.5, 0, 0]),
+    part('headTube', BOX, c, [0, 0.85, -0.47], [0.06, 0.2, 0.06], [0.2, 0, 0]),
+    // Hub and cranks hardware.
+    part('chainring', CYL, 0x8b8f96, [0.045, 0.34, 0.06], [0.19, 0.02, 0.19], [0, 0, Math.PI / 2]),
+    part('chainTop', BOX, 0x2b2e34, [0.045, 0.42, 0.3], [0.02, 0.02, 0.48]),
+    part('chainBottom', BOX, 0x2b2e34, [0.045, 0.27, 0.3], [0.02, 0.02, 0.48]),
+    part('cassette', CYL, 0x8b8f96, [0.045, 0.33, 0.52], [0.1, 0.03, 0.1], [0, 0, Math.PI / 2]),
+    // Grips, brake levers, and a bell — where the hands go.
+    part('gripL', CYL, 0x25282e, [-0.21, 0.92, -0.46], [0.035, 0.11, 0.035], [0, 0, Math.PI / 2]),
+    part('gripR', CYL, 0x25282e, [0.21, 0.92, -0.46], [0.035, 0.11, 0.035], [0, 0, Math.PI / 2]),
+    part('leverL', BOX, 0x9aa0a8, [-0.17, 0.87, -0.51], [0.025, 0.11, 0.03], [0.4, 0, 0]),
+    part('leverR', BOX, 0x9aa0a8, [0.17, 0.87, -0.51], [0.025, 0.11, 0.03], [0.4, 0, 0]),
+    part('stem', BOX, 0x2b2e34, [0, 0.92, -0.42], [0.05, 0.04, 0.14]),
+    // Lamp and reflector. On a courier bike these are always on, and they are
+    // the brightest thing on the model at dusk.
+    part('lamp', CYL, 0xf0e2b0, [0, 0.78, -0.6], [0.05, 0.06, 0.05], [Math.PI / 2, 0, 0]),
+    part('reflector', BOX, 0xc4442e, [0, 0.72, 0.52], [0.07, 0.05, 0.02]),
+    part('mudguard', BOX, 0x2b2e34, [0, 0.72, 0.52], [0.09, 0.04, 0.34], [0.35, 0, 0]),
+    part('bottle', CYL, 0x3f7a9c, [0, 0.56, 0.06], [0.045, 0.19, 0.045], [0, 0, 0.34]),
+    // Rear rack — what a delivery rider straps the bag to.
+    part('rack', BOX, 0x3a3e45, [0, 0.86, 0.6], [0.24, 0.03, 0.3]),
+    part('rackStayL', BOX, 0x3a3e45, [-0.1, 0.72, 0.62], [0.025, 0.28, 0.025]),
+    part('rackStayR', BOX, 0x3a3e45, [0.1, 0.72, 0.62], [0.025, 0.28, 0.025]),
   )
 
   // Cranks on a pivot so the legs can be hung off them and driven by one track.
@@ -718,13 +1034,38 @@ function buildBicycle(def: SubjectDef, seed: number): BuiltModel {
     [HIP[0], HIP[1], HIP[2]],
     part('torsoBox', BOX, top, [0, 0.23, 0], [0.33, 0.5, 0.22]),
   )
-  // Leaning far enough forward that the hands reach the bars.
-  torso.rotation.x = 0.72
+  /**
+   * Leaning forward over the bars.
+   *
+   * This was `+0.72`, which leans the rider *backwards*: the bike faces −Z, and
+   * a positive rotation about X carries the top of the torso toward +Z. The
+   * result was a cyclist reclining off the back of the saddle with both arms in
+   * the air. Forward lean on this model is negative.
+   */
+  const LEAN = -0.72
+  torso.rotation.x = LEAN
   torso.add(
-    part('head', SPHERE, skin, [0, 0.56, -0.04], [0.19, 0.22, 0.19]),
-    // Upper arms hang from the shoulders and run forward to the grips.
-    part('armL', BOX, top, [-0.15, 0.4, -0.2], [0.09, 0.09, 0.44], [0.55, 0, 0]),
-    part('armR', BOX, top, [0.15, 0.4, -0.2], [0.09, 0.09, 0.44], [0.55, 0, 0]),
+    part('head', SPHERE, skin, [0, 0.62, -0.1], [0.19, 0.22, 0.19]),
+    part('neck', BOX, skin, [0, 0.5, -0.05], [0.11, 0.1, 0.11]),
+    /**
+     * Arms, solved to the grips rather than eyeballed.
+     *
+     * The grips sit at y 0.92, z −0.46 in world space; rotated into the leaning
+     * torso's frame that is roughly (±0.21, 0.54, −0.59), so an arm from the
+     * shoulder at (±0.15, 0.46, 0) is 0.6 long and almost straight down the
+     * −Z axis. Placing it by eye is how the last version ended up detached.
+     */
+    part('armL', BOX, top, [-0.18, 0.5, -0.29], [0.09, 0.09, 0.6], [-0.14, 0, 0]),
+    part('armR', BOX, top, [0.18, 0.5, -0.29], [0.09, 0.09, 0.6], [-0.14, 0, 0]),
+    part('handL', BOX, skin, [-0.21, 0.54, -0.58], [0.09, 0.09, 0.11], [-0.14, 0, 0]),
+    part('handR', BOX, skin, [0.21, 0.54, -0.58], [0.09, 0.09, 0.11], [-0.14, 0, 0]),
+    // Shoulders proud of the torso block, so the arms grow out of something.
+    part('shoulderL', BOX, top, [-0.16, 0.44, 0], [0.1, 0.14, 0.2]),
+    part('shoulderR', BOX, top, [0.16, 0.44, 0], [0.1, 0.14, 0.2]),
+    // A hem at the bottom of the jersey and a collar at the neck: the two
+    // places a garment ends, and the two places the eye looks for one.
+    part('hem', BOX, shadeOf(top, 0.78), [0, 0.0, 0], [0.34, 0.05, 0.23]),
+    part('collar', BOX, shadeOf(top, 1.2), [0, 0.47, -0.02], [0.2, 0.05, 0.18]),
   )
   g.add(torso)
 
@@ -750,7 +1091,14 @@ function buildBicycle(def: SubjectDef, seed: number): BuiltModel {
   g.add(thighL, thighR)
 
   if (spec?.accessories?.includes('helmet')) {
-    torso.add(part('helmet', SPHERE, a, [0, 0.63, -0.04], [0.22, 0.14, 0.22]))
+    // Over the head, not behind it: the head sits at z −0.1 and the helmet was
+    // at −0.04, which put it on the back of the skull.
+    torso.add(
+      part('helmet', SPHERE, a, [0, 0.68, -0.1], [0.23, 0.16, 0.24]),
+      part('helmetVentL', BOX, shadeOf(a, 0.6), [-0.05, 0.73, -0.1], [0.03, 0.05, 0.2]),
+      part('helmetVentR', BOX, shadeOf(a, 0.6), [0.05, 0.73, -0.1], [0.03, 0.05, 0.2]),
+      part('helmetStrap', BOX, 0x24282e, [0, 0.6, -0.1], [0.2, 0.03, 0.2]),
+    )
   }
   if (spec?.accessories?.includes('bag')) {
     // The insulated cube, on the rider's back where it actually rides.
@@ -759,7 +1107,8 @@ function buildBicycle(def: SubjectDef, seed: number): BuiltModel {
 
   const clips = [
     new THREE.AnimationClip('idle', 3.0, [
-      num('riderTorso.rotation[x]', [0, 1.5, 3.0], [0.72, 0.67, 0.72]),
+      // Negative is forward on this model; see LEAN above.
+      num('riderTorso.rotation[x]', [0, 1.5, 3.0], [-0.72, -0.67, -0.72]),
       // Positive swings a leg FORWARD, toward the cranks. Negative reaches out
       // behind the back wheel, which is where both legs were.
       num('thighL.rotation[x]', [0, 3.0], [0.62, 0.62]),
@@ -784,7 +1133,7 @@ function buildBicycle(def: SubjectDef, seed: number): BuiltModel {
       num('wheelF.rotation[x]', [0, 0.3, 0.6], [0, -Math.PI, -Math.PI * 2]),
       num('wheelB.rotation[x]', [0, 0.3, 0.6], [0, -Math.PI, -Math.PI * 2]),
       num('cranks.rotation[x]', [0, 0.3, 0.6], [0, -Math.PI, -Math.PI * 2]),
-      num('riderTorso.rotation[x]', [0, 0.3, 0.6], [0.86, 0.8, 0.86]),
+      num('riderTorso.rotation[x]', [0, 0.3, 0.6], [-0.86, -0.8, -0.86]),
       num('riderTorso.position[y]', [0, 0.3, 0.6], [1.0, 1.05, 1.0]),
       num('thighL.rotation[x]', [0, 0.15, 0.3, 0.45, 0.6], [0.95, 0.6, 0.3, 0.6, 0.95]),
       num('thighR.rotation[x]', [0, 0.15, 0.3, 0.45, 0.6], [0.3, 0.6, 0.95, 0.6, 0.3]),
@@ -821,33 +1170,173 @@ function buildHorse(def: SubjectDef, seed: number): BuiltModel {
     part('tail', BOX, a, [0, 0.1, 1.16], [0.12, 0.5, 0.12], [-0.4, 0, 0]),
   )
 
-  const neck = pivot('neck', [0, 0.24, -1.02], part('neckBox', BOX, c, [0, 0.32, -0.16], [0.32, 0.78, 0.36], [0.45, 0, 0]))
-  const head = pivot('head', [0, 0.62, -0.44], part('headBox', BOX, c, [0, 0, -0.16], [0.26, 0.3, 0.62]))
-  head.add(
-    part('muzzle', BOX, a, [0, -0.06, -0.46], [0.2, 0.2, 0.22]),
-    part('earL', CONE, c, [-0.09, 0.2, 0.06], [0.09, 0.18, 0.09]),
-    part('earR', CONE, c, [0.09, 0.2, 0.06], [0.09, 0.18, 0.09]),
-    part('eyeL', SPHERE, 0x14100c, [-0.13, 0.05, -0.2], [0.06, 0.06, 0.06]),
-    part('eyeR', SPHERE, 0x14100c, [0.13, 0.05, -0.2], [0.06, 0.06, 0.06]),
+  /**
+   * Neck and head, solved along the lines they actually follow.
+   *
+   * The previous version hung a mostly-vertical box off the chest and put the
+   * head pivot up and forward of it, so the two did not meet: from the side the
+   * horse had a horizontal crate for a neck. Here the neck runs from the
+   * withers at body (0, 0.35, −0.95) to the poll at (0, 0.85, −1.50) — a 50°
+   * rise — and the head hangs off the poll at 43° below that.
+   *
+   * Sign convention, the same one the cyclist needed: negative rotation about X
+   * tips the far end of a part toward −Z, which on this model is forward.
+   */
+  const NECK_RISE = -0.833
+  const neck = pivot(
+    'neck',
+    [0, 0.35, -0.95],
+    part('neckBox', BOX, c, [0, 0.25, -0.275], [0.36, 0.86, 0.44], [NECK_RISE, 0, 0]),
   )
+  neck.add(
+    // Crest along the top of the neck and a throat below it, so the neck has a
+    // section rather than being one flat slab.
+    part('crest', BOX, c, [0, 0.34, -0.4], [0.26, 0.4, 0.34], [NECK_RISE, 0, 0]),
+    part('throat', BOX, shadeOf(c, 0.9), [0, 0.16, -0.42], [0.28, 0.36, 0.3], [NECK_RISE, 0, 0]),
+  )
+
+  const HEAD_DROP = -0.75
+  const head = pivot(
+    'head',
+    [0, 0.5, -0.55],
+    part('headBox', BOX, c, [0, 0, 0], [0.3, 0.36, 0.68], [HEAD_DROP, 0, 0]),
+  )
+  head.add(
+    // Cheek, then the muzzle tapering off the front of it.
+    part('cheek', BOX, c, [0, 0.06, 0.14], [0.34, 0.4, 0.34], [HEAD_DROP, 0, 0]),
+    part('muzzle', BOX, a, [0, -0.16, -0.42], [0.24, 0.26, 0.28], [HEAD_DROP, 0, 0]),
+    part('nose', BOX, shadeOf(a, 0.8), [0, -0.24, -0.54], [0.2, 0.16, 0.12], [HEAD_DROP, 0, 0]),
+    part('blaze', BOX, 0xe8e2d6, [0, 0.02, -0.34], [0.09, 0.12, 0.44], [HEAD_DROP, 0, 0]),
+    part('nostrilL', BOX, 0x1d1712, [-0.07, -0.26, -0.56], [0.05, 0.06, 0.04]),
+    part('nostrilR', BOX, 0x1d1712, [0.07, -0.26, -0.56], [0.05, 0.06, 0.04]),
+    part('earL', CONE, c, [-0.1, 0.28, 0.1], [0.1, 0.22, 0.1], [-0.2, 0, -0.12]),
+    part('earR', CONE, c, [0.1, 0.28, 0.1], [0.1, 0.22, 0.1], [-0.2, 0, 0.12]),
+    part('earInL', CONE, shadeOf(a, 0.7), [-0.1, 0.27, 0.075], [0.055, 0.17, 0.055], [-0.2, 0, -0.12]),
+    part('earInR', CONE, shadeOf(a, 0.7), [0.1, 0.27, 0.075], [0.055, 0.17, 0.055], [-0.2, 0, 0.12]),
+    part('eyeL', SPHERE, 0x14100c, [-0.15, 0.1, -0.1], [0.07, 0.07, 0.07]),
+    part('eyeR', SPHERE, 0x14100c, [0.15, 0.1, -0.1], [0.07, 0.07, 0.07]),
+    // Bridle: browband over the forehead, noseband round the muzzle, cheek
+    // straps joining them, and the bit at the corner of the mouth.
+    part('browband', BOX, 0x3a2a1e, [0, 0.16, 0.0], [0.33, 0.05, 0.08], [HEAD_DROP, 0, 0]),
+    part('noseband', BOX, 0x3a2a1e, [0, -0.12, -0.36], [0.27, 0.09, 0.06], [HEAD_DROP, 0, 0]),
+    part('cheekL', BOX, 0x3a2a1e, [-0.16, 0.02, -0.18], [0.03, 0.42, 0.05], [HEAD_DROP, 0, 0]),
+    part('cheekR', BOX, 0x3a2a1e, [0.16, 0.02, -0.18], [0.03, 0.42, 0.05], [HEAD_DROP, 0, 0]),
+    part('bit', CYL, 0x9aa0a8, [0, -0.2, -0.44], [0.02, 0.28, 0.02], [0, 0, Math.PI / 2]),
+    // Forelock, falling forward between the ears.
+    part('forelock', BOX, a, [0, 0.2, -0.06], [0.15, 0.18, 0.14], [-0.5, 0, 0]),
+  )
+
+  /**
+   * Mane, as a run of blocks down the crest.
+   *
+   * Stepped along the neck's own axis so it sits on the crest at every point,
+   * rather than along a guessed line — the first attempt left the topmost block
+   * hanging in the air behind the neck.
+   */
+  for (let i = 0; i < 7; i++) {
+    const t = i / 6
+    neck.add(
+      part(`mane${i}`, BOX, a,
+        [0, 0.06 + t * 0.5, -0.07 - t * 0.55],
+        [0.14, 0.18 + (1 - t) * 0.06, 0.16], [NECK_RISE, 0, 0]),
+    )
+  }
   neck.add(head)
   body.add(neck)
 
-  const leg = (name: string, x: number, z: number) =>
-    pivot(name, [x, -0.36, z], part(`${name}Box`, BOX, c, [0, -0.4, 0], [0.16, 0.86, 0.16]))
+  /**
+   * A leg, with the lower half tapered and a hoof on the end.
+   *
+   * The hoof and fetlock live inside the pivot so they swing with the leg — the
+   * same rule the dog's paws follow. A horse whose feet stayed on the ground
+   * while its legs moved was the first thing wrong with the walk.
+   */
+  const leg = (name: string, x: number, z: number) => {
+    const p = pivot(name, [x, -0.36, z], part(`${name}Box`, BOX, c, [0, -0.4, 0], [0.16, 0.86, 0.16]))
+    p.add(
+      // Upper leg mass, thicker where it meets the body.
+      part(`${name}Thigh`, BOX, c, [0, -0.12, 0], [0.22, 0.36, 0.24]),
+      part(`${name}Cannon`, BOX, shadeOf(c, 0.88), [0, -0.62, 0], [0.12, 0.32, 0.12]),
+      part(`${name}Fetlock`, BOX, shadeOf(c, 0.8), [0, -0.79, 0], [0.14, 0.09, 0.14]),
+      part(`${name}Hoof`, CYL, 0x2e2721, [0, -0.87, 0.01], [0.09, 0.1, 0.09]),
+    )
+    return p
+  }
   body.add(leg('legFL', -0.24, -0.66), leg('legFR', 0.24, -0.66), leg('legBL', -0.24, 0.72), leg('legBR', 0.24, 0.72))
 
   // The rider sits on the saddle and therefore inside `body`, so everything the
   // horse does carries them with it.
-  const rider = pivot('rider', [0, 0.5, 0.06], part('riderTorso', BOX, uniform, [0, 0.36, 0], [0.42, 0.62, 0.3]))
+  /**
+   * Saddle and blanket.
+   *
+   * The rider was sitting straight on the horse's back. Besides looking wrong,
+   * the saddle is what visually joins the two models — without it they read as
+   * two separate objects that happen to intersect.
+   */
+  body.add(
+    part('blanket', BOX, 0x2b3550, [0, 0.4, 0.06], [0.66, 0.06, 0.86]),
+    part('saddle', BOX, 0x5a3a22, [0, 0.45, 0.06], [0.5, 0.12, 0.62]),
+    part('cantle', BOX, 0x4a2f1c, [0, 0.53, 0.34], [0.44, 0.12, 0.1], [-0.3, 0, 0]),
+    part('pommel', BOX, 0x4a2f1c, [0, 0.53, -0.22], [0.36, 0.12, 0.1], [0.3, 0, 0]),
+    part('girth', BOX, 0x3a2a1e, [0, 0.02, 0.06], [0.66, 0.62, 0.1]),
+    part('stirrupL', BOX, 0x9aa0a8, [-0.4, -0.1, 0.12], [0.03, 0.14, 0.11]),
+    part('stirrupR', BOX, 0x9aa0a8, [0.4, -0.1, 0.12], [0.03, 0.14, 0.11]),
+    part('leatherL', BOX, 0x3a2a1e, [-0.4, 0.16, 0.12], [0.03, 0.4, 0.05]),
+    part('leatherR', BOX, 0x3a2a1e, [0.4, 0.16, 0.12], [0.03, 0.4, 0.05]),
+    /**
+     * Reins, solved between their two ends rather than eyeballed.
+     *
+     * The bit sits at body (±0.12, 0.35, −1.70) and the rider's gloves at
+     * (±0.24, 0.76, −0.24), so a rein is 1.52 long, rising 15° back to the
+     * hands, and passes outboard of the neck. The eyeballed version was half
+     * that length and floating a metre in front of the horse's face.
+     */
+    part('reinL', BOX, 0x3a2a1e, [-0.18, 0.555, -0.97], [0.025, 0.025, 1.52], [0.274, 0, 0]),
+    part('reinR', BOX, 0x3a2a1e, [0.18, 0.555, -0.97], [0.025, 0.025, 1.52], [0.274, 0, 0]),
+    /**
+     * Barrel shaping.
+     *
+     * The body was one 0.62-wide box from chest to rump, so the horse had no
+     * shoulder, no belly and no quarters — a plank on four legs. These sit
+     * proud of it at the places a horse is actually widest.
+     */
+    part('shoulderL', BOX, c, [-0.3, 0.02, -0.6], [0.12, 0.62, 0.5]),
+    part('shoulderR', BOX, c, [0.3, 0.02, -0.6], [0.12, 0.62, 0.5]),
+    part('quarterL', BOX, c, [-0.31, 0.0, 0.7], [0.14, 0.66, 0.6]),
+    part('quarterR', BOX, c, [0.31, 0.0, 0.7], [0.14, 0.66, 0.6]),
+    part('belly', BOX, shadeOf(c, 0.86), [0, -0.36, 0.05], [0.56, 0.16, 1.7]),
+    part('withers', BOX, c, [0, 0.36, -0.72], [0.44, 0.2, 0.5]),
+    // Tail dock, so the tail grows out of something.
+    part('dock', BOX, c, [0, 0.16, 1.1], [0.16, 0.16, 0.14]),
+  )
+
+  // Seated *on* the saddle: its top is at body y 0.51, and the torso box runs
+  // from pivot+0.05 upward, so the pivot belongs at 0.46. At 0.62 the rider was
+  // hovering a hand's width above the seat.
+  const rider = pivot('rider', [0, 0.46, 0.06], part('riderTorso', BOX, uniform, [0, 0.36, 0], [0.42, 0.62, 0.3]))
   rider.add(
     part('riderHead', SPHERE, skin, [0, 0.82, 0], [0.22, 0.25, 0.22]),
     part('riderCap', BOX, uniform, [0, 0.95, 0], [0.26, 0.1, 0.28]),
     part('riderArmL', BOX, uniform, [-0.26, 0.4, -0.1], [0.12, 0.12, 0.42], [0.6, 0, 0]),
     part('riderArmR', BOX, uniform, [0.26, 0.4, -0.1], [0.12, 0.12, 0.42], [0.6, 0, 0]),
-    part('riderLegL', BOX, 0x1f2432, [-0.26, 0.02, 0.02], [0.15, 0.5, 0.18], [0.5, 0, 0]),
-    part('riderLegR', BOX, 0x1f2432, [0.26, 0.02, 0.02], [0.15, 0.5, 0.18], [0.5, 0, 0]),
+    // Outboard of the barrel. The barrel is 0.62 wide and the shoulders sit
+    // proud of that, so a thigh at x 0.26 was buried inside the horse.
+    part('riderLegL', BOX, 0x1f2432, [-0.36, 0.06, -0.06], [0.16, 0.46, 0.2], [0.5, 0, 0]),
+    part('riderLegR', BOX, 0x1f2432, [0.36, 0.06, -0.06], [0.16, 0.46, 0.2], [0.5, 0, 0]),
     part('riderVest', BOX, 0xf2e14a, [0, 0.4, -0.16], [0.36, 0.4, 0.06]),
+    // Mounted-unit helmet: a dome with a brim, not a flat cap.
+    part('riderDome', SPHERE, uniform, [0, 0.99, 0], [0.25, 0.2, 0.26]),
+    part('riderBrim', BOX, shadeOf(uniform, 0.6), [0, 0.9, -0.05], [0.31, 0.03, 0.34]),
+    part('riderChinstrap', BOX, 0x2a2622, [0, 0.83, 0], [0.23, 0.04, 0.24]),
+    part('riderBadge', BOX, 0xd8b24a, [-0.13, 0.52, -0.17], [0.07, 0.08, 0.02]),
+    part('riderBelt', BOX, 0x241f1b, [0, 0.1, 0], [0.44, 0.08, 0.32]),
+    part('riderRadio', BOX, 0x1d1f24, [0.2, 0.5, -0.1], [0.06, 0.11, 0.05]),
+    // Riding boots up over the calf, which is what actually distinguishes a
+    // mounted officer's silhouette from a seated one.
+    part('bootL', BOX, 0x1a1714, [-0.38, -0.24, 0.06], [0.17, 0.44, 0.2], [0.1, 0, 0]),
+    part('bootR', BOX, 0x1a1714, [0.38, -0.24, 0.06], [0.17, 0.44, 0.2], [0.1, 0, 0]),
+    part('gloveL', BOX, 0x2a2622, [-0.24, 0.3, -0.3], [0.11, 0.1, 0.13]),
+    part('gloveR', BOX, 0x2a2622, [0.24, 0.3, -0.3], [0.11, 0.1, 0.13]),
   )
   body.add(rider)
   g.add(body)
@@ -926,6 +1415,8 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   const topColor = pickFrom(outfitPalette.top)
   const bottomColor = pickFrom(outfitPalette.bottom)
   const trimColor = pickFrom(outfitPalette.trim)
+  const shirtColor = pickFrom(outfitPalette.shirt)
+
   const shoeColor = 0x241f1b
 
   const h = spec.height * (0.94 + rng() * 0.12)
@@ -1017,15 +1508,28 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   }
 
   // Shoes ride inside the leg pivots so they swing with the foot. Deliberately
-  // oversized — big feet anchor a stylised figure and read at distance.
+  // oversized — big feet anchor a stylised figure and read at distance — and
+  // with a sole, a toe cap and a turn-up at the hem, because a shoe that is one
+  // box is a brick and a trouser leg that ends in nothing is a stick.
   for (const side of ['L', 'R'] as const) {
+    const leg = g.getObjectByName(`leg${side}`) as THREE.Group
     const shoe = new THREE.Mesh(BOX, mat(shoeColor))
-    // Big shoes. They anchor a stylised figure and read from a long way off.
     shoe.scale.set(legW * 1.75, h * 0.05, h * 0.135)
     shoe.position.set(0, -legLen + h * 0.025, -h * 0.03)
     shoe.name = `shoe${side}`
     shoe.castShadow = true
-    ;(g.getObjectByName(`leg${side}`) as THREE.Group).add(shoe)
+    leg.add(shoe)
+
+    leg.add(
+      part(`sole${side}`, BOX, 0x14110e, [0, -legLen + h * 0.004, -h * 0.03], [legW * 1.82, h * 0.016, h * 0.14]),
+      part(`toe${side}`, BOX, shoeColor, [0, -legLen + h * 0.03, -h * 0.088], [legW * 1.6, h * 0.036, h * 0.03]),
+    )
+    if (!outfit.shorts) {
+      leg.add(
+        // A turn-up is the same cloth in shadow, not a contrasting band.
+        part(`hem${side}`, BOX, shadeOf(bottomColor, 0.78), [0, -legLen + h * 0.072, 0], [legW * 1.1, h * 0.026, legW * 1.08]),
+      )
+    }
   }
 
   // --- torso: tapered, shoulders wider than waist ---
@@ -1156,14 +1660,53 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
       outfit.bareArms ? undefined : SLEEVE_ROW, sleeveCol),
   )
 
-  // Hands at the end of each arm, inside the pivot so they swing along.
+  // Hands at the end of each arm, inside the pivot so they swing along, with a
+  // cuff where the sleeve ends. The cuff is what stops an arm reading as one
+  // undifferentiated tube from shoulder to fingertip.
   for (const side of ['L', 'R'] as const) {
+    const arm = torsoGroup.getObjectByName(`arm${side}`) as THREE.Group
     const hand = new THREE.Mesh(BOX, mat(skin))
     hand.scale.set(armW * 1.6, h * 0.062, armW * 1.5)
     hand.position.set(0, -armLen * 0.86 - h * 0.022, 0)
     hand.name = `hand${side}`
     hand.castShadow = true
-    ;(torsoGroup.getObjectByName(`arm${side}`) as THREE.Group).add(hand)
+    arm.add(hand)
+
+    if (!outfit.bareArms) {
+      arm.add(
+        part(
+          `cuff${side}`,
+          BOX,
+          shirtColor,
+          [0, -armLen * 0.86 + h * 0.012, 0],
+          [armW * 1.22, h * 0.028, armW * 1.2],
+        ),
+      )
+    }
+  }
+
+  // A collar and a belt: two thin bands that between them give a torso a top
+  // and a middle. Both are cheap and both read from further away than any
+  // amount of shaping does.
+  torsoGroup.add(
+    part(
+      'collar',
+      BOX,
+      shirtColor,
+      [0, rel(shoulderY) - h * 0.004, 0],
+      [shoulderHalf * 1.92, h * 0.026, torsoDepth * 1.06],
+    ),
+  )
+  if (!outfit.cropped && !outfit.skirt) {
+    torsoGroup.add(
+      part(
+        'belt',
+        BOX,
+        0x1f1a16,
+        [0, rel(hipY) + h * 0.028, 0],
+        [waistHalf * 2.1, h * 0.022, torsoDepth * 1.04],
+      ),
+    )
   }
 
   // --- neck and head ---
@@ -1230,7 +1773,8 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
      */
     // Rolled whether or not it's used, so a hat doesn't shift every later roll
     // and change the person's whole outfit.
-    const style = Math.floor(rng() * 4)
+    const styles = spec.hairStyles ?? [0, 1, 2, 3]
+    const style = styles[Math.floor(rng() * styles.length)]!
 
     if (!hatted) {
       headMesh.add(part('hair', BOX, hairColor, [0, 0.44, 0.029], [1.1, 0.36, 1.09]))

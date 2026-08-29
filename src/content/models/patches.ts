@@ -201,6 +201,7 @@ function ramp(
   path: Array<[number, number, number]>,
   halfWidth: number,
 ): { ring: Array<[number, number]>; heights: number[] } {
+  UNDERPASS_PATH.push(...path)
   const left: Array<[number, number]> = []
   const right: Array<[number, number]> = []
   const leftY: number[] = []
@@ -247,6 +248,12 @@ function ramp(
  * route: all three are places that exist *because* of the route rather than
  * before it, so all three move with it.
  */
+/** Half-width of the cut, shared with the wall builder. */
+export const UNDERPASS_HALF = 5.4
+
+/** The centreline of the cut, floor heights included. */
+export const UNDERPASS_PATH: Array<[number, number, number]> = []
+
 const UNDERPASS = ramp(
   [
     [173, 0.0, -144],
@@ -281,7 +288,7 @@ const UNDERPASS = ramp(
     [27, 0.0, -14],
     [24, 0.0, -5],
   ],
-  5.4,
+  UNDERPASS_HALF,
 )
 
 /**

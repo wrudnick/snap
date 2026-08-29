@@ -494,7 +494,7 @@ function addTunnelRoof(
     if (y + HEADROOM > DECK_Y) continue
     buildings.push({
       position: [x, DECK_Y + THICKNESS / 2, z],
-      scale: [9.5, THICKNESS, 7.5],
+      scale: [13, THICKNESS, 6],
       rotationY: 0,
       color: 0x2e2822,
       segment: Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount)),

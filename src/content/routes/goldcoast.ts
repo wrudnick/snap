@@ -189,7 +189,7 @@ export const GOLD_COAST: RouteDef = {
   ],
 
   seed: 20260826,
-  film: 72,
+  film: 80,
 
   /**
    * Subjects anchored to the rail, not the world.
@@ -436,6 +436,44 @@ export const GOLD_COAST: RouteDef = {
 
     { id: 'mounted-tri', species: 'mounted-police', at: { section: 'triangle', u: 0.42, offset: 9.6 }, rotationY: 1.8, seed: 480 },
     { id: 'mounted-mich', species: 'mounted-police', at: { section: 'michigan', u: 0.86, offset: 10.2 }, rotationY: 1.6, seed: 481 },
+
+    // — Office crowd. Michigan and Delaware are lined with offices above the
+    //   shops, so this is most of who is actually on the pavement at this hour.
+    { id: 'biz-mich-1', species: 'business-man', at: { section: 'michigan', u: 0.09, offset: 9.8 }, rotationY: 1.6, seed: 620 },
+    { id: 'biz-mich-2', species: 'business-woman', at: { section: 'michigan', u: 0.11, offset: 11.4 }, rotationY: 1.7, seed: 621 },
+    { id: 'biz-mich-3', species: 'business-man', at: { section: 'michigan', u: 0.24, offset: -9.6 }, rotationY: -1.5, seed: 622 },
+    { id: 'biz-mich-4', species: 'business-woman', at: { section: 'michigan', u: 0.33, offset: 10.2 }, rotationY: 1.4, seed: 623 },
+    { id: 'biz-mich-5', species: 'business-man', at: { section: 'michigan', u: 0.42, offset: -11.0 }, rotationY: -1.7, seed: 624 },
+    { id: 'biz-mich-6', species: 'business-woman', at: { section: 'michigan', u: 0.51, offset: -9.4 }, rotationY: -1.3, seed: 625 },
+    { id: 'biz-mich-7', species: 'business-man', at: { section: 'michigan', u: 0.63, offset: 9.6 }, rotationY: 1.8, seed: 626 },
+    { id: 'biz-mich-8', species: 'business-woman', at: { section: 'michigan', u: 0.71, offset: 11.2 }, rotationY: 1.5, seed: 627 },
+    { id: 'biz-mich-9', species: 'business-man', at: { section: 'michigan', u: 0.80, offset: -10.4 }, rotationY: -1.6, seed: 628 },
+    { id: 'biz-mich-10', species: 'business-woman', at: { section: 'michigan', u: 0.90, offset: -9.2 }, rotationY: -1.4, seed: 629 },
+
+    { id: 'biz-del-1', species: 'business-woman', at: { section: 'delaware', u: 0.14, offset: 9.6 }, rotationY: 1.6, seed: 630 },
+    { id: 'biz-del-2', species: 'business-man', at: { section: 'delaware', u: 0.27, offset: -9.8 }, rotationY: -1.5, seed: 631 },
+    { id: 'biz-del-3', species: 'business-man', at: { section: 'delaware', u: 0.48, offset: 10.4 }, rotationY: 1.7, seed: 632 },
+    { id: 'biz-del-4', species: 'business-woman', at: { section: 'delaware', u: 0.66, offset: -10.2 }, rotationY: -1.6, seed: 633 },
+    { id: 'biz-del-5', species: 'business-man', at: { section: 'delaware', u: 0.86, offset: 9.4 }, rotationY: 1.4, seed: 634 },
+
+    { id: 'biz-lsd-1', species: 'business-man', at: { section: 'lakeshore', u: 0.28, offset: 8.8 }, rotationY: 1.6, seed: 635 },
+    { id: 'biz-lsd-2', species: 'business-woman', at: { section: 'lakeshore', u: 0.66, offset: -8.6 }, rotationY: -1.5, seed: 636 },
+    { id: 'biz-rush-1', species: 'business-man', at: { section: 'rush', u: 0.19, offset: -9.2 }, rotationY: -1.5, seed: 637 },
+    { id: 'biz-rush-2', species: 'business-woman', at: { section: 'rush', u: 0.64, offset: 9.6 }, rotationY: 1.6, seed: 638 },
+
+    // — Rats. Underpass and alley, at the foot of a wall, which is where you
+    //   see them. Placed in twos and threes so a stretch of kerb is worth
+    //   watching rather than one exact spot. —
+    { id: 'rat-tunnel-1', species: 'rat', at: { section: 'underpass', u: 0.30, offset: 4.4 }, rotationY: 1.4, seed: 601 },
+    { id: 'rat-tunnel-2', species: 'rat', at: { section: 'underpass', u: 0.44, offset: -4.4 }, rotationY: -1.6, seed: 602 },
+    { id: 'rat-tunnel-3', species: 'rat', at: { section: 'underpass', u: 0.52, offset: -4.0 }, rotationY: -1.2, seed: 603 },
+    { id: 'rat-tunnel-4', species: 'rat', at: { section: 'underpass', u: 0.61, offset: 4.2 }, rotationY: 1.8, seed: 604 },
+    { id: 'rat-tunnel-5', species: 'rat', at: { section: 'underpass', u: 0.76, offset: -4.4 }, rotationY: -1.5, seed: 605 },
+
+    { id: 'rat-alley-1', species: 'rat', at: { section: 'alley', u: 0.22, offset: 3.0 }, rotationY: 1.5, seed: 610 },
+    { id: 'rat-alley-2', species: 'rat', at: { section: 'alley', u: 0.38, offset: -3.2 }, rotationY: -1.4, seed: 611 },
+    { id: 'rat-alley-3', species: 'rat', at: { section: 'alley', u: 0.55, offset: 3.2 }, rotationY: 1.7, seed: 612 },
+    { id: 'rat-alley-4', species: 'rat', at: { section: 'alley', u: 0.72, offset: -3.0 }, rotationY: -1.6, seed: 613 },
 
     // — Rough sleepers. The underpass and the quieter blocks, against the wall
     //   rather than in the middle of the pavement. —

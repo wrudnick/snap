@@ -86,6 +86,9 @@ const TAXI: SubjectDef = {
   rarity: 1,
   model: 'vehicle',
   palette: { body: 0xfacc15, accent: 0x111827 },
+  // Without this the vehicle builder saw an empty spec and gave a Chicago cab
+  // no roof sign and no chequers — it was simply a yellow car.
+  vehicle: { sign: 'taxi', bodyPalette: [0xfacc15, 0xf5c518, 0xefb810] },
   scale: 1,
   fallbackPose: 0.3,
   idealSize: 0.10,
@@ -541,6 +544,7 @@ const POLICE: SubjectDef = {
     top: [0x22304a, 0x1c2942],
     bottom: [0x1a1f2b, 0x232838],
     accessories: ['cap', 'badge'],
+    hairStyles: [0, 0, 0, 1],
   },
   poses: {
     idle: { label: 'On the corner', value: 0.45 },
@@ -589,6 +593,111 @@ const HOMELESS: SubjectDef = {
   ],
 }
 
+const BUSINESS_MAN: SubjectDef = {
+  species: 'business-man',
+  displayName: 'Businessman',
+  rarity: 1,
+  model: 'humanoid',
+  palette: { body: 0x2b3040, accent: 0x8a939f },
+  scale: 1,
+  fallbackPose: 0.4,
+  idealSize: 0.048,
+  human: {
+    height: 1.81,
+    build: 1.06,
+    skin: SKIN,
+    hair: HAIR,
+    // Charcoal, navy, and the two greys everyone owns.
+    top: [0x2b3040, 0x353a45, 0x1f2530, 0x474d58],
+    bottom: [0x23272f, 0x2f333c, 0x1a1d24],
+    accessories: ['bag', 'coat'],
+    hairStyles: [0, 0, 1, 3],
+  },
+  poses: {
+    idle: { label: 'Waiting', value: 0.4 },
+    walk: { label: 'Walking', value: 0.55 },
+    talk: { label: 'On the phone', value: 0.8 },
+    gawk: { label: 'Hailing a cab', value: 0.95, peak: [0.3, 0.7], peakBonus: 0.05 },
+  },
+  behaviors: [
+    { clip: 'walk', minSeconds: 3.0, maxSeconds: 6.0, weight: 4 },
+    { clip: 'talk', minSeconds: 2.5, maxSeconds: 4.5, weight: 3 },
+    { clip: 'idle', minSeconds: 2.0, maxSeconds: 4.0, weight: 2 },
+    { clip: 'gawk', minSeconds: 1.8, maxSeconds: 3.0, weight: 1 },
+  ],
+}
+
+const BUSINESS_WOMAN: SubjectDef = {
+  species: 'business-woman',
+  displayName: 'Businesswoman',
+  rarity: 1,
+  model: 'humanoid',
+  palette: { body: 0x33384a, accent: 0x9aa3af },
+  scale: 1,
+  fallbackPose: 0.4,
+  idealSize: 0.046,
+  human: {
+    height: 1.7,
+    build: 0.95,
+    skin: SKIN,
+    hair: HAIR,
+    top: [0x33384a, 0x2b3040, 0x4a4550, 0x3d4250, 0x5a4a52],
+    bottom: [0x23272f, 0x2f333c, 0x3a3038],
+    accessories: ['tote', 'heels', 'coat'],
+    hairStyles: [0, 1, 1, 3],
+  },
+  poses: {
+    idle: { label: 'Waiting', value: 0.4 },
+    walk: { label: 'Walking', value: 0.55 },
+    talk: { label: 'On the phone', value: 0.8 },
+    gawk: { label: 'Hailing a cab', value: 0.95, peak: [0.3, 0.7], peakBonus: 0.05 },
+  },
+  behaviors: [
+    { clip: 'walk', minSeconds: 3.0, maxSeconds: 6.0, weight: 4 },
+    { clip: 'talk', minSeconds: 2.5, maxSeconds: 4.5, weight: 3 },
+    { clip: 'idle', minSeconds: 2.0, maxSeconds: 4.0, weight: 2 },
+    { clip: 'gawk', minSeconds: 1.8, maxSeconds: 3.0, weight: 1 },
+  ],
+}
+
+/**
+ * Rats.
+ *
+ * The one subject that is genuinely hard to photograph, and deliberately so.
+ * Everything else on this route stands still long enough to be framed; a rat is
+ * out for a second and a half and gone, so it is the only thing here where the
+ * shot depends on being ready rather than on being patient.
+ *
+ * That is expressed entirely in the behaviour timings — `hidden` is a real clip
+ * holding the animal flat and still under the kerb, so the model is always
+ * there and the scoring never has to know about visibility. It just scores a
+ * very small, very low subject when it is tucked away.
+ */
+const RAT: SubjectDef = {
+  species: 'rat',
+  displayName: 'Rat',
+  rarity: 3,
+  model: 'quadruped',
+  palette: { body: 0x4a4038, accent: 0x2b2520 },
+  // A rat is about a fifth of the dog this shares a builder with.
+  scale: 0.26,
+  fallbackPose: 0.2,
+  // Tiny, so filling a useful part of the frame means being very close or
+  // zoomed all the way in.
+  idealSize: 0.012,
+  poses: {
+    hidden: { label: 'Gone', value: 0.05 },
+    scurry: { label: 'Scurrying', value: 0.95, peak: [0.2, 0.8], peakBonus: 0.05 },
+    sniff: { label: 'Out in the open', value: 1.0, peak: [0.25, 0.75], peakBonus: 0.05 },
+  },
+  behaviors: [
+    // Out of sight most of the time, and never for long when it isn't.
+    { clip: 'hidden', minSeconds: 5.0, maxSeconds: 11.0, weight: 7 },
+    { clip: 'scurry', minSeconds: 1.1, maxSeconds: 1.8, weight: 3 },
+    { clip: 'sniff', minSeconds: 0.9, maxSeconds: 1.6, weight: 2 },
+  ],
+}
+
 export const SUBJECTS: Record<string, SubjectDef> = {
   pigeon: PIGEON,
   dog: DOG,
@@ -610,6 +719,9 @@ export const SUBJECTS: Record<string, SubjectDef> = {
   cyclist: CYCLIST,
   'delivery-rider': DELIVERY_RIDER,
   'mounted-police': MOUNTED_POLICE,
+  rat: RAT,
+  'business-man': BUSINESS_MAN,
+  'business-woman': BUSINESS_WOMAN,
 }
 
 /** The scoring core only needs the SpeciesDef half of each entry. */

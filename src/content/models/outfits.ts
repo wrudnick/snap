@@ -98,6 +98,19 @@ export const OUTFITS: OutfitDef[] = [
     headwear: ['cap'],
   },
   {
+    id: 'skirt-suit',
+    top: 5, legs: 7, sleeve: 2,
+    skirt: true,
+    palette: 'formal',
+    bag: ['tote'],
+  },
+  {
+    id: 'blouse-and-slacks',
+    top: 4, legs: 4, sleeve: 1,
+    palette: 'formal',
+    bag: ['tote'],
+  },
+  {
     id: 'overalls',
     top: 6, legs: 3, sleeve: 3,
     palette: 'muted',
@@ -135,32 +148,52 @@ export const OUTFITS: OutfitDef[] = [
  */
 export const OUTFIT_PALETTES: Record<
   OutfitDef['palette'],
-  { top: number[]; bottom: number[]; trim: number[] }
+  {
+    top: number[]
+    bottom: number[]
+    /**
+     * Ties, scarves, hood linings — the one saturated thing on an outfit.
+     */
+    trim: number[]
+    /**
+     * Collars and cuffs.
+     *
+     * Separate from `trim` because they are not the same job: a deep red is a
+     * fine tie and a terrible cuff, and reusing trim for both put maroon bands
+     * round the wrists of every suit.
+     */
+    shirt: number[]
+  }
 > = {
   street: {
     top: [0x2f9c86, 0xd94f3d, 0x3d6fa8, 0xe8b23a, 0x6b4f9c, 0xe4e0d6],
     bottom: [0x3f5470, 0x4a5240, 0x2f4258, 0x6b6f52, 0x55637a],
     trim: [0xf0e6cf, 0x1f2a38, 0xe8b23a],
+    shirt: [0xe8e4da, 0xd6d2c6, 0xc4cbd2],
   },
   formal: {
     top: [0x2b3038, 0x3a3f4a, 0x4a4038, 0x23262c],
     bottom: [0x22262e, 0x2b2420, 0x35393f],
     trim: [0xc9a45f, 0xe8e2d4, 0x8a1f3a],
+    shirt: [0xeceae2, 0xdfe3e8, 0xd8d2c4, 0xc9d2dc],
   },
   sport: {
     top: [0xe4453a, 0x2f7fc4, 0xf0c04a, 0x3fa85f, 0xe8e2d4],
     bottom: [0x1f2a38, 0x2b3038, 0x3f5470],
     trim: [0xffffff, 0xe8b23a, 0x1a1a1a],
+    shirt: [0xe4e0d6, 0xd2cec4, 0xc6ccd2],
   },
   muted: {
     top: [0x8a7f6a, 0x6b7a6a, 0x9c8f80, 0x7a6a55, 0x5f6b78],
     bottom: [0x4a4a4a, 0x3a3630, 0x5a5348, 0x4a5240],
     trim: [0xd6cdbe, 0x2b2420],
+    shirt: [0xe4e0d6, 0xd2cec4, 0xc6ccd2],
   },
   bright: {
     top: [0xe86a8a, 0x3fa89c, 0xf0c04a, 0xdc6f4a, 0xa45f9c, 0x7fae4a],
     bottom: [0xe8e2d4, 0x3f5470, 0x2f6f7a, 0x6b6f52],
     trim: [0xffffff, 0x1c1a22, 0xf0c04a],
+    shirt: [0xe4e0d6, 0xd2cec4, 0xc6ccd2],
   },
 }
 
@@ -171,10 +204,26 @@ export const CLASS_OUTFITS: Record<string, string[]> = {
   'old-man': ['overcoat', 'suit', 'overalls', 'puffer'],
   escort: ['suit', 'summer-dress', 'crop-and-wide-leg', 'overcoat'],
   doorman: ['suit', 'overcoat'],
+  // Office wear is narrow by definition, which is the point of it: the Loop at
+  // half past five is a crowd of the same four outfits.
+  'business-man': ['suit', 'overcoat', 'shirt-sleeves', 'blouse-and-slacks'],
+  'business-woman': ['skirt-suit', 'blouse-and-slacks', 'suit', 'overcoat'],
+  police: ['suit'],
+  homeless: ['overcoat', 'puffer', 'patchwork'],
+}
+
+/** Shirt and trousers, jacket left at the desk. */
+const SHIRT_SLEEVES: OutfitDef = {
+  id: 'shirt-sleeves',
+  top: 4,
+  legs: 4,
+  sleeve: 1,
+  palette: 'formal',
 }
 
 export function outfitFor(species: string, roll: number): OutfitDef {
   const allowed = CLASS_OUTFITS[species] ?? OUTFITS.map((o) => o.id)
   const id = allowed[Math.floor(roll * allowed.length) % allowed.length]!
+  if (id === SHIRT_SLEEVES.id) return SHIRT_SLEEVES
   return OUTFITS.find((o) => o.id === id) ?? OUTFITS[0]!
 }
