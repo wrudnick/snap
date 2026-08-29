@@ -40,6 +40,9 @@ uniform sampler2D uNormalBuffer;
 uniform float uDepthThreshold;
 uniform float uNormalThreshold;
 uniform float uThickness;
+uniform float uThicknessFar;
+uniform float uThinNear;
+uniform float uThinFar;
 uniform float uDistanceFade;
 uniform vec2 uTexel;
 
@@ -54,9 +57,6 @@ float linearDepth(const in vec2 uv) {
 }
 
 void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
-  vec2 dx = vec2(uTexel.x * uThickness, 0.0);
-  vec2 dy = vec2(0.0, uTexel.y * uThickness);
-
   float dC = linearDepth(uv);
 
   // Sky and far plane: no lines, or the horizon becomes a hard black band.
@@ -64,6 +64,24 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
     outputColor = inputColor;
     return;
   }
+
+  /**
+   * The line gets THINNER with distance, not just fainter.
+   *
+   * A fixed-width outline is the reason the horizon goes black. Every building
+   * out there is a few pixels wide, so its outline — a constant pixel and a
+   * half — is most of the building, and a hundred of them merge into a solid
+   * mass. Fading the strength alone leaves a grey mass instead of a black one.
+   *
+   * Shrinking the sample offset shrinks the detected band with it, so a distant
+   * edge is drawn as the hairline it should be. Real ink does the same thing:
+   * a pen line stays one width, so an artist draws less of it further away.
+   */
+  float distant = smoothstep(uThinNear, uThinFar, dC);
+  float thickness = mix(uThickness, uThicknessFar, distant);
+
+  vec2 dx = vec2(uTexel.x * thickness, 0.0);
+  vec2 dy = vec2(0.0, uTexel.y * thickness);
 
   float dL = linearDepth(uv - dx);
   float dR = linearDepth(uv + dx);
@@ -111,8 +129,12 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
   // lines stack into a solid black bar across the sky — the first thing you see
   // in the game. A crease is detail, and detail is not legible at 200 m
   // anyway; an outline still is, which is why the two fade at different rates.
-  creaseEdge *= 1.0 - smoothstep(55.0, 150.0, dC);
-  silhouetteEdge *= 1.0 - smoothstep(220.0, 420.0, dC);
+  // Held out further than the first attempt at this. Thinning the line does
+  // most of the work on the horizon now, so the fade no longer has to start at
+  // 45 m — which was stripping the corners off buildings across the street and
+  // leaving the middle distance flat.
+  creaseEdge *= 1.0 - smoothstep(75.0, 220.0, dC);
+  silhouetteEdge *= 1.0 - smoothstep(170.0, 380.0, dC);
 
   float edge = max(silhouetteEdge, creaseEdge);
 
@@ -126,8 +148,13 @@ export interface CelOutlineOptions {
   depthThreshold?: number
   /** Larger = fewer crease lines. Normal disagreement, 0..2. */
   normalThreshold?: number
-  /** Line width in pixels. */
+  /** Line width in pixels, up close. */
   thickness?: number
+  /** Line width in pixels, far away. */
+  thicknessFar?: number
+  /** Metres over which the line thins from one to the other. */
+  thinNear?: number
+  thinFar?: number
   /** How fast thresholds loosen with distance. */
   distanceFade?: number
 }
@@ -148,6 +175,12 @@ class CelOutlineEffect extends Effect {
         // curvature of a sphere.
         ['uNormalThreshold', new THREE.Uniform(options.normalThreshold ?? 0.1)],
         ['uThickness', new THREE.Uniform(options.thickness ?? 1.5)],
+        // Just under a pixel: the offset still lands on a neighbouring texel,
+        // but the soft edge either side of it collapses, so the line reads as a
+        // hairline rather than a band.
+        ['uThicknessFar', new THREE.Uniform(options.thicknessFar ?? 0.4)],
+        ['uThinNear', new THREE.Uniform(options.thinNear ?? 35)],
+        ['uThinFar', new THREE.Uniform(options.thinFar ?? 190)],
         // How fast the thresholds loosen with distance. Raised from 0.002: at
         // the horizon every building base lands on the same few pixels and
         // their outlines stack into a solid black bar across the frame — the
@@ -175,6 +208,9 @@ export const CelOutline = forwardRef<CelOutlineEffect, CelOutlineOptions>(
         options.depthThreshold,
         options.normalThreshold,
         options.thickness,
+        options.thicknessFar,
+        options.thinNear,
+        options.thinFar,
         options.distanceFade,
       ],
     )
