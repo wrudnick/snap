@@ -778,6 +778,11 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     part('nose', BOX, skin, [0, -0.05, -0.549], [0.2, 0.16, 0.137]),
   )
 
+  // A hat replaces the crown; it does not stack on top of it. Leaving both in
+  // gives a head half again its proper height — the doorman read as a featureless
+  // black slab from every angle because his cap sat on a full block of hair.
+  const hatted = has('cap') || has('sunhat')
+
   if (!bald) {
     /**
      * Hair silhouettes, picked per person.
@@ -786,9 +791,13 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
      * Radio characters are recognisable at a distance almost entirely by their
      * hair shape, not their face — so this is where the variety belongs.
      */
+    // Rolled whether or not it's used, so a hat doesn't shift every later roll
+    // and change the person's whole outfit.
     const style = Math.floor(rng() * 4)
 
-    headMesh.add(part('hair', BOX, hairColor, [0, 0.44, 0.029], [1.1, 0.36, 1.09]))
+    if (!hatted) {
+      headMesh.add(part('hair', BOX, hairColor, [0, 0.44, 0.029], [1.1, 0.36, 1.09]))
+    }
 
     if (style === 0) {
       // Cropped: a close cap with a short back.
@@ -804,28 +813,33 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
       // Spikes: the most Jet Set Radio thing available, and unmistakable in
       // silhouette from any angle.
       headMesh.add(part('hairBack', BOX, hairColor, [0, 0.06, 0.5], [1.04, 0.6, 0.2]))
-      for (let i = 0; i < 5; i++) {
-        const a = (i / 4 - 0.5) * 1.5
-        headMesh.add(
-          part(`spike${i}`, CONE, hairColor,
-            [Math.sin(a) * 0.42, 0.66 + Math.cos(a) * 0.1, -0.18 + Math.cos(a) * 0.12],
-            [0.3, 0.55, 0.3], [(-a) * 0.5, 0, a * 0.9]),
-        )
+      if (!hatted) {
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 4 - 0.5) * 1.5
+          headMesh.add(
+            part(`spike${i}`, CONE, hairColor,
+              [Math.sin(a) * 0.42, 0.66 + Math.cos(a) * 0.1, -0.18 + Math.cos(a) * 0.12],
+              [0.3, 0.55, 0.3], [(-a) * 0.5, 0, a * 0.9]),
+          )
+        }
       }
     } else {
       // Volume: a tall rounded mass.
-      headMesh.add(
-        part('hairBack', BOX, hairColor, [0, 0.1, 0.46], [1.12, 0.9, 0.32]),
-        part('hairTop', SPHERE, hairColor, [0, 0.52, 0.06], [1.32, 0.9, 1.3]),
-      )
+      headMesh.add(part('hairBack', BOX, hairColor, [0, 0.1, 0.46], [1.12, 0.9, 0.32]))
+      if (!hatted) {
+        headMesh.add(part('hairTop', SPHERE, hairColor, [0, 0.52, 0.06], [1.32, 0.9, 1.3]))
+      }
     }
   }
   if (has('cap')) {
     const capColor = pickFrom(spec.top)
     headMesh.add(
       // Seated down onto the skull so it doesn't hover.
-      part('cap', BOX, capColor, [0, 0.44, 0], [1.1, 0.3, 1.1]),
-      part('peak', BOX, capColor, [0, 0.36, -0.82], [0.94, 0.1, 0.6]),
+      part('cap', BOX, capColor, [0, 0.42, 0], [1.12, 0.3, 1.12]),
+      // At the brow, not the crown, and about a third of a head deep. The old
+      // peak reached 0.82 of a head-length forward, which from the side read as
+      // a plank rather than a cap.
+      part('peak', BOX, capColor, [0, 0.29, -0.6], [0.96, 0.09, 0.42]),
     )
   }
   if (has('sunhat')) {

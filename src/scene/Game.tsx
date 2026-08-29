@@ -102,7 +102,7 @@ export function Game() {
           depth buffer and silently produces no lines at all. Edge detection
           gives hard lines regardless, so MSAA buys little here. */}
       {POST_ENABLED && (
-        <EffectComposer multisampling={0}>
+        <EffectComposer multisampling={0} enableNormalPass>
           <CelOutline />
         </EffectComposer>
       )}

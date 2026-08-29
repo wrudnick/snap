@@ -20,7 +20,7 @@ export interface HumanSpec {
   top: number[]
   bottom: number[]
   /** Accessories this class may carry; each is rolled independently. */
-  accessories?: Array<'cap' | 'sunhat' | 'coat' | 'bag' | 'tote' | 'heels' | 'stripes' | 'bald'>
+  accessories?: Array<'cap' | 'sunhat' | 'coat' | 'bag' | 'tote' | 'heels' | 'bald'>
   /** How stooped, in radians of forward torso lean. */
   stoop?: number
 }

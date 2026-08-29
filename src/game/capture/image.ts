@@ -1,4 +1,7 @@
+import type { EffectComposer } from 'postprocessing'
 import * as THREE from 'three'
+
+import { renderThroughComposer } from '@/render/composer'
 
 /**
  * Framebuffer capture.
@@ -11,6 +14,37 @@ import * as THREE from 'three'
 
 let target: THREE.WebGLRenderTarget | null = null
 let pixels: Uint8Array | null = null
+
+/**
+ * Fullscreen quad used to copy the composed frame into a readable target.
+ *
+ * The composer works in half-float so that effects have headroom, which means
+ * its buffers can't be read into a `Uint8Array` at all — WebGL rejects the call
+ * outright with "buffer is not large enough for dimensions". Blitting through a
+ * quad converts to 8-bit, applies the sRGB transform on the way (the target's
+ * colour space drives it, same as the direct path below), and resamples to the
+ * photo's resolution on the GPU rather than in a 2D canvas.
+ */
+let blit: {
+  scene: THREE.Scene
+  camera: THREE.OrthographicCamera
+  material: THREE.MeshBasicMaterial
+} | null = null
+
+function getBlit() {
+  if (!blit) {
+    const material = new THREE.MeshBasicMaterial({
+      // Tone mapping and depth are the composer's business, already done.
+      toneMapped: false,
+      depthTest: false,
+      depthWrite: false,
+    })
+    const scene = new THREE.Scene()
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material))
+    blit = { scene, camera: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), material }
+  }
+  return blit
+}
 
 function getTarget(width: number, height: number): THREE.WebGLRenderTarget {
   if (!target || target.width !== width || target.height !== height) {
@@ -39,6 +73,12 @@ export interface CaptureOptions {
   /** Long edge of the saved photo, in pixels. */
   width: number
   height: number
+  /**
+   * The live post chain, if there is one. Photos are the entire point of the
+   * game, so they have to come out of the same pipeline the viewfinder does —
+   * a plain `gl.render` here would save an un-inked image of a cel-shaded game.
+   */
+  composer?: EffectComposer | null
 }
 
 /**
@@ -46,13 +86,18 @@ export interface CaptureOptions {
  * Uses async pixel readback where available to avoid stalling the GPU pipeline.
  */
 export async function capturePhotoImage(opts: CaptureOptions): Promise<Blob> {
-  const { gl, scene, camera, width, height } = opts
-  const rt = getTarget(width, height)
+  const { gl, scene, camera, width, height, composer } = opts
 
-  const previous = gl.getRenderTarget()
-  gl.setRenderTarget(rt)
-  gl.render(scene, camera)
-  gl.setRenderTarget(previous)
+  // Through the post chain when one exists, so the photo carries the same ink
+  // lines the viewfinder showed. Its buffers are canvas-sized and half-float, so
+  // the result is blitted down into our own 8-bit target rather than read
+  // directly — which also supersamples the lines, since they're one pixel wide
+  // at canvas resolution and the photo is smaller.
+  const composed = composer ? renderThroughComposer(composer) : null
+
+  const rt = composed
+    ? blitToTarget(gl, composed, width, height)
+    : renderOffscreen(gl, scene, camera, width, height)
 
   const buffer = getBuffer(width * height * 4)
 
@@ -74,6 +119,44 @@ export async function capturePhotoImage(opts: CaptureOptions): Promise<Blob> {
   }
 
   return encode(buffer, width, height)
+}
+
+/** Copy a composed frame into an 8-bit sRGB target at photo resolution. */
+function blitToTarget(
+  gl: THREE.WebGLRenderer,
+  source: THREE.WebGLRenderTarget,
+  width: number,
+  height: number,
+): THREE.WebGLRenderTarget {
+  const rt = getTarget(width, height)
+  const { scene, camera, material } = getBlit()
+
+  material.map = source.texture
+
+  const previous = gl.getRenderTarget()
+  gl.setRenderTarget(rt)
+  gl.render(scene, camera)
+  gl.setRenderTarget(previous)
+
+  // Don't hold a reference to a composer buffer between shots.
+  material.map = null
+  return rt
+}
+
+/** Fallback for when post-processing is off: a plain render into our own target. */
+function renderOffscreen(
+  gl: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.Camera,
+  width: number,
+  height: number,
+): THREE.WebGLRenderTarget {
+  const rt = getTarget(width, height)
+  const previous = gl.getRenderTarget()
+  gl.setRenderTarget(rt)
+  gl.render(scene, camera)
+  gl.setRenderTarget(previous)
+  return rt
 }
 
 /** WebGL reads bottom-up; canvas draws top-down. Flip rows and force opacity. */
@@ -140,4 +223,6 @@ export function disposeCaptureTargets(): void {
   target?.dispose()
   target = null
   pixels = null
+  blit?.material.dispose()
+  blit = null
 }

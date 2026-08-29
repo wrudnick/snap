@@ -1,7 +1,9 @@
+import { EffectComposerContext } from '@react-three/postprocessing'
 import { Effect, EffectAttribute } from 'postprocessing'
-import { forwardRef, useMemo } from 'react'
+import { forwardRef, useContext, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 
+import { activeComposer } from './composer'
 import { DAWN } from './palette'
 
 /**
@@ -16,26 +18,35 @@ import { DAWN } from './palette'
  *
  * Cost here is constant regardless of how much city is on screen.
  *
- * Edges come from depth alone — no normal prepass:
+ * Edges come from two sources, and it needs both:
  *
- *  - **Silhouettes** are large jumps in linear depth between neighbours.
- *  - **Creases** are where depth stops varying *linearly*. On any flat surface,
- *    however steeply angled, the centre sample equals the average of its
- *    opposite neighbours; at a fold it doesn't. That second-derivative test
- *    catches building corners without ever reconstructing a normal, which saves
- *    a whole render pass.
+ *  - **Silhouettes** from large jumps in linear depth between neighbours.
+ *  - **Creases** from disagreeing surface normals.
  *
- * Both thresholds scale with distance, or every distant rooftop dissolves into
- * solid ink.
+ * The first version tried to find creases in depth alone, using the second
+ * derivative — on a flat surface the centre sample should equal the average of
+ * its neighbours, and at a fold it doesn't. That works looking straight at a
+ * wall and fails completely on the ground: at a grazing angle the road's *first*
+ * derivative is so steep that numerical error in it swamps the second, and the
+ * whole lower half of the screen fills with ink.
+ *
+ * A normal buffer costs one extra pass and has no such failure. A flat road has
+ * the same normal everywhere no matter how obliquely you look at it.
  */
 
 const fragmentShader = /* glsl */ `
 uniform vec3 uOutlineColor;
+uniform sampler2D uNormalBuffer;
 uniform float uDepthThreshold;
-uniform float uCreaseThreshold;
+uniform float uNormalThreshold;
 uniform float uThickness;
 uniform float uDistanceFade;
 uniform vec2 uTexel;
+
+vec3 readNormal(const in vec2 uv) {
+  // NormalPass stores view-space normals packed into [0,1].
+  return texture2D(uNormalBuffer, uv).rgb * 2.0 - 1.0;
+}
 
 // Linear eye-space depth, positive and increasing away from the camera.
 float linearDepth(const in vec2 uv) {
@@ -60,10 +71,8 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
   float dD = linearDepth(uv - dy);
 
   // Thresholds scale WITH distance, not against it. Dividing the measurement by
-  // depth (the intuitive "relative difference") makes near surfaces
-  // hypersensitive — the road two metres from the camera then trips every test
-  // and the whole lower frame floods with ink. Comparing absolute depth steps
-  // against a distance-scaled threshold is the correct way round.
+  // depth makes near surfaces hypersensitive — the road two metres away then
+  // trips every test and the lower frame floods.
   float scale = max(dC, 1.0);
 
   float silhouette = max(
@@ -71,22 +80,16 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
     max(abs(dC - dU), abs(dC - dD))
   );
 
-  // Deviation from linear depth falloff — a fold, not a face.
-  //
-  // The slope subtraction is essential. A road seen at a grazing angle has a
-  // huge first derivative, and numerical error in it swamps the second
-  // derivative — so without this the entire ground plane detects as one
-  // continuous crease and floods solid black. Subtracting a fraction of the
-  // local gradient suppresses steeply-angled faces while leaving real folds,
-  // where the second derivative genuinely dominates, untouched.
-  float slopeH = abs(dR - dL);
-  float slopeV = abs(dU - dD);
-  float crease = max(
-    abs(dL + dR - 2.0 * dC) - 0.25 * slopeH,
-    abs(dU + dD - 2.0 * dC) - 0.25 * slopeV
-  );
+  // Creases from normals. Robust at grazing angles, where a depth-derivative
+  // test is not: a flat road's normal is identical across the whole surface
+  // however obliquely it is viewed.
+  vec3 n0 = readNormal(uv);
+  float normalEdge = 0.0;
+  normalEdge = max(normalEdge, 1.0 - dot(n0, readNormal(uv - dx)));
+  normalEdge = max(normalEdge, 1.0 - dot(n0, readNormal(uv + dx)));
+  normalEdge = max(normalEdge, 1.0 - dot(n0, readNormal(uv + dy)));
+  normalEdge = max(normalEdge, 1.0 - dot(n0, readNormal(uv - dy)));
 
-  // Loosen further with distance so haze wins over ink at the end of the block.
   float fade = scale * (1.0 + dC * uDistanceFade);
 
   float silhouetteEdge = smoothstep(
@@ -95,9 +98,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
     silhouette
   );
   float creaseEdge = smoothstep(
-    uCreaseThreshold * fade,
-    uCreaseThreshold * fade * 2.5,
-    crease
+    uNormalThreshold,
+    uNormalThreshold * 2.2,
+    normalEdge
   );
 
   float edge = max(silhouetteEdge, creaseEdge);
@@ -110,8 +113,8 @@ export interface CelOutlineOptions {
   color?: number
   /** Larger = fewer silhouette lines. */
   depthThreshold?: number
-  /** Larger = fewer corner/crease lines. */
-  creaseThreshold?: number
+  /** Larger = fewer crease lines. Normal disagreement, 0..2. */
+  normalThreshold?: number
   /** Line width in pixels. */
   thickness?: number
   /** How fast thresholds loosen with distance. */
@@ -127,8 +130,12 @@ class CelOutlineEffect extends Effect {
         // Metres of depth step per metre of distance. 0.02 means a subject 10m
         // away needs a ~20cm step to draw a line — roughly a building edge, not
         // a paving slab.
+        ['uNormalBuffer', new THREE.Uniform(null)],
         ['uDepthThreshold', new THREE.Uniform(options.depthThreshold ?? 0.02)],
-        ['uCreaseThreshold', new THREE.Uniform(options.creaseThreshold ?? 0.012)],
+        // Normals disagreeing by this much read as a fold. ~0.1 is roughly a
+        // 25-degree crease, which catches building corners and skips the gentle
+        // curvature of a sphere.
+        ['uNormalThreshold', new THREE.Uniform(options.normalThreshold ?? 0.1)],
         ['uThickness', new THREE.Uniform(options.thickness ?? 1.5)],
         ['uDistanceFade', new THREE.Uniform(options.distanceFade ?? 0.002)],
         ['uTexel', new THREE.Uniform(new THREE.Vector2(1 / 1280, 1 / 800))],
@@ -149,11 +156,29 @@ export const CelOutline = forwardRef<CelOutlineEffect, CelOutlineOptions>(
       [
         options.color,
         options.depthThreshold,
-        options.creaseThreshold,
+        options.normalThreshold,
         options.thickness,
         options.distanceFade,
       ],
     )
+
+    // The normal buffer is created by the composer, so it can only be wired in
+    // once the effect is inside one. Being in here is also the only place with a
+    // handle on the composer itself, which photo capture needs so that saved
+    // photos carry the same ink lines the player was looking at.
+    const { composer, normalPass } = useContext(EffectComposerContext)
+    useEffect(() => {
+      const uniform = effect.uniforms.get('uNormalBuffer')
+      if (uniform && normalPass) uniform.value = normalPass.texture
+    }, [effect, normalPass])
+
+    useEffect(() => {
+      activeComposer.current = composer ?? null
+      return () => {
+        activeComposer.current = null
+      }
+    }, [composer])
+
     return <primitive ref={ref} object={effect} dispose={null} />
   },
 )

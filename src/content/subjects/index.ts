@@ -141,7 +141,7 @@ const TOURIST_MAN: SubjectDef = {
     // grubby, and fully clean primaries read as toy-like next to it.
     top: [0xd94f3d, 0x2f9c86, 0xe8b23a, 0x3d6fa8, 0xe4e0d6, 0xc9552f, 0x7fae4a],
     bottom: [...DENIM, 0x8a7f6a, 0x4a4a4a],
-    accessories: ['cap', 'bag', 'stripes'],
+    accessories: ['cap', 'bag'],
   },
   poses: {
     idle: { label: 'Standing', value: 0.3 },
@@ -170,7 +170,7 @@ const TOURIST_WOMAN: SubjectDef = {
     hair: HAIR,
     top: [0xe86a8a, 0xf0c04a, 0x3fa89c, 0xe8e2d4, 0xa45f9c, 0xdc6f4a, 0x2f6f7a],
     bottom: [...DENIM, 0xe8e2d4, 0x6a5f52],
-    accessories: ['sunhat', 'tote', 'stripes'],
+    accessories: ['sunhat', 'tote'],
   },
 }
 

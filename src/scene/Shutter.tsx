@@ -10,6 +10,7 @@ import { DEFAULT_SCORING_CONFIG } from '@/game/scoring/config'
 import { scorePhoto } from '@/game/scoring/score'
 import { useGame } from '@/game/state'
 import { input } from '@/input'
+import { activeComposer } from '@/render/composer'
 
 /** Long edge of a saved photo. */
 const PHOTO_WIDTH = 960
@@ -60,7 +61,14 @@ export function Shutter({ routeId }: { routeId: string }) {
 
     const height = Math.round(PHOTO_WIDTH / aspect)
 
-    capturePhotoImage({ gl, scene, camera, width: PHOTO_WIDTH, height })
+    capturePhotoImage({
+      gl,
+      scene,
+      camera,
+      width: PHOTO_WIDTH,
+      height,
+      composer: activeComposer.current,
+    })
       .then((blob) => {
         useGame.getState().addPhoto({
           id,
