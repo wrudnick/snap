@@ -189,7 +189,10 @@ function buildProps(
         // Corners, not the centre: a 16 m deep wall alongside a street clears
         // it at the middle and still has both ends in the carriageway.
         if (footprintInRoad(x, z, depth, width, headingAt(t))) continue
-        if (boxNearRail(x, z, depth, width, headingAt(t), 1.3)) continue
+        // 2.4 m, not the near plane's 1.3. A wall that merely fails to clip the
+        // camera still fills half the frame as you pass it — the restaurant
+        // ended with forty percent of the last shot being a brown rectangle.
+        if (boxNearRail(x, z, depth, width, headingAt(t), 2.4)) continue
         buildings.push({
           position: [x, y + height / 2, z],
           scale: [depth, height, width],
