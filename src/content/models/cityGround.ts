@@ -4,10 +4,10 @@ import { SURFACE, type SurfaceKind } from '@/render/ground'
 
 import { CITY, type CityStreet } from './city'
 import { ASPHALT, SIDEWALK } from './environment'
-import { buildingAt, lateralClearance } from './footprints'
+import { buildingAt, dominantStreet, lateralClearance } from './footprints'
 import { applyLimits, curveLimits } from './ribbon'
 import { GROUND_PATCHES, type GroundPatch } from './patches'
-import { carriagewayHalfWidth } from './streetWidths'
+import { carriagewayHalfWidth, streetRank } from './streetWidths'
 
 export { carriagewayHalfWidth }
 
@@ -43,7 +43,10 @@ const KERB = 0.6
  */
 const ROAD_Y = -0.03
 const WALK_Y = 0.14
-const FILL_Y = -0.1
+// Well below the streets. The per-chain lift can drop a carriageway to −0.09,
+// and a fill at −0.10 then sits a centimetre under it — which is the z-fight
+// this whole layering exists to avoid.
+const FILL_Y = -0.3
 
 /**
  * Longest street segment before it gets subdivided, in metres.
@@ -125,8 +128,10 @@ function laneProfileFor(half: number, twin = 0): GroundLane[] {
   })
 
   if (twin !== 0) {
-    // Half a street. Carriageway reaches past the centreline toward the twin so
-    // the two overlap rather than leaving a seam; pavement only on the outside.
+    // Half a street. The carriageway reaches past the centreline toward the
+    // twin so the two halves meet rather than leaving a seam; the height offset
+    // that stops them fighting where they overlap is applied per chain by the
+    // caller.
     const inner = half * 1.6 * twin
     const outer = -half * twin
     return [
@@ -191,6 +196,67 @@ function twinSide(street: CityStreet, points: Array<[number, number]>): number {
     }
   }
   return 0
+}
+
+/**
+ * Chain each street's ways into as few continuous polylines as possible.
+ *
+ * OSM splits a street at every junction, so Michigan Avenue arrives as 56
+ * separate ways. Paving each one independently means each ribbon flares at its
+ * own endpoints and overlaps its neighbour's — at exactly the same height,
+ * which z-fights along the whole avenue. It also restarts the distance-along
+ * coordinate at every fragment, so lane dashes reset mid-block.
+ *
+ * Chaining by shared endpoints fixes both: one polyline per carriageway, one
+ * unbroken run of markings, and nothing to fight with.
+ */
+function mergeWays(streets: CityStreet[]): CityStreet[] {
+  const merged: CityStreet[] = []
+  const byName = new Map<string, CityStreet[]>()
+  for (const s of streets) {
+    const list = byName.get(s.n)
+    if (list) list.push(s)
+    else byName.set(s.n, [s])
+  }
+
+  const JOIN = 1.5
+
+  for (const [name, ways] of byName) {
+    const pending = ways.map((w) => [...w.p])
+
+    while (pending.length > 0) {
+      const chain = pending.pop()!
+      let extended = true
+
+      while (extended) {
+        extended = false
+        for (let i = 0; i < pending.length; i++) {
+          const other = pending[i]!
+          const head = chain[0]!
+          const tail = chain[chain.length - 1]!
+          const otherHead = other[0]!
+          const otherTail = other[other.length - 1]!
+
+          const close = (a: [number, number], b: [number, number]) =>
+            Math.hypot(a[0] - b[0], a[1] - b[1]) < JOIN
+
+          if (close(tail, otherHead)) chain.push(...other.slice(1))
+          else if (close(tail, otherTail)) chain.push(...[...other].reverse().slice(1))
+          else if (close(head, otherTail)) chain.unshift(...other.slice(0, -1))
+          else if (close(head, otherHead)) chain.unshift(...[...other].reverse().slice(0, -1))
+          else continue
+
+          pending.splice(i, 1)
+          extended = true
+          break
+        }
+      }
+
+      merged.push({ n: name, p: chain })
+    }
+  }
+
+  return merged
 }
 
 /** Insert points so no segment is longer than MAX_SEGMENT. */
@@ -291,13 +357,48 @@ export function buildCityGround(): CityGroundResult {
 
   let streetCount = 0
 
-  for (const street of CITY.streets) {
+  const streets = mergeWays(CITY.streets)
+
+  /**
+   * How many chains of this street name have been laid already.
+   *
+   * A street that survives merging as more than one chain is either a dual
+   * carriageway or a piece OSM left disconnected, and in both cases the chains
+   * overlap where they meet. Coplanar overlap is what z-fights, so each chain
+   * of a name is laid a few centimetres below the last. Chains of *different*
+   * names never need this: the dominance rule already stops the lesser one at
+   * the greater one's kerb.
+   */
+  const chainsSoFar = new Map<string, number>()
+
+  for (const street of streets) {
     if (street.p.length < 2) continue
     const points = resample(street.p)
 
     const dirs = directions(points)
     const halves = halfWidths(street, points)
     const twin = twinSide(street, points)
+    const rank = streetRank(street.n)
+    const chain = chainsSoFar.get(street.n) ?? 0
+    chainsSoFar.set(street.n, chain + 1)
+    // Three centimetres is far too small to see as a step and far too large for
+    // the depth buffer to confuse at any distance the ground is visible from.
+    // Six levels because Michigan and State survive merging as four and five
+    // chains; capping lower puts two of them back at the same height.
+    const lift = -0.03 * Math.min(chain, 5)
+
+    /**
+     * A quad stops where a more important street's carriageway already covers
+     * it. Otherwise every junction is two ribbons at the same height fighting
+     * for the depth buffer across the whole crossing.
+     *
+     * A street's twin is exempt: those are the two halves of one road and they
+     * are *meant* to meet, which is handled by their heights instead.
+     */
+    const dominated = (x: number, z: number): boolean => {
+      const other = dominantStreet(x, z)
+      return other !== null && other.name !== street.n && other.rank > rank
+    }
     // Streets bend too, and a ribbon offset sideways folds wherever the bend is
     // tighter than the ribbon is wide. Gentler here than on the old route
     // ribbon, but a right-angled OSM corner would still do it.
@@ -338,6 +439,7 @@ export function buildCityGround(): CityGroundResult {
 
       const lanes = laneProfileFor(half, twin).map((lane) => ({
         ...lane,
+        y: lane.y + lift,
         offset: applyLimits(lane.offset, limits, i),
       }))
       const start = positions.length / 3
@@ -379,7 +481,9 @@ export function buildCityGround(): CityGroundResult {
         let overlaps = false
         for (const row of [a, b] as const) {
           for (const o of [inner, mid, outer]) {
-            if (underPatch(row.x + row.rx * o, row.z + row.rz * o)) {
+            const px = row.x + row.rx * o
+            const pz = row.z + row.rz * o
+            if (underPatch(px, pz) || dominated(px, pz)) {
               overlaps = true
               break
             }

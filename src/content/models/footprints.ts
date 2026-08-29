@@ -1,5 +1,5 @@
 import { CITY, type CityBuilding } from './city'
-import { carriagewayHalfWidth } from './streetWidths'
+import { carriagewayHalfWidth, streetRank } from './streetWidths'
 
 /**
  * Where the buildings are, indexed for point queries.
@@ -82,6 +82,7 @@ export function lateralClearance(
  */
 interface Segment {
   name: string
+  rank: number
   ax: number
   az: number
   bx: number
@@ -97,7 +98,7 @@ for (const street of CITY.streets) {
   for (let i = 1; i < street.p.length; i++) {
     const [ax, az] = street.p[i - 1]!
     const [bx, bz] = street.p[i]!
-    const seg: Segment = { name: street.n, ax, az, bx, bz, half }
+    const seg: Segment = { name: street.n, rank: streetRank(street.n), ax, az, bx, bz, half }
     const x0 = Math.floor(Math.min(ax, bx) / ROAD_CELL)
     const x1 = Math.floor(Math.max(ax, bx) / ROAD_CELL)
     const z0 = Math.floor(Math.min(az, bz) / ROAD_CELL)
@@ -173,6 +174,33 @@ export function nearestStreet(x: number, z: number, within = 40): NearestStreet 
           rz: vx / len,
           half: s.half,
           distance,
+        }
+      }
+    }
+  }
+  return best
+}
+
+/**
+ * The highest-ranking street whose carriageway covers this point.
+ *
+ * Used to decide which of two crossing streets gets paved through a junction
+ * and which stops at it.
+ */
+export function dominantStreet(x: number, z: number): { name: string; rank: number } | null {
+  let best: { name: string; rank: number } | null = null
+  const cx = Math.floor(x / ROAD_CELL)
+  const cz = Math.floor(z / ROAD_CELL)
+  for (let ox = -1; ox <= 1; ox++) {
+    for (let oz = -1; oz <= 1; oz++) {
+      for (const s of roads.get(`${cx + ox},${cz + oz}`) ?? []) {
+        if (best && s.rank <= best.rank) continue
+        const vx = s.bx - s.ax
+        const vz = s.bz - s.az
+        const len2 = vx * vx + vz * vz || 1
+        const t = Math.max(0, Math.min(1, ((x - s.ax) * vx + (z - s.az) * vz) / len2))
+        if (Math.hypot(x - (s.ax + vx * t), z - (s.az + vz * t)) < s.half) {
+          best = { name: s.name, rank: s.rank }
         }
       }
     }
