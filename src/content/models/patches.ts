@@ -176,16 +176,23 @@ function strip(path: Array<[number, number]>, halfWidth: number): Array<[number,
  * before it, which is why they are the two that had to be measured off it.
  */
 const ALLEY = strip([
-  [-303, -103],
-  [-286, -91],
-  [-271, -72],
-], 3.6)
+  [-303, -120.6],
+  [-283, -120.0],
+  [-262, -119.4],
+], 3.8)
 
-const RESTAURANT = strip([
-  [-274, -74],
-  [-269, -62],
-  [-264, -42],
-], 4.4)
+/**
+ * The dining room, as a room.
+ *
+ * A rectangle rather than a strip: the route wanders around inside it rather
+ * than running down the middle, so a centreline would leave the corners bare.
+ */
+const RESTAURANT: Array<[number, number]> = [
+  [-305, -141],
+  [-265, -141],
+  [-265, -124],
+  [-305, -124],
+]
 
 export const GROUND_PATCHES: GroundPatch[] = [
   // Water first, then sand over it, so the shoreline is a hard edge rather than

@@ -27,7 +27,7 @@ const SECTION_COLORS: Record<string, string> = {
   underpass: '#8b7fd6',
   lakeshore: '#5fb0c9',
   michigan: '#f0a04b',
-  chestnut: '#7ac77a',
+  delaware: '#7ac77a',
   rush: '#e8607a',
   triangle: '#9ad35c',
   alley: '#b08968',
