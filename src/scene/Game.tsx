@@ -21,6 +21,17 @@ const POST_ENABLED =
   typeof window === 'undefined' ||
   new URLSearchParams(window.location.search).get('post') !== '0'
 
+/**
+ * ?perf=0 hides the dev statistics overlay.
+ *
+ * Screenshots of this game are how it gets reviewed, and a draw-call readout
+ * sitting over the bottom-left corner of every one of them is both a
+ * distraction and, at eye level, right where the street is.
+ */
+const PERF_ENABLED =
+  typeof window === 'undefined' ||
+  new URLSearchParams(window.location.search).get('perf') !== '0'
+
 /** Binds the input adapter to the canvas element. Swap the adapter for gamepad. */
 function InputBinding() {
   const gl = useThree((s) => s.gl)
@@ -110,7 +121,7 @@ export function Game() {
       <PerformanceMonitor onDecline={() => setDegraded(true)} onIncline={() => setDegraded(false)} />
       <AdaptiveDpr pixelated />
 
-      {import.meta.env.DEV && <Perf position="bottom-left" />}
+      {import.meta.env.DEV && PERF_ENABLED && <Perf position="bottom-left" />}
     </Canvas>
   )
 }
