@@ -472,8 +472,12 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   const hipY = h * HIP
   const shoulderY = h * SHOULDER
   const headY = h * HEAD_CENTRE
-  const headH = h * 0.145
-  const headW = h * 0.115 * (0.95 + build * 0.05)
+  // Jet Set Radio proportions: a head around a sixth of total height rather
+  // than the realistic eighth, and hands and feet oversized to match. Realism
+  // reads as generic at this polygon count; exaggeration is what gives a
+  // low-poly figure a personality you can recognise across a street.
+  const headH = h * 0.175
+  const headW = h * 0.142 * (0.95 + build * 0.05)
 
   const shoulderHalf = h * 0.125 * build
   const waistHalf = h * 0.098 * build
@@ -503,8 +507,9 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   // oversized — big feet anchor a stylised figure and read at distance.
   for (const side of ['L', 'R'] as const) {
     const shoe = new THREE.Mesh(BOX, mat(shoeColor))
-    shoe.scale.set(legW * 1.35, h * 0.038, h * 0.105)
-    shoe.position.set(0, -legLen + h * 0.019, -h * 0.022)
+    // Big shoes. They anchor a stylised figure and read from a long way off.
+    shoe.scale.set(legW * 1.75, h * 0.05, h * 0.135)
+    shoe.position.set(0, -legLen + h * 0.025, -h * 0.03)
     shoe.name = `shoe${side}`
     shoe.castShadow = true
     ;(g.getObjectByName(`leg${side}`) as THREE.Group).add(shoe)
@@ -619,8 +624,8 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   // Hands at the end of each arm, inside the pivot so they swing along.
   for (const side of ['L', 'R'] as const) {
     const hand = new THREE.Mesh(BOX, mat(skin))
-    hand.scale.set(armW * 1.15, h * 0.05, armW * 1.15)
-    hand.position.set(0, -armLen * 0.86 - h * 0.018, 0)
+    hand.scale.set(armW * 1.6, h * 0.062, armW * 1.5)
+    hand.position.set(0, -armLen * 0.86 - h * 0.022, 0)
     hand.name = `hand${side}`
     hand.castShadow = true
     ;(torsoGroup.getObjectByName(`arm${side}`) as THREE.Group).add(hand)
@@ -661,17 +666,61 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   const head = pivot('head', [0, rel(headPivotY), 0], headMesh, [0, headY - headPivotY - h * 0.012, 0])
   torsoGroup.add(head)
 
-  // Nose: tiny, but it tells you which way a figure is facing at 20 m, which
-  // matters because facing is a scored variable.
-  g.add(part('nose', BOX, skin, [0, headY - headH * 0.05, -headW * 0.56], [headW * 0.2, headH * 0.16, headW * 0.14]))
+  /**
+   * Head furniture parents to the head mesh, in its local units.
+   *
+   * These were left on the root while the cap was parented, so a head that
+   * tipped back took its cap along and left its hair floating in place. Anything
+   * attached to a head has to be a child of it — asserted in the tests now,
+   * because "did I actually reparent that one" is not something to eyeball.
+   */
+  headMesh.add(
+    // Nose: tiny, but it tells you which way a figure is facing at 20 m, and
+    // facing is a scored variable.
+    part('nose', BOX, skin, [0, -0.05, -0.549], [0.2, 0.16, 0.137]),
+  )
 
   if (!bald) {
-    // Hair as a mass with a back, not a slab on top — most of a head's
-    // silhouette is the hair.
-    g.add(
-      part('hair', BOX, hairColor, [0, headY + headH * 0.42, headW * 0.03], [headW * 1.08, headH * 0.4, headW * 1.1]),
-      part('hairBack', BOX, hairColor, [0, headY + headH * 0.02, headW * 0.5], [headW * 1.02, headH * 0.72, headW * 0.22]),
-    )
+    /**
+     * Hair silhouettes, picked per person.
+     *
+     * The single biggest lever on whether a crowd reads as individuals. Jet Set
+     * Radio characters are recognisable at a distance almost entirely by their
+     * hair shape, not their face — so this is where the variety belongs.
+     */
+    const style = Math.floor(rng() * 4)
+
+    headMesh.add(part('hair', BOX, hairColor, [0, 0.44, 0.029], [1.1, 0.36, 1.09]))
+
+    if (style === 0) {
+      // Cropped: a close cap with a short back.
+      headMesh.add(part('hairBack', BOX, hairColor, [0, 0.06, 0.5], [1.04, 0.62, 0.2]))
+    } else if (style === 1) {
+      // Bob: falls past the jaw, squared off.
+      headMesh.add(
+        part('hairBack', BOX, hairColor, [0, -0.18, 0.42], [1.12, 1.1, 0.36]),
+        part('hairSideL', BOX, hairColor, [-0.55, -0.12, 0.1], [0.22, 0.95, 0.95]),
+        part('hairSideR', BOX, hairColor, [0.55, -0.12, 0.1], [0.22, 0.95, 0.95]),
+      )
+    } else if (style === 2) {
+      // Spikes: the most Jet Set Radio thing available, and unmistakable in
+      // silhouette from any angle.
+      headMesh.add(part('hairBack', BOX, hairColor, [0, 0.06, 0.5], [1.04, 0.6, 0.2]))
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 4 - 0.5) * 1.5
+        headMesh.add(
+          part(`spike${i}`, CONE, hairColor,
+            [Math.sin(a) * 0.42, 0.66 + Math.cos(a) * 0.1, -0.18 + Math.cos(a) * 0.12],
+            [0.3, 0.55, 0.3], [(-a) * 0.5, 0, a * 0.9]),
+        )
+      }
+    } else {
+      // Volume: a tall rounded mass.
+      headMesh.add(
+        part('hairBack', BOX, hairColor, [0, 0.1, 0.46], [1.12, 0.9, 0.32]),
+        part('hairTop', SPHERE, hairColor, [0, 0.52, 0.06], [1.32, 0.9, 1.3]),
+      )
+    }
   }
   if (has('cap')) {
     const capColor = pickFrom(spec.top)

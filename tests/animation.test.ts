@@ -144,6 +144,30 @@ describe('humanoid construction', () => {
       expect(gap, 'arm buried in torso').toBeGreaterThan(-0.2)
     })
 
+    it(`${def.species}: everything on the head is a child of the head`, () => {
+      // Hair, hat and nose left on the root move independently of a head that
+      // turns or tips — the cap follows and the hair floats where it was. This
+      // is not something to check by eye; it needs asserting.
+      const built = buildModel(def, 9)
+      const head = built.group.getObjectByName('head')!
+      const attached = ['nose', 'hair', 'hairBack', 'cap', 'peak', 'brim', 'crown']
+
+      for (const name of attached) {
+        const node = built.group.getObjectByName(name)
+        if (!node) continue // not every class rolls every accessory
+        let parent: THREE.Object3D | null = node
+        let descends = false
+        while (parent) {
+          if (parent === head) {
+            descends = true
+            break
+          }
+          parent = parent.parent
+        }
+        expect(descends, `${name} must descend from head`).toBe(true)
+      }
+    })
+
     it(`${def.species}: chest reaches the shoulders`, () => {
       // The torso must span hip to shoulder. A pivot helper that overwrote the
       // mesh offset dropped it half its own height, leaving the chest at the

@@ -57,28 +57,41 @@ function drawFace(
 
   // Features sit high in the cell: a box head puts the face on the upper half,
   // and eyes drawn at the geometric centre read as a chin.
-  const eyeY = y + CELL * 0.40
-  const eyeGap = CELL * range(rng, 0.16, 0.21)
-  const eyeW = CELL * range(rng, 0.075, 0.105)
-  const eyeH = CELL * range(rng, 0.05, 0.085)
+  // Large, high-contrast eyes. The reference art draws faces graphically —
+  // bold shapes that survive being 30 pixels tall on screen — not subtly.
+  // Realistic eye scale simply disappears at the distance people are
+  // photographed from.
+  const eyeY = y + CELL * 0.42
+  const eyeGap = CELL * range(rng, 0.19, 0.24)
+  const eyeW = CELL * range(rng, 0.13, 0.17)
+  const eyeH = CELL * range(rng, 0.11, 0.15)
 
   const sunglasses = !older && rng() < 0.28
 
   if (sunglasses) {
     ctx.fillStyle = '#15171c'
-    ctx.fillRect(cx - eyeGap - eyeW * 1.5, eyeY - eyeH, eyeGap * 2 + eyeW * 3, eyeH * 2.1)
-    // Bridge.
-    ctx.fillRect(cx - eyeGap * 0.35, eyeY - eyeH * 0.35, eyeGap * 0.7, eyeH * 0.5)
+    ctx.fillRect(cx - eyeGap - eyeW * 1.2, eyeY - eyeH * 1.1, eyeGap * 2 + eyeW * 2.4, eyeH * 2.2)
+    // A bright rake across the lens: the graphic shorthand for glass.
+    ctx.fillStyle = 'rgba(255,255,255,0.22)'
+    ctx.beginPath()
+    ctx.moveTo(cx - eyeGap - eyeW * 0.9, eyeY + eyeH * 0.9)
+    ctx.lineTo(cx - eyeGap + eyeW * 0.1, eyeY - eyeH * 1.0)
+    ctx.lineTo(cx - eyeGap + eyeW * 0.7, eyeY - eyeH * 1.0)
+    ctx.lineTo(cx - eyeGap - eyeW * 0.3, eyeY + eyeH * 0.9)
+    ctx.closePath()
+    ctx.fill()
   } else {
     // Brows first, then eyes over them.
-    ctx.fillStyle = older ? 'rgba(140,140,140,0.85)' : 'rgba(40,30,24,0.85)'
-    const browY = eyeY - eyeH * range(rng, 1.5, 2.1)
-    const browTilt = range(rng, -0.1, 0.1)
+    ctx.fillStyle = older ? 'rgba(150,150,150,0.9)' : 'rgba(28,22,18,0.92)'
+    const browY = eyeY - eyeH * range(rng, 1.15, 1.5)
+    const browTilt = range(rng, -0.14, 0.14)
     for (const side of [-1, 1]) {
       ctx.save()
       ctx.translate(cx + side * eyeGap, browY)
       ctx.rotate(browTilt * side)
-      ctx.fillRect(-eyeW * 0.75, -CELL * 0.012, eyeW * 1.5, CELL * 0.024)
+      // Heavy brows: they carry expression at a distance where eyes alone read
+      // as two dots.
+      ctx.fillRect(-eyeW * 0.7, -CELL * 0.022, eyeW * 1.4, CELL * 0.044)
       ctx.restore()
     }
 
@@ -88,19 +101,27 @@ function drawFace(
       ctx.ellipse(cx + side * eyeGap, eyeY, eyeW * 0.62, eyeH * 0.62, 0, 0, Math.PI * 2)
       ctx.fill()
     }
-    ctx.fillStyle = '#1b1a1f'
+    // Large dark iris filling most of the eye, the way stylised faces are drawn.
+    ctx.fillStyle = '#16151a'
     for (const side of [-1, 1]) {
       ctx.beginPath()
-      ctx.ellipse(cx + side * eyeGap, eyeY, eyeW * 0.3, eyeH * 0.42, 0, 0, Math.PI * 2)
+      ctx.ellipse(cx + side * eyeGap, eyeY, eyeW * 0.42, eyeH * 0.62, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    // A single catchlight. Cheap, and it stops the eyes reading as holes.
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'
+    for (const side of [-1, 1]) {
+      ctx.beginPath()
+      ctx.arc(cx + side * eyeGap - eyeW * 0.15, eyeY - eyeH * 0.2, eyeW * 0.14, 0, Math.PI * 2)
       ctx.fill()
     }
   }
 
   // Mouth.
-  const mouthY = y + CELL * 0.62
-  const mouthW = CELL * range(rng, 0.13, 0.2)
-  ctx.strokeStyle = 'rgba(90,50,45,0.75)'
-  ctx.lineWidth = CELL * 0.022
+  const mouthY = y + CELL * 0.66
+  const mouthW = CELL * range(rng, 0.17, 0.25)
+  ctx.strokeStyle = 'rgba(72,38,34,0.85)'
+  ctx.lineWidth = CELL * 0.032
   ctx.lineCap = 'round'
   ctx.beginPath()
   const smile = range(rng, -0.05, 0.09) * CELL
