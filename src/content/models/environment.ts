@@ -6,6 +6,8 @@ import type { ResolvedSection } from '@/game/sections'
 import { makeRng, pick, range, rangeInt } from '@/lib/rng'
 import { SURFACE, type SurfaceKind } from '@/render/ground'
 
+import { inCarriageway } from './footprints'
+
 import { applyLimits, curveLimits } from './ribbon'
 
 /**
@@ -351,6 +353,15 @@ function buildProps(
         const offset = shift + side * (spec.setback + depth / 2)
 
         const [x, y, z] = at(t, offset)
+        // Props are placed at an offset from the rail, which knows nothing
+        // about the streets around it. At the Triangle that stood the alley's
+        // walls in Bellevue Place; in the underpass it stood them in Lake Shore
+        // Drive. A building in the road is the most obviously broken thing the
+        // player can be shown, so anything landing in one is dropped.
+        //
+        // Corners, not the centre: a 16 m deep wall alongside a street clears
+        // it at the middle and still has both ends in the carriageway.
+        if (footprintInRoad(x, z, depth, width, headingAt(t))) continue
         buildings.push({
           position: [x, y + height / 2, z],
           scale: [depth, height, width],
@@ -388,6 +399,7 @@ function buildProps(
           const t =
             section.tStart + ((i + 0.35) / spacing) * (section.tEnd - section.tStart)
           const [x, y, z] = at(t, lateralFor(side))
+          if (inCarriageway(x, z)) continue
           const segment = Math.min(
             route.segmentCount - 1,
             Math.floor(t * route.segmentCount),
@@ -419,6 +431,7 @@ function buildProps(
       const t = range(rng, section.tStart, section.tEnd)
       const side = rng() < 0.5 ? -1 : 1
       const [x, y, z] = at(t, shift + side * range(rng, clutterSpec[0], clutterSpec[1]))
+      if (inCarriageway(x, z)) continue
       const size = range(rng, 0.6, 1.2)
       clutter.push({
         position: [x, y + size / 2, z],
@@ -435,6 +448,27 @@ function buildProps(
   }
 
   return { buildings, poles, heads, clutter }
+}
+
+/** Does any corner of this box's footprint land in a carriageway? */
+function footprintInRoad(
+  x: number,
+  z: number,
+  depth: number,
+  width: number,
+  rotationY: number,
+): boolean {
+  const cos = Math.cos(rotationY)
+  const sin = Math.sin(rotationY)
+  const corners: Array<[number, number]> = [
+    [-depth / 2, -width / 2],
+    [depth / 2, -width / 2],
+    [depth / 2, width / 2],
+    [-depth / 2, width / 2],
+  ]
+  return corners.some(([dx, dz]) =>
+    inCarriageway(x + dx * cos - dz * sin, z + dx * sin + dz * cos),
+  )
 }
 
 /**

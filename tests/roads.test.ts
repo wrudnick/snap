@@ -3,7 +3,8 @@ import * as THREE from 'three'
 
 import { CITY } from '../src/content/models/city'
 import { MIN_HALF, halfWidths } from '../src/content/models/cityGround'
-import { buildingAt } from '../src/content/models/footprints'
+import { generateEnvironment } from '../src/content/models/environment'
+import { buildingAt, inCarriageway } from '../src/content/models/footprints'
 import { laneProfile } from '../src/content/models/environment'
 import { ROUTES } from '../src/content/routes/goldcoast'
 import { Rail } from '../src/game/rail'
@@ -56,6 +57,28 @@ describe('roads', () => {
     }
 
     expect([...offenders].sort()).toEqual([])
+  })
+
+  it('has no procedural building standing in a street', () => {
+    // The OSM footprints were covered from the start; these were not, and they
+    // are the ones placed blind — a fixed offset from a rail that knows nothing
+    // about the streets around it. 24 of 34 were in a road: the alley's walls
+    // in Bellevue Place and Rush Street, the underpass's in Lake Shore Drive.
+    const route = ROUTES.goldcoast!
+    const rail = new Rail(route)
+    const { buildings } = generateEnvironment(route, rail, resolveRoute(route, rail).sections)
+
+    const offenders = buildings.filter((p) => {
+      const [w, , d] = p.scale
+      const cos = Math.cos(p.rotationY)
+      const sin = Math.sin(p.rotationY)
+      return ([[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]] as const).some(
+        ([dx, dz]) =>
+          inCarriageway(p.position[0] + dx * cos - dz * sin, p.position[2] + dx * sin + dz * cos),
+      )
+    })
+
+    expect(offenders.map((p) => p.position.map(Math.round).join(','))).toEqual([])
   })
 
   it('has no building standing in the route’s own carriageway', () => {

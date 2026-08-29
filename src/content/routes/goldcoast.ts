@@ -72,11 +72,15 @@ export const GOLD_COAST: RouteDef = {
     [452, 1.7, -32], //  1
     [416, 1.7, -25], //  2
 
-    // — Under DuSable Lake Shore Drive —
-    [396, 0.8, -21], //  3  ramp down
-    [380, -1.1, -20], //  4
-    [362, -1.1, -19], //  5
-    [346, -0.2, -18], //  6  ramp up
+    // — Under DuSable Lake Shore Drive.
+    //   Deep enough to actually be underneath it: eye height drops to −2.0, so
+    //   the floor is at −3.7 and the deck overhead clears the player's head by
+    //   more than a metre. At the old −1.1 the trench was 2.85 m deep and the
+    //   tunnel walls stood up through the carriageway. —
+    [398, 0.4, -21], //  3  ramp down
+    [382, -2.0, -20], //  4
+    [360, -2.0, -19], //  5
+    [344, -0.4, -18], //  6  ramp up
 
     // — East Lake Shore Drive, the landmarked block, west to Michigan.
     //   Follows the real centreline, which drifts from z −15 at the east end to

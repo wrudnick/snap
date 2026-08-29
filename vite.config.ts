@@ -3,13 +3,15 @@ import { fileURLToPath, URL } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
+import { routeDraft } from './src/dev/routeDraftPlugin'
+
 // `base` must match the GitHub Pages repo path. Override with BASE_PATH=/ for
 // local production smoke-testing.
 const base = process.env.BASE_PATH ?? '/snap/'
 
 export default defineConfig({
   base,
-  plugins: [react()],
+  plugins: [react(), routeDraft()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

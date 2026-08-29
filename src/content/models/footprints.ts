@@ -1,4 +1,5 @@
 import { CITY, type CityBuilding } from './city'
+import { carriagewayHalfWidth } from './streetWidths'
 
 /**
  * Where the buildings are, indexed for point queries.
@@ -69,4 +70,62 @@ export function lateralClearance(
     }
   }
   return max
+}
+
+/**
+ * Street segments bucketed the same way, for "is this in a road" queries.
+ *
+ * Procedural props are placed at an offset from the rail, which knows nothing
+ * about the streets around it. At the Triangle that put the alley's walls
+ * standing in Bellevue Place and Rush Street, and the underpass's walls in Lake
+ * Shore Drive — 24 of 34 procedural buildings were in a road.
+ */
+interface Segment {
+  ax: number
+  az: number
+  bx: number
+  bz: number
+  half: number
+}
+
+const ROAD_CELL = 60
+const roads = new Map<string, Segment[]>()
+
+for (const street of CITY.streets) {
+  const half = carriagewayHalfWidth(street.n)
+  for (let i = 1; i < street.p.length; i++) {
+    const [ax, az] = street.p[i - 1]!
+    const [bx, bz] = street.p[i]!
+    const seg: Segment = { ax, az, bx, bz, half }
+    const x0 = Math.floor(Math.min(ax, bx) / ROAD_CELL)
+    const x1 = Math.floor(Math.max(ax, bx) / ROAD_CELL)
+    const z0 = Math.floor(Math.min(az, bz) / ROAD_CELL)
+    const z1 = Math.floor(Math.max(az, bz) / ROAD_CELL)
+    for (let x = x0; x <= x1; x++) {
+      for (let z = z0; z <= z1; z++) {
+        const key = `${x},${z}`
+        const list = roads.get(key)
+        if (list) list.push(seg)
+        else roads.set(key, [seg])
+      }
+    }
+  }
+}
+
+/** Is this point inside a street's carriageway? */
+export function inCarriageway(x: number, z: number, margin = 0): boolean {
+  const cx = Math.floor(x / ROAD_CELL)
+  const cz = Math.floor(z / ROAD_CELL)
+  for (let ox = -1; ox <= 1; ox++) {
+    for (let oz = -1; oz <= 1; oz++) {
+      for (const s of roads.get(`${cx + ox},${cz + oz}`) ?? []) {
+        const vx = s.bx - s.ax
+        const vz = s.bz - s.az
+        const len2 = vx * vx + vz * vz || 1
+        const t = Math.max(0, Math.min(1, ((x - s.ax) * vx + (z - s.az) * vz) / len2))
+        if (Math.hypot(x - (s.ax + vx * t), z - (s.az + vz * t)) < s.half + margin) return true
+      }
+    }
+  }
+  return false
 }

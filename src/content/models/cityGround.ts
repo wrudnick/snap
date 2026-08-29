@@ -6,6 +6,9 @@ import { CITY, type CityStreet } from './city'
 import { ASPHALT, SIDEWALK } from './environment'
 import { insideRibbon, type CorridorSample } from './corridor'
 import { buildingAt, lateralClearance } from './footprints'
+import { carriagewayHalfWidth } from './streetWidths'
+
+export { carriagewayHalfWidth }
 
 /**
  * Ground for the whole city, not just the route.
@@ -23,29 +26,6 @@ import { buildingAt, lateralClearance } from './footprints'
  *
  * Merged into one geometry: the entire city floor is a single draw call.
  */
-
-/**
- * Carriageway half-widths by name.
- *
- * The export carries no road classification, but 24 street names in a district
- * this size is few enough to say what each one is. Michigan and Lake Shore are
- * genuinely twice the width of a Gold Coast side street, and flattening that to
- * one number loses the thing that makes the Magnificent Mile read as a
- * boulevard.
- */
-const HALF_WIDTHS: Array<{ match: RegExp; half: number }> = [
-  { match: /Lake Shore Drive/, half: 11 },
-  { match: /Michigan Avenue/, half: 10 },
-  { match: /State Street|State Parkway|Wabash Avenue|Rush Street/, half: 7.5 },
-  { match: /Grand Avenue|Ohio Street|Ontario Street|Illinois Street|Chicago Avenue/, half: 8 },
-]
-
-const DEFAULT_HALF = 6
-
-/** Carriageway half-width for a street, in metres. */
-export function carriagewayHalfWidth(name: string): number {
-  return HALF_WIDTHS.find((w) => w.match.test(name))?.half ?? DEFAULT_HALF
-}
 
 /** Pavement each side of the kerb. */
 const WALK = 4.5
