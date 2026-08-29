@@ -4,6 +4,8 @@ import * as THREE from 'three'
 
 import { generateEnvironment, type Prop } from '@/content/models/environment'
 import { buildCityGeometry } from '@/content/models/city'
+import { buildCityGround } from '@/content/models/cityGround'
+import { buildCorridor, type CorridorSample } from '@/content/models/corridor'
 import { buildLandmark } from '@/content/models/landmarks'
 import type { LandmarkDef } from '@/content/models/landmarks'
 import type { RouteDef } from '@/content/routes/types'
@@ -67,6 +69,9 @@ function PropInstances({ props, limit, castShadow, receiveShadow }: GroupProps) 
  * call whatever is on screen, and half the point is seeing a mile down Michigan.
  */
 function City() {
+  // No footprint culling here. The route is kept clear of buildings in the
+  // route data, guarded by tests/corridor.test.ts — deleting real Chicago to
+  // paper over a bad waypoint costs more than it fixes.
   const built = useMemo(() => buildCityGeometry(), [])
 
   const material = useMemo(
@@ -93,6 +98,44 @@ function City() {
 
   return (
     <mesh geometry={built.geometry} castShadow receiveShadow frustumCulled={false}>
+      <primitive object={material} attach="material" dispose={null} />
+    </mesh>
+  )
+}
+
+/**
+ * The floor of the whole district: every OSM street, plus paving between them.
+ *
+ * Separate mesh from the route ribbon rather than merged into it, because the
+ * two are built from different sources and change independently — and it costs
+ * exactly one extra draw call.
+ */
+function CityGround({ corridor }: { corridor: CorridorSample[] }) {
+  const built = useMemo(() => buildCityGround(corridor), [corridor])
+
+  const material = useMemo(
+    () =>
+      patchToonMaterial(
+        new THREE.MeshToonMaterial({
+          color: 0xffffff,
+          gradientMap: toonRamp(),
+          vertexColors: true,
+          side: THREE.DoubleSide,
+        }),
+        { ground: {} },
+      ),
+    [],
+  )
+
+  useEffect(() => {
+    return () => {
+      built.geometry.dispose()
+      material.dispose()
+    }
+  }, [built, material])
+
+  return (
+    <mesh geometry={built.geometry} receiveShadow frustumCulled={false}>
       <primitive object={material} attach="material" dispose={null} />
     </mesh>
   )
@@ -142,6 +185,7 @@ export function Environment({
     () => generateEnvironment(route, rail, sections),
     [route, rail, sections],
   )
+  const corridor = useMemo(() => buildCorridor(rail, sections), [rail, sections])
   const segment = useActiveSegment()
 
   // Vertex colours carry the ground's material variation, so one mesh covers
@@ -192,6 +236,7 @@ export function Environment({
         <primitive object={groundMaterial} attach="material" dispose={null} />
       </mesh>
 
+      <CityGround corridor={corridor} />
       <City />
       <Landmarks landmarks={route.landmarks} />
 

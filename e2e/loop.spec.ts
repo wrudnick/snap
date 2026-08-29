@@ -357,6 +357,11 @@ test.describe('gameplay loop', () => {
   })
 
   test('the run is capped by the film roll', async ({ page }) => {
+    // Burns the entire roll one photo at a time, and each photo now renders the
+    // scene twice — once for the frame, once through the post chain so the
+    // saved image carries the ink lines. On a software renderer that is well
+    // past the default budget, and the roll grew with the route.
+    test.setTimeout(180_000)
     await boot(page)
     await startRun(page)
 

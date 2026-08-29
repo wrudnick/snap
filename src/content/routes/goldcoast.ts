@@ -30,20 +30,27 @@ import type { RouteDef } from './types'
  * THE WALK
  *   Sand at Oak Street Beach → the 1934 WPA underpass beneath DuSable Lake Shore
  *   Drive → surface at the top of the Magnificent Mile → south on Michigan past
- *   the towers → west on Walton → north on Rush through the whole dining strip →
- *   Mariano Park where Rush meets State → east on Bellevue into a service alley →
- *   through a kitchen → the far end of the bar.
+ *   the towers for two blocks → west on Delaware → north on Rush through the
+ *   whole dining strip → Mariano Park where Rush meets State → east on Bellevue
+ *   into a service alley → through a kitchen → the far end of the bar.
  *
  *   Open → tight → open → tight, ending on a barstool having started on a
  *   shoreline.
  *
- * WHY WALTON AND NOT OAK
+ * TO SCALE, AND WHY THAT MATTERS
+ *   Michigan Avenue used to run a single block, Oak to Walton, because two
+ *   blocks seemed long. It read as a shortcut: the Magnificent Mile is *made* of
+ *   its length, and one block of it is a corner rather than an avenue. Every
+ *   position here is now a real OSM node or a point interpolated between two of
+ *   them, and no block is shortened.
+ *
+ * WHY DELAWARE AND NOT OAK
  *   Walking south on Michigan and then west on *Oak* is geometrically impossible
- *   without doubling back — Oak is the street you surfaced on. Walton is the next
- *   block south and the only connector that reaches Rush without backtracking.
- *   It also puts you on Rush *below* the restaurants, so the northbound leg
- *   passes the entire strip (Taverne 1015, Hugo's 1024, Gooby's 1028,
- *   Clementine's 1043) rather than joining it halfway up.
+ *   without doubling back — Oak is the street you surfaced on. Two blocks south
+ *   puts you at Delaware Place, which reaches Rush without backtracking and
+ *   joins it further south than Walton did, so the northbound leg now passes the
+ *   entire strip (Taverne 1015, Hugo's 1024, Gooby's 1028, Clementine's 1043)
+ *   with room to spare.
  *
  * CORNERS
  *   Waypoints cluster in pairs at every turn. Combined with the rail's low
@@ -53,9 +60,9 @@ import type { RouteDef } from './types'
 export const GOLD_COAST: RouteDef = {
   id: 'goldcoast',
   displayName: 'Gold Coast',
-  // ~810 m at a walking 2.5 m/s. Long — which is what the speed control and
+  // ~1.3 km at a brisk walk. Long — which is what the speed control and the
   // checkpoints are for.
-  durationSeconds: 340,
+  durationSeconds: 380,
 
   waypoints: [
     // — Oak Street Beach. No OSM street data out on the sand; placed relative
@@ -79,38 +86,52 @@ export const GOLD_COAST: RouteDef = {
     [109, 1.7, -13], // 10
     [38, 1.7, -10], // 11
 
-    // — Michigan Avenue southbound, Oak (0,0) to Walton (16.7, 89.1).
-    //   Both junctions are shared OSM nodes; offset 12 m onto the east
-    //   sidewalk, which is also the side that faces the towers. —
-    [12, 1.7, 1], // 12  Michigan & Oak
-    [16, 1.7, 20], // 13
-    [20, 1.7, 42], // 14
-    [24, 1.7, 65], // 15
-    [29, 1.7, 87], // 16  Michigan & Walton
+    // — Michigan Avenue southbound: Oak (z 0) → Walton (z 89) → Delaware
+    //   (z 178). Two blocks, at their real length. The avenue is mapped as two
+    //   parallel ways about 14 m apart, so the centreline is their midpoint —
+    //   x 9.8 at Oak drifting to 11.4 at Delaware — and the route sits 12 m east
+    //   of it, on the sidewalk that faces the towers. —
+    [22, 1.7, 1], // 12  Michigan & Oak
+    [22, 1.7, 45], // 13
+    [22, 1.7, 89], // 14  Michigan & Walton
+    [23, 1.7, 134], // 15
+    // Stops just short of Delaware's centreline rather than crossing it and
+    // doubling back onto the westbound line. Three metres of backtrack at a
+    // corner is invisible on the map and a cusp on the spline: heading swung
+    // +48 degrees and then −77 in consecutive steps, which folded the ribbon
+    // into a flap lying across the junction.
+    [23, 1.7, 174], // 16  Michigan & Delaware
 
-    // — Walton Place westbound to Rush (−237.2, 94.7) —
-    [17, 1.7, 98], // 17
-    [-68, 1.7, 100], // 18
-    [-152, 1.7, 102], // 19
-    [-237, 1.7, 104], // 20
+    // — Delaware Place westbound to Rush (−205.9, 182.8). Delaware's centreline
+    //   drifts from z 178 at Michigan to z 183 at Rush; the route runs 3 m north
+    //   of it, which is the side with clearance. —
+    [16, 1.7, 175], // 17
+    [-50, 1.7, 176], // 18
+    [-130, 1.7, 178], // 19
+    [-203, 1.7, 180], // 20
 
-    // — Rush Street northbound through Oak (−269, 5.6) to
-    //   Bellevue (−301.4, −84.5). This is the diagonal. —
-    [-229, 1.7, 92], // 21
-    [-245, 1.7, 47], // 22
-    [-261, 1.7, 3], // 23  Rush & Oak
-    [-271, 1.7, -28], // 24  the dining strip
-    [-282, 1.7, -58], // 25
-    [-293, 1.7, -87], // 26  Rush & Bellevue
+    // — Rush Street northbound: Delaware (−205.9, 182.8) → Walton (−237.2,
+    //   94.7) → Oak (−269.0, 5.6) → Bellevue (−301.4, −84.5). This is the
+    //   diagonal, and every one of those is a shared OSM node; the intermediate
+    //   points are interpolated between them. Offset 7 m east onto the patio
+    //   side. —
+    [-214, 1.7, 140], // 21
+    [-230, 1.7, 95], // 22  Rush & Walton
+    [-246, 1.7, 50], // 23
+    [-262, 1.7, 6], // 24  Rush & Oak
+    [-278, 1.7, -39], // 25  the dining strip
+    [-294, 1.7, -84], // 26  Rush & Bellevue
 
     // — The Triangle: Rush, State (−338.3) and Bellevue enclosing Mariano Park —
     [-313, 1.7, -91], // 27
     [-324, 1.7, -99], // 28  round the pavilion
     [-308, 1.7, -105], // 29
 
-    // — East on Bellevue (Sinatra Way) into the service alley —
-    [-297, 1.7, -99], // 30
-    [-285, 1.7, -93], // 31  alley mouth behind Gooby's
+    // — East on Bellevue (Sinatra Way) into the service alley.
+    //   Nudged 2 m north of the old line, which clipped the corner of the
+    //   building on the south side of the alley mouth. —
+    [-298, 1.7, -97], // 30
+    [-286, 1.7, -91], // 31  alley mouth behind Gooby's
 
     // — Alley —
     [-278, 1.7, -85], // 32
@@ -128,7 +149,7 @@ export const GOLD_COAST: RouteDef = {
     { id: 'underpass', kind: 'tunnel', title: 'The Underpass', waypoints: [3, 6], lighting: TUNNEL },
     { id: 'lakeshore', kind: 'boutique', title: 'East Lake Shore Drive', waypoints: [7, 11], lighting: BOUTIQUE_DAWN },
     { id: 'michigan', kind: 'avenue', title: 'Michigan Avenue', waypoints: [12, 16], lighting: AVENUE_DAWN },
-    { id: 'walton', kind: 'boutique', title: 'Walton Place', waypoints: [17, 20], lighting: BOUTIQUE_DAWN },
+    { id: 'delaware', kind: 'boutique', title: 'Delaware Place', waypoints: [17, 20], lighting: BOUTIQUE_DAWN },
     { id: 'rush', kind: 'dining', title: 'Rush Street', waypoints: [21, 26], lighting: DINING_DAWN },
     { id: 'triangle', kind: 'park', title: 'The Triangle', waypoints: [27, 29], lighting: PARK_DAWN },
     { id: 'alley', kind: 'alley', title: 'The Alley', waypoints: [30, 33], lighting: ALLEY },
@@ -140,7 +161,7 @@ export const GOLD_COAST: RouteDef = {
     { id: 'cp-tunnel', title: 'The Underpass', waypoint: 3 },
     { id: 'cp-lakeshore', title: 'East Lake Shore Drive', waypoint: 7 },
     { id: 'cp-michigan', title: 'Michigan Avenue', waypoint: 12 },
-    { id: 'cp-walton', title: 'Walton Place', waypoint: 17 },
+    { id: 'cp-delaware', title: 'Delaware Place', waypoint: 17 },
     { id: 'cp-rush', title: 'Rush Street', waypoint: 21 },
     { id: 'cp-triangle', title: 'The Triangle', waypoint: 27 },
     { id: 'cp-alley', title: 'The Alley', waypoint: 30 },
@@ -150,8 +171,8 @@ export const GOLD_COAST: RouteDef = {
   look: { yawLimit: 1.75, pitchLimit: 0.85, sensitivity: 0.0022 },
   fov: { default: 62, zoomed: 26 },
 
-  // ~22 m per segment over 810 m.
-  segmentCount: 40,
+  // ~29 m per segment.
+  segmentCount: 44,
   activeWindow: 3,
   // Buildings reach ~270 m so the avenue has real depth; furniture and clutter
   // stay tight because they are numerous and only read up close.
@@ -186,7 +207,7 @@ export const GOLD_COAST: RouteDef = {
   ],
 
   seed: 20260826,
-  film: 40,
+  film: 46,
 
   /**
    * Subjects anchored to the rail, not the world.
@@ -198,90 +219,90 @@ export const GOLD_COAST: RouteDef = {
    */
   subjects: [
     // — Beach —
-    { id: 'gull-1', species: 'pigeon', at: { t: 0.02, offset: -14, y: 0.2 }, rotationY: 2.2, seed: 101 },
-    { id: 'gull-2', species: 'pigeon', at: { t: 0.035, offset: -9, y: 0.2 }, rotationY: 1.8, seed: 102 },
-    { id: 'dog-beach', species: 'dog', at: { t: 0.05, offset: 11 }, rotationY: 1.1, seed: 103 },
+    { id: 'gull-1', species: 'pigeon', at: { section: 'beach', u: 0.2, offset: -14, y: 0.2 }, rotationY: 2.2, seed: 101 },
+    { id: 'gull-2', species: 'pigeon', at: { section: 'beach', u: 0.45, offset: -9, y: 0.2 }, rotationY: 1.8, seed: 102 },
+    { id: 'dog-beach', species: 'dog', at: { section: 'beach', u: 0.75, offset: 11 }, rotationY: 1.1, seed: 103 },
 
     // — Underpass —
-    { id: 'pig-tunnel', species: 'pigeon', at: { t: 0.10, offset: 2.6, y: 0.15 }, rotationY: -1.6, seed: 111 },
-    { id: 'cat-tunnel', species: 'cat', at: { t: 0.135, offset: -2.4 }, rotationY: 1.4, seed: 112 },
+    { id: 'pig-tunnel', species: 'pigeon', at: { section: 'underpass', u: 0.35, offset: 2.6, y: 0.15 }, rotationY: -1.6, seed: 111 },
+    { id: 'cat-tunnel', species: 'cat', at: { section: 'underpass', u: 0.75, offset: -2.4 }, rotationY: 1.4, seed: 112 },
 
     // — East Lake Shore Drive —
-    { id: 'taxi-elsd', species: 'taxi', at: { t: 0.20, offset: 9 }, rotationY: 1.6, seed: 121 },
-    { id: 'dog-elsd', species: 'dog', at: { t: 0.245, offset: -8 }, rotationY: -1.2, seed: 122 },
-    { id: 'pig-elsd-1', species: 'pigeon', at: { t: 0.29, offset: -7, y: 0.15 }, rotationY: 0.4, seed: 123 },
-    { id: 'pig-elsd-2', species: 'pigeon', at: { t: 0.30, offset: -9, y: 0.15 }, rotationY: 1.1, seed: 124 },
-    { id: 'cat-elsd', species: 'cat', at: { t: 0.335, offset: 10 }, rotationY: -1.5, seed: 125 },
+    { id: 'taxi-elsd', species: 'taxi', at: { section: 'lakeshore', u: 0.15, offset: 9 }, rotationY: 1.6, seed: 121 },
+    { id: 'dog-elsd', species: 'dog', at: { section: 'lakeshore', u: 0.38, offset: -8 }, rotationY: -1.2, seed: 122 },
+    { id: 'pig-elsd-1', species: 'pigeon', at: { section: 'lakeshore', u: 0.6, offset: -7, y: 0.15 }, rotationY: 0.4, seed: 123 },
+    { id: 'pig-elsd-2', species: 'pigeon', at: { section: 'lakeshore', u: 0.64, offset: -9, y: 0.15 }, rotationY: 1.1, seed: 124 },
+    { id: 'cat-elsd', species: 'cat', at: { section: 'lakeshore', u: 0.85, offset: 10 }, rotationY: -1.5, seed: 125 },
 
     // — Michigan Avenue —
-    { id: 'taxi-mich-1', species: 'taxi', at: { t: 0.415, offset: 14 }, rotationY: 0.18, seed: 131 },
-    { id: 'pig-mich-1', species: 'pigeon', at: { t: 0.44, offset: -6, y: 0.15 }, rotationY: -2.1, seed: 132 },
-    { id: 'pig-mich-2', species: 'pigeon', at: { t: 0.45, offset: -8, y: 0.15 }, rotationY: -1.4, seed: 133 },
-    { id: 'dog-mich', species: 'dog', at: { t: 0.475, offset: -7 }, rotationY: 2.4, seed: 134 },
-    { id: 'taxi-mich-2', species: 'taxi', at: { t: 0.50, offset: 15 }, rotationY: Math.PI, seed: 135 },
+    { id: 'taxi-mich-1', species: 'taxi', at: { section: 'michigan', u: 0.2, offset: 14 }, rotationY: 0.18, seed: 131 },
+    { id: 'pig-mich-1', species: 'pigeon', at: { section: 'michigan', u: 0.38, offset: -6, y: 0.15 }, rotationY: -2.1, seed: 132 },
+    { id: 'pig-mich-2', species: 'pigeon', at: { section: 'michigan', u: 0.42, offset: -8, y: 0.15 }, rotationY: -1.4, seed: 133 },
+    { id: 'dog-mich', species: 'dog', at: { section: 'michigan', u: 0.55, offset: -7 }, rotationY: 2.4, seed: 134 },
+    { id: 'taxi-mich-2', species: 'taxi', at: { section: 'michigan', u: 0.78, offset: 15 }, rotationY: Math.PI, seed: 135 },
 
-    // — Walton Place —
-    { id: 'cat-wal', species: 'cat', at: { t: 0.555, offset: -7 }, rotationY: -1.5, seed: 141 },
-    { id: 'pig-wal-1', species: 'pigeon', at: { t: 0.60, offset: 6, y: 0.15 }, rotationY: 1.2, seed: 142 },
-    { id: 'pig-wal-2', species: 'pigeon', at: { t: 0.61, offset: 8, y: 0.15 }, rotationY: 1.9, seed: 143 },
-    { id: 'pig-wal-3', species: 'pigeon', at: { t: 0.615, offset: 5, y: 0.15 }, rotationY: 0.7, seed: 144 },
-    { id: 'dog-wal', species: 'dog', at: { t: 0.645, offset: -6 }, rotationY: 0.9, seed: 145 },
+    // — Delaware Place —
+    { id: 'cat-del', species: 'cat', at: { section: 'delaware', u: 0.12, offset: -7 }, rotationY: -1.5, seed: 141 },
+    { id: 'pig-del-1', species: 'pigeon', at: { section: 'delaware', u: 0.3, offset: 6, y: 0.15 }, rotationY: 1.2, seed: 142 },
+    { id: 'pig-del-2', species: 'pigeon', at: { section: 'delaware', u: 0.33, offset: 8, y: 0.15 }, rotationY: 1.9, seed: 143 },
+    { id: 'pig-del-3', species: 'pigeon', at: { section: 'delaware', u: 0.36, offset: 5, y: 0.15 }, rotationY: 0.7, seed: 144 },
+    { id: 'dog-del', species: 'dog', at: { section: 'delaware', u: 0.62, offset: -6 }, rotationY: 0.9, seed: 145 },
 
     // — Rush Street: the patios —
-    { id: 'taxi-rush', species: 'taxi', at: { t: 0.70, offset: 12 }, rotationY: 0.35, seed: 151 },
-    { id: 'dog-rush', species: 'dog', at: { t: 0.735, offset: -7 }, rotationY: 2.6, seed: 152 },
-    { id: 'pig-rush-1', species: 'pigeon', at: { t: 0.775, offset: -6, y: 0.15 }, rotationY: 0.4, seed: 153 },
-    { id: 'pig-rush-2', species: 'pigeon', at: { t: 0.782, offset: -8, y: 0.15 }, rotationY: 1.1, seed: 154 },
-    { id: 'cat-rush', species: 'cat', at: { t: 0.80, offset: 7 }, rotationY: -0.9, seed: 155 },
+    { id: 'taxi-rush', species: 'taxi', at: { section: 'rush', u: 0.12, offset: 12 }, rotationY: 0.35, seed: 151 },
+    { id: 'dog-rush', species: 'dog', at: { section: 'rush', u: 0.28, offset: -7 }, rotationY: 2.6, seed: 152 },
+    { id: 'pig-rush-1', species: 'pigeon', at: { section: 'rush', u: 0.55, offset: -6, y: 0.15 }, rotationY: 0.4, seed: 153 },
+    { id: 'pig-rush-2', species: 'pigeon', at: { section: 'rush', u: 0.58, offset: -8, y: 0.15 }, rotationY: 1.1, seed: 154 },
+    { id: 'cat-rush', species: 'cat', at: { section: 'rush', u: 0.72, offset: 7 }, rotationY: -0.9, seed: 155 },
 
     // — The Triangle —
-    { id: 'pig-tri-1', species: 'pigeon', at: { t: 0.855, offset: 5, y: 0.15 }, rotationY: -0.6, seed: 161 },
-    { id: 'pig-tri-2', species: 'pigeon', at: { t: 0.862, offset: 8, y: 0.15 }, rotationY: 0.2, seed: 162 },
-    { id: 'pig-tri-3', species: 'pigeon', at: { t: 0.868, offset: 3, y: 0.15 }, rotationY: 1.5, seed: 163 },
-    { id: 'pig-tri-4', species: 'pigeon', at: { t: 0.875, offset: 10, y: 0.15 }, rotationY: 2.4, seed: 164 },
-    { id: 'dog-tri', species: 'dog', at: { t: 0.885, offset: -5 }, rotationY: 1.3, seed: 165 },
+    { id: 'pig-tri-1', species: 'pigeon', at: { section: 'triangle', u: 0.15, offset: 5, y: 0.15 }, rotationY: -0.6, seed: 161 },
+    { id: 'pig-tri-2', species: 'pigeon', at: { section: 'triangle', u: 0.25, offset: 8, y: 0.15 }, rotationY: 0.2, seed: 162 },
+    { id: 'pig-tri-3', species: 'pigeon', at: { section: 'triangle', u: 0.35, offset: 3, y: 0.15 }, rotationY: 1.5, seed: 163 },
+    { id: 'pig-tri-4', species: 'pigeon', at: { section: 'triangle', u: 0.45, offset: 10, y: 0.15 }, rotationY: 2.4, seed: 164 },
+    { id: 'dog-tri', species: 'dog', at: { section: 'triangle', u: 0.6, offset: -5 }, rotationY: 1.3, seed: 165 },
 
     // — Alley —
-    { id: 'cat-alley', species: 'cat', at: { t: 0.925, offset: 2 }, rotationY: -2.2, seed: 171 },
-    { id: 'pig-alley', species: 'pigeon', at: { t: 0.94, offset: -1.8, y: 0.15 }, rotationY: 2.8, seed: 172 },
+    { id: 'cat-alley', species: 'cat', at: { section: 'alley', u: 0.3, offset: 2 }, rotationY: -2.2, seed: 171 },
+    { id: 'pig-alley', species: 'pigeon', at: { section: 'alley', u: 0.65, offset: -1.8, y: 0.15 }, rotationY: 2.8, seed: 172 },
 
     // — Kitchen and bar —
-    { id: 'dog-bar', species: 'dog', at: { t: 0.965, offset: -1.6 }, rotationY: -0.4, seed: 181 },
-    { id: 'cat-bar', species: 'cat', at: { t: 0.99, offset: 1.6 }, rotationY: 1.2, seed: 182 },
+    { id: 'dog-bar', species: 'dog', at: { section: 'inside', u: 0.3, offset: -1.6 }, rotationY: -0.4, seed: 181 },
+    { id: 'cat-bar', species: 'cat', at: { section: 'inside', u: 0.85, offset: 1.6 }, rotationY: 1.2, seed: 182 },
 
     // — People. Placed where each class actually belongs: tourists gawking on
     //   the Magnificent Mile, a doorman outside the hotels, the Rush Street
     //   crowd around the Triangle. —
-    { id: 'tour-elsd-1', species: 'tourist-woman', at: { t: 0.235, offset: 2.5 }, rotationY: 1.4, seed: 301 },
-    { id: 'tour-elsd-2', species: 'tourist-man', at: { t: 0.242, offset: 4.5 }, rotationY: 1.2, seed: 302 },
-    { id: 'old-elsd', species: 'old-man', at: { t: 0.31, offset: -2.5 }, rotationY: -1.4, seed: 303 },
+    { id: 'tour-elsd-1', species: 'tourist-woman', at: { section: 'lakeshore', u: 0.33, offset: 2.5 }, rotationY: 1.4, seed: 301 },
+    { id: 'tour-elsd-2', species: 'tourist-man', at: { section: 'lakeshore', u: 0.36, offset: 4.5 }, rotationY: 1.2, seed: 302 },
+    { id: 'old-elsd', species: 'old-man', at: { section: 'lakeshore', u: 0.72, offset: -2.5 }, rotationY: -1.4, seed: 303 },
 
-    { id: 'door-mich', species: 'doorman', at: { t: 0.40, offset: 4.5 }, rotationY: -1.5, seed: 311 },
-    { id: 'tour-mich-1', species: 'tourist-man', at: { t: 0.425, offset: 2.0 }, rotationY: 2.6, seed: 312 },
-    { id: 'tour-mich-2', species: 'tourist-woman', at: { t: 0.432, offset: 4.0 }, rotationY: 2.9, seed: 313 },
-    { id: 'tour-mich-3', species: 'tourist-woman', at: { t: 0.462, offset: 2.5 }, rotationY: 0.3, seed: 314 },
-    { id: 'tour-mich-4', species: 'tourist-man', at: { t: 0.468, offset: 5.0 }, rotationY: 0.1, seed: 315 },
-    { id: 'old-mich', species: 'old-man', at: { t: 0.49, offset: 3.5 }, rotationY: 1.8, seed: 316 },
-    { id: 'esc-mich', species: 'escort', at: { t: 0.505, offset: 5.5 }, rotationY: 2.2, seed: 317 },
+    { id: 'door-mich', species: 'doorman', at: { section: 'michigan', u: 0.12, offset: 4.5 }, rotationY: -1.5, seed: 311 },
+    { id: 'tour-mich-1', species: 'tourist-man', at: { section: 'michigan', u: 0.25, offset: 2.0 }, rotationY: 2.6, seed: 312 },
+    { id: 'tour-mich-2', species: 'tourist-woman', at: { section: 'michigan', u: 0.28, offset: 4.0 }, rotationY: 2.9, seed: 313 },
+    { id: 'tour-mich-3', species: 'tourist-woman', at: { section: 'michigan', u: 0.48, offset: 2.5 }, rotationY: 0.3, seed: 314 },
+    { id: 'tour-mich-4', species: 'tourist-man', at: { section: 'michigan', u: 0.52, offset: 5.0 }, rotationY: 0.1, seed: 315 },
+    { id: 'old-mich', species: 'old-man', at: { section: 'michigan', u: 0.66, offset: 3.5 }, rotationY: 1.8, seed: 316 },
+    { id: 'esc-mich', species: 'escort', at: { section: 'michigan', u: 0.72, offset: 5.5 }, rotationY: 2.2, seed: 317 },
 
-    { id: 'door-wal', species: 'doorman', at: { t: 0.575, offset: -3.5 }, rotationY: -0.2, seed: 321 },
-    { id: 'esc-wal', species: 'escort', at: { t: 0.625, offset: 3.0 }, rotationY: 1.6, seed: 322 },
-    { id: 'tour-wal', species: 'tourist-woman', at: { t: 0.66, offset: -4.0 }, rotationY: -1.3, seed: 323 },
+    { id: 'door-del', species: 'doorman', at: { section: 'delaware', u: 0.2, offset: -3.5 }, rotationY: -0.2, seed: 321 },
+    { id: 'esc-del', species: 'escort', at: { section: 'delaware', u: 0.45, offset: 3.0 }, rotationY: 1.6, seed: 322 },
+    { id: 'tour-del', species: 'tourist-woman', at: { section: 'delaware', u: 0.72, offset: -4.0 }, rotationY: -1.3, seed: 323 },
 
     // The dining strip: the crowd this route exists to photograph.
-    { id: 'old-rush-1', species: 'old-man', at: { t: 0.755, offset: 3.0 }, rotationY: 1.5, seed: 331 },
-    { id: 'esc-rush-1', species: 'escort', at: { t: 0.760, offset: 4.5 }, rotationY: 1.7, seed: 332 },
-    { id: 'old-rush-2', species: 'old-man', at: { t: 0.790, offset: -3.5 }, rotationY: -1.5, seed: 333 },
-    { id: 'esc-rush-2', species: 'escort', at: { t: 0.795, offset: -5.0 }, rotationY: -1.3, seed: 334 },
-    { id: 'door-rush', species: 'doorman', at: { t: 0.812, offset: 2.5 }, rotationY: 1.5, seed: 335 },
-    { id: 'tour-rush', species: 'tourist-man', at: { t: 0.822, offset: -4.5 }, rotationY: -1.1, seed: 336 },
+    { id: 'old-rush-1', species: 'old-man', at: { section: 'rush', u: 0.38, offset: 3.0 }, rotationY: 1.5, seed: 331 },
+    { id: 'esc-rush-1', species: 'escort', at: { section: 'rush', u: 0.4, offset: 4.5 }, rotationY: 1.7, seed: 332 },
+    { id: 'old-rush-2', species: 'old-man', at: { section: 'rush', u: 0.52, offset: -3.5 }, rotationY: -1.5, seed: 333 },
+    { id: 'esc-rush-2', species: 'escort', at: { section: 'rush', u: 0.55, offset: -5.0 }, rotationY: -1.3, seed: 334 },
+    { id: 'door-rush', species: 'doorman', at: { section: 'rush', u: 0.66, offset: 2.5 }, rotationY: 1.5, seed: 335 },
+    { id: 'tour-rush', species: 'tourist-man', at: { section: 'rush', u: 0.7, offset: -4.5 }, rotationY: -1.1, seed: 336 },
 
-    { id: 'old-tri', species: 'old-man', at: { t: 0.866, offset: -3.0 }, rotationY: -0.8, seed: 341 },
-    { id: 'esc-tri', species: 'escort', at: { t: 0.872, offset: -4.5 }, rotationY: -0.6, seed: 342 },
-    { id: 'tour-tri', species: 'tourist-woman', at: { t: 0.879, offset: 2.5 }, rotationY: 2.0, seed: 343 },
+    { id: 'old-tri', species: 'old-man', at: { section: 'triangle', u: 0.3, offset: -3.0 }, rotationY: -0.8, seed: 341 },
+    { id: 'esc-tri', species: 'escort', at: { section: 'triangle', u: 0.35, offset: -4.5 }, rotationY: -0.6, seed: 342 },
+    { id: 'tour-tri', species: 'tourist-woman', at: { section: 'triangle', u: 0.5, offset: 2.5 }, rotationY: 2.0, seed: 343 },
 
-    { id: 'esc-bar', species: 'escort', at: { t: 0.972, offset: 1.4 }, rotationY: 1.4, seed: 351 },
-    { id: 'old-bar', species: 'old-man', at: { t: 0.983, offset: -1.4 }, rotationY: -1.2, seed: 352 },
+    { id: 'esc-bar', species: 'escort', at: { section: 'inside', u: 0.5, offset: 1.4 }, rotationY: 1.4, seed: 351 },
+    { id: 'old-bar', species: 'old-man', at: { section: 'inside', u: 0.7, offset: -1.4 }, rotationY: -1.2, seed: 352 },
   ],
 }
 

@@ -3,6 +3,7 @@ import * as THREE from 'three'
 
 import type { RouteDef, SubjectPlacement } from '@/content/routes/types'
 import { type Rail, segmentActive } from '@/game/rail'
+import type { ResolvedSection } from '@/game/sections'
 
 import { SubjectView } from './Subject'
 import { useActiveSegment } from './useActiveSegment'
@@ -47,14 +48,34 @@ function assignSegments(
 /** Route waypoints are authored at eye height; ground sits this far below. */
 const EYE_HEIGHT = 1.7
 
-function resolvePlacements(rail: Rail, placements: SubjectPlacement[]): SubjectPlacement[] {
+/**
+ * Section-relative anchors resolved against the route's actual section spans.
+ *
+ * An unknown section id would silently drop the subject at t=0, on the beach,
+ * which is the kind of thing nobody notices for a month — so it throws.
+ */
+function anchorT(at: NonNullable<SubjectPlacement['at']>, sections: ResolvedSection[]): number {
+  if ('t' in at) return at.t
+  const section = sections.find((s) => s.id === at.section)
+  if (!section) {
+    throw new Error(`Subject anchored to unknown section "${at.section}"`)
+  }
+  return section.tStart + at.u * (section.tEnd - section.tStart)
+}
+
+function resolvePlacements(
+  rail: Rail,
+  sections: ResolvedSection[],
+  placements: SubjectPlacement[],
+): SubjectPlacement[] {
   const point = new THREE.Vector3()
   const right = new THREE.Vector3()
 
   return placements.map((p) => {
     if (!p.at) return p
-    rail.positionAt(p.at.t, point)
-    rail.rightAt(p.at.t, right)
+    const t = anchorT(p.at, sections)
+    rail.positionAt(t, point)
+    rail.rightAt(t, right)
 
     // Ground follows the rail, which dips 2.8 m below grade in the underpass and
     // climbs back. Defaulting `y` to 0 leaves subjects floating there — so the
@@ -74,10 +95,18 @@ function resolvePlacements(rail: Rail, placements: SubjectPlacement[]): SubjectP
   })
 }
 
-export function Subjects({ route, rail }: { route: RouteDef; rail: Rail }) {
+export function Subjects({
+  route,
+  rail,
+  sections,
+}: {
+  route: RouteDef
+  rail: Rail
+  sections: ResolvedSection[]
+}) {
   const resolved = useMemo(
-    () => resolvePlacements(rail, route.subjects),
-    [rail, route.subjects],
+    () => resolvePlacements(rail, sections, route.subjects),
+    [rail, sections, route.subjects],
   )
   const placed = useMemo(() => assignSegments(rail, resolved), [rail, resolved])
   const segment = useActiveSegment()

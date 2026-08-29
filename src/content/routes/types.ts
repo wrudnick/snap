@@ -7,21 +7,35 @@ import type { LandmarkDef } from '@/content/models/landmarks'
  * adding a file in this directory — nothing in `src/game/` changes.
  */
 
+/**
+ * Where along the route a subject stands.
+ *
+ * `section` + `u` (0 at the section's start, 1 at its end) survives the route
+ * being refitted. Raw `t` is kept for anything that genuinely belongs to the
+ * route as a whole rather than to one of its places.
+ */
+export type SubjectAnchor =
+  | { t: number; offset: number; y?: number }
+  | { section: string; u: number; offset: number; y?: number }
+
 export interface SubjectPlacement {
   /** Unique within the route. */
   id: string
   /** Key into the subject registry (`src/content/subjects/`). */
   species: string
   /**
-   * Route-relative placement: `t` along the rail, `offset` metres left of
-   * travel, `y` above grade.
+   * Route-relative placement. `offset` is metres left of travel and `y` is
+   * height above grade in both forms; they differ in how far along they sit.
    *
-   * Strongly preferred over `position`. Absolute coordinates silently rot every
-   * time the route moves — when the path was refitted to real OSM streets, every
-   * hand-placed subject ended up in the wrong block or inside a building.
-   * Anchoring to the rail means subjects follow the route wherever it goes.
+   * Prefer the `section` form. Anchoring to the whole route's `t` was already
+   * an improvement on absolute coordinates — those silently rot whenever the
+   * path moves — but it rots too, one level up: restoring the second block of
+   * Michigan Avenue lengthened that section and shortened the one after it, and
+   * every `t` in the file pointed at a different street than its comment
+   * claimed. A subject belongs to a *place*, so it should say which place and
+   * how far through it.
    */
-  at?: { t: number; offset: number; y?: number }
+  at?: SubjectAnchor
   /** Absolute world position. Only for things genuinely fixed in the world. */
   position?: [number, number, number]
   /** Initial facing, radians about Y. */

@@ -6,6 +6,8 @@ import type { ResolvedSection } from '@/game/sections'
 import { makeRng, pick, range, rangeInt } from '@/lib/rng'
 import { SURFACE, type SurfaceKind } from '@/render/ground'
 
+import { applyLimits, curveLimits } from './ribbon'
+
 /**
  * Route-following environment generation.
  *
@@ -72,9 +74,9 @@ export interface EnvironmentData {
 // Per-section lateral profiles
 // ---------------------------------------------------------------------------
 
-const SAND = 0xd8c9a4
-const ASPHALT = 0x44484f
-const SIDEWALK = 0x9a9184
+export const SAND = 0xd8c9a4
+export const ASPHALT = 0x44484f
+export const SIDEWALK = 0x9a9184
 const TUNNEL_FLOOR = 0x4a4540
 const PARK_GREEN = 0x5f7247
 const ALLEY_FLOOR = 0x3f3c37
@@ -211,6 +213,25 @@ function buildGround(
   const right = new THREE.Vector3()
   const colour = new THREE.Color()
 
+  // Every row's centre and right vector up front, so each row can see the step
+  // after it and know how hard the route is turning there.
+  const centres: THREE.Vector3[] = []
+  const rights: THREE.Vector3[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const p = new THREE.Vector3()
+    const r = new THREE.Vector3()
+    rail.positionAt(t, p)
+    rail.rightAt(t, r)
+    centres.push(p)
+    rights.push(r)
+  }
+
+  // Offset limits that stop the ribbon folding at the corners. See ribbon.ts.
+  const limits = curveLimits(
+    centres.map((c, i) => ({ x: c.x, z: c.z, rx: rights[i]!.x, rz: rights[i]!.z })),
+  )
+
   // Rows can differ in lane count between section kinds, so stitch only where
   // consecutive rows agree — a mismatch means a section boundary, and a visible
   // seam there is better than a twisted ribbon.
@@ -221,21 +242,22 @@ function buildGround(
     const section = sectionFor(sections, t)
     const lanes = laneProfile(section.kind)
 
-    rail.positionAt(t, point)
-    rail.rightAt(t, right)
+    point.copy(centres[i]!)
+    right.copy(rights[i]!)
 
     const rowStart = positions.length / 3
 
     for (const lane of lanes) {
+      const offset = applyLimits(lane.offset, limits, i)
       positions.push(
-        point.x + right.x * lane.offset,
+        point.x + right.x * offset,
         // Waypoints sit at eye height; ground is below that.
         point.y - 1.7 + lane.height,
-        point.z + right.z * lane.offset,
+        point.z + right.z * offset,
       )
       colour.setHex(lane.color)
       colors.push(colour.r, colour.g, colour.b)
-      grounds.push(lane.offset, t * totalLength)
+      grounds.push(offset, t * totalLength)
       surfaces.push(lane.kind)
     }
 

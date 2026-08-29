@@ -76,7 +76,7 @@ export function Game() {
     >
       <World sections={resolved.sections}>
         <Environment route={route} rail={rail} sections={resolved.sections} />
-        <Subjects route={route} rail={rail} />
+        <Subjects route={route} rail={rail} sections={resolved.sections} />
       </World>
 
       <Rig
