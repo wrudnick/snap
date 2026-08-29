@@ -217,14 +217,37 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
   // the whole animal, not just its torso.
   const body = new THREE.Group()
   body.name = 'body'
+  /**
+   * Proportions pushed toward the reference art: a head that is obviously a
+   * head, big ears, chunky paws.
+   *
+   * The first version had a head the same colour as the body, the same width,
+   * and flush against it — from the front the animal read as a single box with a
+   * nose on it. An animal needs a neck gap and a head bigger than realism wants,
+   * for the same reason the people do: at photo distance, silhouette is all
+   * there is.
+   */
   body.add(
-    part('bodyShell', BOX, c, [0, 0.52, 0], [0.42, 0.4, 0.86]),
-    part('chest', BOX, c, [0, 0.56, -0.36], [0.4, 0.38, 0.3]),
-    part('head', BOX, c, [0, 0.76, -0.52], [0.3, 0.28, 0.32]),
-    part('snout', BOX, a, [0, 0.71, -0.71], [0.16, 0.15, 0.16]),
-    part('earL', BOX, a, [-0.11, 0.92, -0.5], [0.07, 0.13, 0.04]),
-    part('earR', BOX, a, [0.11, 0.92, -0.5], [0.07, 0.13, 0.04]),
-    part('tail', BOX, a, [0, 0.62, 0.46], [0.07, 0.07, 0.34]),
+    part('bodyShell', BOX, c, [0, 0.5, 0.06], [0.44, 0.42, 0.8]),
+    part('chest', BOX, c, [0, 0.55, -0.34], [0.46, 0.44, 0.34]),
+    // A short neck sets the head forward and clear of the shoulders.
+    part('neck', BOX, c, [0, 0.66, -0.53], [0.24, 0.24, 0.16]),
+    part('head', BOX, c, [0, 0.79, -0.67], [0.4, 0.36, 0.38]),
+    // Muzzle kept low and small so it reads as a snout rather than a second
+    // head, and so it leaves the brow clear for the eyes.
+    part('snout', BOX, a, [0, 0.71, -0.89], [0.18, 0.14, 0.14]),
+    part('nosePad', BOX, 0x2b2320, [0, 0.74, -0.96], [0.09, 0.07, 0.03]),
+    // Eyes sit on the brow, proud of the head's front face. The first attempt
+    // put them at the same depth as the muzzle, which buried them inside it —
+    // invisible from every angle.
+    part('eyeL', BOX, 0xf2efe8, [-0.1, 0.85, -0.865], [0.1, 0.09, 0.02]),
+    part('eyeR', BOX, 0xf2efe8, [0.1, 0.85, -0.865], [0.1, 0.09, 0.02]),
+    part('pupilL', BOX, 0x141317, [-0.1, 0.85, -0.876], [0.05, 0.07, 0.02]),
+    part('pupilR', BOX, 0x141317, [0.1, 0.85, -0.876], [0.05, 0.07, 0.02]),
+    // Ears: prominent, but a cat, not a rabbit.
+    part('earL', BOX, a, [-0.13, 0.97, -0.63], [0.1, 0.15, 0.05]),
+    part('earR', BOX, a, [0.13, 0.97, -0.63], [0.1, 0.15, 0.05]),
+    part('tail', BOX, a, [0, 0.62, 0.44], [0.1, 0.1, 0.4]),
   )
 
   // Legs on hip pivots so they swing from the shoulder/haunch rather than about
@@ -233,17 +256,25 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
   // like the dog was treading water.
   const legMesh = () => {
     const m = new THREE.Mesh(BOX, mat(a))
-    m.scale.set(0.1, 0.48, 0.1)
+    m.scale.set(0.15, 0.48, 0.15)
     m.castShadow = true
     return m
   }
   for (const [name, x, z] of [
-    ['legFL', -0.15, -0.28],
-    ['legFR', 0.15, -0.28],
-    ['legBL', -0.15, 0.3],
-    ['legBR', 0.15, 0.3],
+    ['legFL', -0.16, -0.3],
+    ['legFR', 0.16, -0.3],
+    ['legBL', -0.16, 0.3],
+    ['legBR', 0.16, 0.3],
   ] as const) {
-    body.add(pivot(name, [x, 0.48, z], legMesh(), [0, -0.24, 0]))
+    const joint = pivot(name, [x, 0.48, z], legMesh(), [0, -0.24, 0])
+    // Chunky paws, inside the pivot so they swing with the leg.
+    const paw = new THREE.Mesh(BOX, mat(a))
+    paw.scale.set(0.19, 0.11, 0.24)
+    paw.position.set(0, -0.44, -0.03)
+    paw.name = `paw${name.slice(3)}`
+    paw.castShadow = true
+    joint.add(paw)
+    body.add(joint)
   }
 
   g.add(body)
