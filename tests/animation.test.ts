@@ -139,9 +139,15 @@ describe('humanoid construction', () => {
       expect(armBox.max.y).toBeGreaterThan(torsoBox.min.y + (torsoBox.max.y - torsoBox.min.y) * 0.5)
       // And it must not be flung out sideways. armL sits at negative x, so the
       // gap is between the torso's left edge and the arm's right edge.
+      //
+      // Both bounds scale with the figure: an absolute limit fails a tall
+      // person for an overlap that is proportionally identical to a short
+      // one's.
+      const whole = new THREE.Box3().setFromObject(built.group)
+      const figureHeight = whole.max.y - whole.min.y
       const gap = torsoBox.min.x - armBox.max.x
-      expect(gap, 'shoulder gap').toBeLessThan(0.02)
-      expect(gap, 'arm buried in torso').toBeGreaterThan(-0.2)
+      expect(gap, 'shoulder gap').toBeLessThan(figureHeight * 0.012)
+      expect(gap, 'arm buried in torso').toBeGreaterThan(-figureHeight * 0.14)
     })
 
     it(`${def.species}: everything on the head is a child of the head`, () => {

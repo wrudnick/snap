@@ -25,7 +25,7 @@ import { makeRng, range } from '@/lib/rng'
  */
 
 export const CELL = 128
-export const COLS = 4
+export const COLS = 8
 export const ROWS = 7
 const W = CELL * COLS
 const H = CELL * ROWS
@@ -155,67 +155,19 @@ function drawFace(
 function drawTorsoFront(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number) {
   const cx = x + CELL / 2
   const ink = 'rgba(0,0,0,0.28)'
-  const light = 'rgba(255,255,255,0.16)'
+  const light = 'rgba(255,255,255,0.2)'
+  const bright = 'rgba(255,240,190,0.85)'
 
-  ctx.strokeStyle = ink
-  ctx.lineWidth = CELL * 0.018
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
 
-  if (variant === 0) {
-    // Placket and buttons.
-    ctx.beginPath()
-    ctx.moveTo(cx, y + CELL * 0.06)
-    ctx.lineTo(cx, y + CELL * 0.94)
-    ctx.stroke()
-    ctx.fillStyle = light
-    for (let i = 0; i < 4; i++) {
-      ctx.beginPath()
-      ctx.arc(cx, y + CELL * (0.22 + i * 0.2), CELL * 0.022, 0, Math.PI * 2)
-      ctx.fill()
-    }
-  } else if (variant === 1) {
-    // Open jacket over a shirt: two lapels meeting at the sternum.
-    ctx.fillStyle = 'rgba(0,0,0,0.22)'
-    ctx.beginPath()
-    ctx.moveTo(x + CELL * 0.28, y)
-    ctx.lineTo(cx, y + CELL * 0.42)
-    ctx.lineTo(x + CELL * 0.16, y + CELL)
-    ctx.lineTo(x, y + CELL)
-    ctx.lineTo(x, y)
-    ctx.closePath()
-    ctx.fill()
-    ctx.beginPath()
-    ctx.moveTo(x + CELL * 0.72, y)
-    ctx.lineTo(cx, y + CELL * 0.42)
-    ctx.lineTo(x + CELL * 0.84, y + CELL)
-    ctx.lineTo(x + CELL, y + CELL)
-    ctx.lineTo(x + CELL, y)
-    ctx.closePath()
-    ctx.fill()
-  } else if (variant === 2) {
-    // Zip and a chest pocket.
-    ctx.beginPath()
-    ctx.moveTo(cx, y + CELL * 0.04)
-    ctx.lineTo(cx, y + CELL * 0.96)
-    ctx.stroke()
-    ctx.strokeStyle = light
-    ctx.strokeRect(x + CELL * 0.6, y + CELL * 0.22, CELL * 0.22, CELL * 0.18)
-  } else {
-    // A printed graphic across the chest. This is what the reference art
-    // actually puts on a torso — a bold mark, not tailoring — and it is the
-    // single most recognisable thing about those characters' clothes.
-    ctx.beginPath()
-    ctx.moveTo(x + CELL * 0.32, y + CELL * 0.02)
-    ctx.lineTo(cx, y + CELL * 0.18)
-    ctx.lineTo(x + CELL * 0.68, y + CELL * 0.02)
-    ctx.stroke()
-
+  /** A blocky mark in a box. Reads as a logo without being anyone's brand. */
+  const glyph = (scale: number, color: string) => {
     ctx.save()
-    ctx.translate(cx, y + CELL * 0.5)
-    ctx.strokeStyle = 'rgba(255,240,180,0.85)'
-    ctx.lineWidth = CELL * 0.045
-    ctx.lineJoin = 'round'
-    // A blocky glyph: reads as a logo without pretending to be a brand.
-    const u = CELL * 0.1
+    ctx.translate(cx, y + CELL * 0.48)
+    ctx.strokeStyle = color
+    ctx.lineWidth = CELL * 0.045 * scale
+    const u = CELL * 0.1 * scale
     ctx.beginPath()
     ctx.moveTo(-u * 1.4, -u * 1.4)
     ctx.lineTo(u * 1.4, -u * 1.4)
@@ -224,13 +176,135 @@ function drawTorsoFront(ctx: CanvasRenderingContext2D, x: number, y: number, var
     ctx.lineTo(-u * 0.4, u * 1.4)
     ctx.lineTo(u * 1.6, u * 1.4)
     ctx.stroke()
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)'
-    ctx.lineWidth = CELL * 0.012
-    ctx.strokeRect(-u * 2.1, -u * 2.1, u * 4.2, u * 4.2)
     ctx.restore()
   }
 
-  // Shoulder seams, on every variant: they give a flat panel some structure.
+  const collar = (depth: number) => {
+    ctx.strokeStyle = ink
+    ctx.lineWidth = CELL * 0.02
+    ctx.beginPath()
+    ctx.moveTo(x + CELL * 0.3, y + CELL * 0.02)
+    ctx.lineTo(cx, y + CELL * depth)
+    ctx.lineTo(x + CELL * 0.7, y + CELL * 0.02)
+    ctx.stroke()
+  }
+
+  switch (variant) {
+    case 0: // Graphic tee.
+      collar(0.16)
+      glyph(1, bright)
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)'
+      ctx.lineWidth = CELL * 0.012
+      ctx.strokeRect(cx - CELL * 0.21, y + CELL * 0.27, CELL * 0.42, CELL * 0.42)
+      break
+
+    case 1: // Zip hoodie: centre zip, kangaroo pocket, drawcords.
+      ctx.strokeStyle = ink
+      ctx.lineWidth = CELL * 0.022
+      ctx.beginPath()
+      ctx.moveTo(cx, y + CELL * 0.08)
+      ctx.lineTo(cx, y + CELL * 0.96)
+      ctx.stroke()
+      ctx.fillStyle = 'rgba(0,0,0,0.16)'
+      ctx.fillRect(x + CELL * 0.2, y + CELL * 0.6, CELL * 0.6, CELL * 0.26)
+      ctx.strokeStyle = light
+      ctx.lineWidth = CELL * 0.02
+      ctx.beginPath()
+      ctx.moveTo(cx - CELL * 0.06, y + CELL * 0.1)
+      ctx.lineTo(cx - CELL * 0.09, y + CELL * 0.3)
+      ctx.moveTo(cx + CELL * 0.06, y + CELL * 0.1)
+      ctx.lineTo(cx + CELL * 0.09, y + CELL * 0.3)
+      ctx.stroke()
+      break
+
+    case 2: // Tank: two straps over a bare chest panel.
+      ctx.fillStyle = 'rgba(255,255,255,0.0)'
+      ctx.clearRect(x + CELL * 0.22, y, CELL * 0.56, CELL * 0.28)
+      ctx.fillStyle = light
+      ctx.fillRect(x + CELL * 0.16, y, CELL * 0.13, CELL * 0.34)
+      ctx.fillRect(x + CELL * 0.71, y, CELL * 0.13, CELL * 0.34)
+      glyph(0.75, 'rgba(0,0,0,0.35)')
+      break
+
+    case 3: // Jersey: a big number and shoulder piping.
+      collar(0.2)
+      ctx.fillStyle = bright
+      ctx.font = `bold ${CELL * 0.44}px ui-sans-serif, system-ui, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('7', cx, y + CELL * 0.52)
+      ctx.strokeStyle = light
+      ctx.lineWidth = CELL * 0.035
+      ctx.beginPath()
+      ctx.moveTo(x + CELL * 0.1, y + CELL * 0.16)
+      ctx.lineTo(x + CELL * 0.3, y + CELL * 0.06)
+      ctx.moveTo(x + CELL * 0.9, y + CELL * 0.16)
+      ctx.lineTo(x + CELL * 0.7, y + CELL * 0.06)
+      ctx.stroke()
+      break
+
+    case 4: // Windbreaker: colour-blocked bands across the chest.
+      ctx.fillStyle = light
+      ctx.fillRect(x, y + CELL * 0.3, CELL, CELL * 0.16)
+      ctx.fillStyle = 'rgba(0,0,0,0.22)'
+      ctx.fillRect(x, y + CELL * 0.46, CELL, CELL * 0.1)
+      ctx.strokeStyle = ink
+      ctx.lineWidth = CELL * 0.018
+      ctx.beginPath()
+      ctx.moveTo(cx, y + CELL * 0.06)
+      ctx.lineTo(cx, y + CELL * 0.96)
+      ctx.stroke()
+      break
+
+    case 5: // Open jacket over a shirt.
+      ctx.fillStyle = 'rgba(0,0,0,0.24)'
+      ctx.beginPath()
+      ctx.moveTo(x + CELL * 0.26, y)
+      ctx.lineTo(cx, y + CELL * 0.44)
+      ctx.lineTo(x + CELL * 0.14, y + CELL)
+      ctx.lineTo(x, y + CELL)
+      ctx.lineTo(x, y)
+      ctx.closePath()
+      ctx.fill()
+      ctx.beginPath()
+      ctx.moveTo(x + CELL * 0.74, y)
+      ctx.lineTo(cx, y + CELL * 0.44)
+      ctx.lineTo(x + CELL * 0.86, y + CELL)
+      ctx.lineTo(x + CELL, y + CELL)
+      ctx.lineTo(x + CELL, y)
+      ctx.closePath()
+      ctx.fill()
+      break
+
+    case 6: // Overalls: bib and straps.
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'
+      ctx.fillRect(x + CELL * 0.26, y + CELL * 0.3, CELL * 0.48, CELL * 0.7)
+      ctx.fillRect(x + CELL * 0.2, y, CELL * 0.1, CELL * 0.4)
+      ctx.fillRect(x + CELL * 0.7, y, CELL * 0.1, CELL * 0.4)
+      ctx.fillStyle = light
+      ctx.beginPath()
+      ctx.arc(x + CELL * 0.25, y + CELL * 0.36, CELL * 0.03, 0, Math.PI * 2)
+      ctx.arc(x + CELL * 0.75, y + CELL * 0.36, CELL * 0.03, 0, Math.PI * 2)
+      ctx.fill()
+      break
+
+    default: // Quilted puffer: horizontal channels.
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)'
+      ctx.lineWidth = CELL * 0.016
+      for (let i = 1; i < 6; i++) {
+        ctx.beginPath()
+        ctx.moveTo(x, y + (CELL / 6) * i)
+        ctx.lineTo(x + CELL, y + (CELL / 6) * i)
+        ctx.stroke()
+      }
+      ctx.beginPath()
+      ctx.moveTo(cx, y)
+      ctx.lineTo(cx, y + CELL)
+      ctx.stroke()
+      break
+  }
+
+  // Shoulder seams on every variant: they give a flat panel structure.
   ctx.strokeStyle = 'rgba(0,0,0,0.16)'
   ctx.lineWidth = CELL * 0.012
   ctx.beginPath()
@@ -268,38 +342,85 @@ function drawTorsoBack(ctx: CanvasRenderingContext2D, x: number, y: number, vari
  */
 function drawLeg(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number) {
   const rng = makeRng(variant * 104729 + 11)
+  const ink = 'rgba(0,0,0,0.22)'
+  const light = 'rgba(255,255,255,0.24)'
 
-  if (variant === 0) {
-    // Camo: soft irregular blobs, the baggy-trouser staple.
-    for (let i = 0; i < 22; i++) {
-      const bx = x + range(rng, 0, CELL)
-      const by = y + range(rng, 0, CELL)
-      const r = CELL * range(rng, 0.06, 0.17)
-      ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.24)' : 'rgba(255,255,255,0.16)'
+  switch (variant) {
+    case 0: // Camo.
+      for (let i = 0; i < 24; i++) {
+        const bx = x + range(rng, 0, CELL)
+        const by = y + range(rng, 0, CELL)
+        const r = CELL * range(rng, 0.06, 0.17)
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.26)' : 'rgba(255,255,255,0.18)'
+        ctx.beginPath()
+        ctx.ellipse(bx, by, r, r * range(rng, 0.6, 1.3), range(rng, 0, Math.PI), 0, Math.PI * 2)
+        ctx.fill()
+      }
+      break
+
+    case 1: // Track pants: outseam stripe.
+      ctx.fillStyle = light
+      ctx.fillRect(x + CELL * 0.06, y, CELL * 0.1, CELL)
+      ctx.fillStyle = ink
+      ctx.fillRect(x + CELL * 0.5, y, CELL * 0.02, CELL)
+      break
+
+    case 2: // Cargo: thigh pocket and knee seam.
+      ctx.fillStyle = ink
+      ctx.fillRect(x + CELL * 0.22, y + CELL * 0.32, CELL * 0.52, CELL * 0.26)
+      ctx.strokeStyle = ink
+      ctx.lineWidth = CELL * 0.02
       ctx.beginPath()
-      ctx.ellipse(bx, by, r, r * range(rng, 0.6, 1.3), range(rng, 0, Math.PI), 0, Math.PI * 2)
-      ctx.fill()
-    }
-  } else if (variant === 1) {
-    // Side stripe down the outseam.
-    ctx.fillStyle = 'rgba(255,255,255,0.28)'
-    ctx.fillRect(x + CELL * 0.06, y, CELL * 0.09, CELL)
-    ctx.fillStyle = 'rgba(0,0,0,0.2)'
-    ctx.fillRect(x + CELL * 0.5, y, CELL * 0.02, CELL)
-  } else if (variant === 2) {
-    // Cargo pocket and a knee seam.
-    ctx.fillStyle = 'rgba(0,0,0,0.2)'
-    ctx.fillRect(x + CELL * 0.24, y + CELL * 0.34, CELL * 0.5, CELL * 0.26)
-    ctx.strokeStyle = 'rgba(0,0,0,0.24)'
-    ctx.lineWidth = CELL * 0.02
-    ctx.beginPath()
-    ctx.moveTo(x, y + CELL * 0.66)
-    ctx.lineTo(x + CELL, y + CELL * 0.66)
-    ctx.stroke()
-  } else {
-    // Plain, with a turn-up at the hem.
-    ctx.fillStyle = 'rgba(0,0,0,0.18)'
-    ctx.fillRect(x, y + CELL * 0.86, CELL, CELL * 0.14)
+      ctx.moveTo(x, y + CELL * 0.66)
+      ctx.lineTo(x + CELL, y + CELL * 0.66)
+      ctx.stroke()
+      break
+
+    case 3: // Jeans: seams and a turn-up.
+      ctx.strokeStyle = 'rgba(255,255,255,0.14)'
+      ctx.lineWidth = CELL * 0.014
+      ctx.beginPath()
+      ctx.moveTo(x + CELL * 0.2, y)
+      ctx.lineTo(x + CELL * 0.2, y + CELL)
+      ctx.moveTo(x + CELL * 0.8, y)
+      ctx.lineTo(x + CELL * 0.8, y + CELL)
+      ctx.stroke()
+      ctx.fillStyle = ink
+      ctx.fillRect(x, y + CELL * 0.86, CELL, CELL * 0.14)
+      break
+
+    case 4: // Pinstripe: formal trousers.
+      ctx.strokeStyle = 'rgba(255,255,255,0.14)'
+      ctx.lineWidth = CELL * 0.008
+      for (let i = 1; i < 10; i++) {
+        ctx.beginPath()
+        ctx.moveTo(x + (CELL / 10) * i, y)
+        ctx.lineTo(x + (CELL / 10) * i, y + CELL)
+        ctx.stroke()
+      }
+      break
+
+    case 5: // Wide-leg with a bold hem band.
+      ctx.fillStyle = light
+      ctx.fillRect(x, y + CELL * 0.78, CELL, CELL * 0.1)
+      ctx.fillStyle = ink
+      ctx.fillRect(x, y + CELL * 0.88, CELL, CELL * 0.12)
+      break
+
+    case 6: // Patchwork panels.
+      ctx.fillStyle = 'rgba(0,0,0,0.18)'
+      ctx.fillRect(x, y, CELL * 0.5, CELL * 0.5)
+      ctx.fillRect(x + CELL * 0.5, y + CELL * 0.5, CELL * 0.5, CELL * 0.5)
+      break
+
+    default: // Plain, with a single knee crease.
+      ctx.strokeStyle = 'rgba(0,0,0,0.14)'
+      ctx.lineWidth = CELL * 0.014
+      ctx.beginPath()
+      ctx.moveTo(x + CELL * 0.15, y + CELL * 0.6)
+      ctx.lineTo(x + CELL * 0.85, y + CELL * 0.6)
+      ctx.stroke()
+      break
   }
 }
 

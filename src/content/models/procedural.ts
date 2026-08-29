@@ -14,6 +14,7 @@ import {
   TORSO_BACK_ROW,
   TORSO_FRONT_ROW,
 } from './characterAtlas'
+import { outfitFor, OUTFIT_PALETTES } from './outfits'
 import type { HumanSpec, SubjectDef } from '@/content/subjects/types'
 import { makeRng } from '@/lib/rng'
 import { toonRamp } from '@/render/palette'
@@ -472,17 +473,28 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   /** Roll an accessory this class allows. Not every tourist wears the cap. */
   const has = (a: Accessory) => allowed.has(a) && rng() < 0.62
 
+  /**
+   * A whole outfit, not a colour swap.
+   *
+   * The class chooses which looks are plausible for it — a doorman does not
+   * wear a crop top — and the seed picks one. Colours then come from that
+   * outfit's palette family rather than from the class, so a suit is never
+   * sportswear-coloured.
+   */
+  const outfit = outfitFor(def.species, rng())
+  const outfitPalette = OUTFIT_PALETTES[outfit.palette]
+
   const skin = pickFrom(spec.skin)
   const hairColor = pickFrom(spec.hair)
-  const topColor = pickFrom(spec.top)
-  const bottomColor = pickFrom(spec.bottom)
+  const topColor = pickFrom(outfitPalette.top)
+  const bottomColor = pickFrom(outfitPalette.bottom)
+  const trimColor = pickFrom(outfitPalette.trim)
   const shoeColor = 0x241f1b
 
   const h = spec.height * (0.94 + rng() * 0.12)
   const build = spec.build * (0.92 + rng() * 0.18)
 
-  const stripes = has('stripes')
-  const coat = has('coat')
+  const coat = outfit.longCoat === true
   const heels = has('heels')
   const bald = has('bald')
 
@@ -522,8 +534,8 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   /** A limb that swings from its joint. */
   // Trousers and sleeves get their own wrapped cells, so a pattern continues
   // around the limb instead of stopping at a seam.
-  const legCol = Math.floor(rng() * COLS)
-  const sleeveCol = Math.floor(rng() * COLS)
+  const legCol = outfit.legs
+  const sleeveCol = outfit.sleeve
 
   const limb = (
     name: string,
@@ -555,6 +567,18 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     limb('legR', [stance, hipY, 0], [legW, legLen, legW * 1.15], bottomColor, LEG_ROW, legCol),
   )
 
+  // Shorts leave the shin bare: a real change of outline, not of colour.
+  if (outfit.shorts) {
+    for (const side of ['L', 'R'] as const) {
+      const shin = new THREE.Mesh(BOX, mat(skin))
+      shin.scale.set(legW * 0.86, legLen * 0.46, legW)
+      shin.position.set(0, -legLen * 0.74, 0)
+      shin.name = `shin${side}`
+      shin.castShadow = true
+      ;(g.getObjectByName(`leg${side}`) as THREE.Group).add(shin)
+    }
+  }
+
   // Shoes ride inside the leg pivots so they swing with the foot. Deliberately
   // oversized — big feet anchor a stylised figure and read at distance.
   for (const side of ['L', 'R'] as const) {
@@ -579,7 +603,7 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
    * the wide end and disappears at the narrow one, which reads as patches rather
    * than bands — the first version did exactly that.
    */
-  const garmentCol = Math.floor(rng() * COLS)
+  const garmentCol = outfit.top
 
   const torsoSegment = (
     halfBottom: number,
@@ -607,70 +631,92 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     return mesh
   }
 
-  const halfAt = (f: number) => waistHalf + (shoulderHalf - waistHalf) * f
+  /**
+   * Heights inside the torso pivot, which sits at the hip.
+   *
+   * Declared here rather than beside the arms because the torso block now needs
+   * it too — hoods attach at shoulder height.
+   */
+  const rel = (absoluteY: number) => absoluteY - hipY
 
   // No offset argument: torsoSegment already places the shell so it spans hip
   // to shoulder.
-  g.add(pivot('torso', [0, hipY, 0], torsoSegment(waistHalf, shoulderHalf, torsoH, 0, topColor, 'torsoShell')))
+  // Held by reference: `pivot` renames the mesh it wraps to `<joint>_mesh`, so
+  // looking this up by the name given in torsoSegment finds nothing.
+  const torsoShell = torsoSegment(waistHalf, shoulderHalf, torsoH, 0, topColor, 'torsoShell')
+  g.add(pivot('torso', [0, hipY, 0], torsoShell))
   const torsoGroup = g.getObjectByName('torso') as THREE.Group
 
-  if (stripes) {
-    // Replace the single shell with alternating bands that follow the taper.
-    torsoGroup.remove(torsoGroup.children[0]!)
-    const accent = pickFrom(spec.top)
-    const bands = 5
-    for (let i = 0; i < bands; i++) {
-      const bandH = torsoH / bands
-      const y = bandH * i
-      torsoGroup.add(
-        torsoSegment(
-          halfAt(i / bands),
-          halfAt((i + 1) / bands),
-          bandH,
-          y,
-          i % 2 === 0 ? topColor : accent,
-          `torsoBand${i}`,
-        ),
-      )
-    }
+  if (outfit.cropped) {
+    // A cropped top: the shell starts above the waist, so a skin band below it
+    // reads as a bare midriff. Changing where clothing *ends* is a stronger
+    // variation than changing what colour it is.
+    torsoShell.scale.y = torsoH * 0.66
+    torsoShell.position.y = torsoH * 0.67
+
+    const midriff = new THREE.Mesh(BOX, mat(skin))
+    midriff.scale.set(waistHalf * 1.95, torsoH * 0.34, torsoDepth * 1.95)
+    midriff.position.y = torsoH * 0.17
+    midriff.name = 'midriff'
+    midriff.castShadow = true
+    torsoGroup.add(midriff)
   }
+
+  if (outfit.hood) {
+    // A hood bunched behind the neck. Distinctive from every angle, which a
+    // printed graphic on the chest is not.
+    const hood = new THREE.Mesh(SPHERE, mat(trimColor))
+    hood.scale.set(shoulderHalf * 1.5, h * 0.09, torsoDepth * 1.7)
+    hood.position.set(0, rel(shoulderY) - h * 0.01, torsoDepth * 1.1)
+    hood.name = 'hood'
+    hood.castShadow = true
+    torsoGroup.add(hood)
+  }
+
 
   g.add(part('hips', BOX, bottomColor, [0, hipY - h * 0.02, 0], [waistHalf * 2, h * 0.075, torsoDepth * 2]))
 
-  if (coat) {
-    // A coat flares below the waist, which changes the silhouette more than any
-    // colour choice does.
-    const skirt = new THREE.Mesh(BOX, mat(pickFrom(spec.bottom)))
-    skirt.scale.set(shoulderHalf * 2.1, h * 0.2, torsoDepth * 2.3)
-    skirt.position.y = hipY - h * 0.07
-    skirt.name = 'coatSkirt'
+  if (outfit.skirt) {
+    // A skirt block: flares below the hip and hides the tops of the legs.
+    const skirt = new THREE.Mesh(
+      new THREE.CylinderGeometry(1, waistHalf * 1.9 / (waistHalf * 1.05), 1, 8, 1),
+      mat(bottomColor),
+    )
+    skirt.scale.set(waistHalf * 1.05 * 2, h * 0.22, waistHalf * 1.05 * 2)
+    skirt.position.y = hipY - h * 0.09
+    skirt.name = 'skirt'
     skirt.castShadow = true
     g.add(skirt)
   }
 
-  /**
-   * Everything above the waist parents to the torso.
-   *
-   * `rest` leans the torso sideways and `gawk` tips it back; with arms and head
-   * as siblings, those clips left them behind — a body leaning out from under a
-   * stationary head. Parenting means the torso carries them, which is also just
-   * what a spine does.
-   *
-   * Positions inside it are relative to the torso pivot at the hip.
-   */
-  const rel = (absoluteY: number) => absoluteY - hipY
+  if (coat) {
+    // A coat falling to mid-thigh, which changes the silhouette more than any
+    // colour choice does.
+    const skirtPanel = new THREE.Mesh(BOX, mat(topColor))
+    skirtPanel.scale.set(shoulderHalf * 2.15, h * 0.26, torsoDepth * 2.4)
+    skirtPanel.position.y = hipY - h * 0.1
+    skirtPanel.name = 'coatSkirt'
+    skirtPanel.castShadow = true
+    g.add(skirtPanel)
+  }
 
+  // Everything above the waist parents to the torso: `rest` leans it sideways
+  // and `gawk` tips it back, and arms and head have to travel with it.
+  //
   // --- arms, from the shoulder ---
   const armLen = h * 0.36
   const armW = h * 0.045 * build
-  const sleeveColor = coat ? pickFrom(spec.bottom) : topColor
+  // Bare arms are skin, and skip the sleeve texture entirely.
+  const sleeveColor = outfit.bareArms ? skin : coat ? trimColor : topColor
   // Tucked slightly inside the shoulder rather than butted against it: a hair
   // of overlap hides the seam, where a hair of gap reads as a detached arm.
   const armX = shoulderHalf + armW * 0.35
 
   torsoGroup.add(
-    limb('armL', [-armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor, SLEEVE_ROW, sleeveCol),
-    limb('armR', [armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor, SLEEVE_ROW, sleeveCol),
+    limb('armL', [-armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor,
+      outfit.bareArms ? undefined : SLEEVE_ROW, sleeveCol),
+    limb('armR', [armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor,
+      outfit.bareArms ? undefined : SLEEVE_ROW, sleeveCol),
   )
 
   // Hands at the end of each arm, inside the pivot so they swing along.
