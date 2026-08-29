@@ -15,6 +15,7 @@ import {
   TORSO_FRONT_ROW,
 } from './characterAtlas'
 import { outfitFor, OUTFIT_PALETTES } from './outfits'
+import { applyPartOverrides } from './partOverrides'
 import type { HumanSpec, SubjectDef } from '@/content/subjects/types'
 import { makeRng, pick } from '@/lib/rng'
 import { toonRamp } from '@/render/palette'
@@ -1367,6 +1368,9 @@ const BUILDERS: Record<
  */
 export function buildModel(def: SubjectDef, seed = 0): BuiltModel {
   const built = BUILDERS[def.model](def, seed)
+  // Hand adjustments from the part editor, applied on top of what the builder
+  // produced. See partOverrides.ts.
+  applyPartOverrides(built.group, def.species)
   built.group.scale.setScalar(def.scale)
   built.bounds.expandByScalar(0)
   return built

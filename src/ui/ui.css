@@ -709,3 +709,27 @@ h2 {
   display: flex;
   gap: 4px;
 }
+
+.inspector-parts {
+  /* An explicit height, not a max: the sidebar is a flex column and a flex
+     child with only a max-height collapses to its content's smallest size. */
+  height: 240px;
+  flex: none;
+  overflow-y: auto;
+  border: 1px solid #2b313c;
+  border-radius: 3px;
+  padding: 4px;
+  margin-bottom: 8px;
+}
+
+.inspector-parts button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 11px;
+  padding: 3px 6px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

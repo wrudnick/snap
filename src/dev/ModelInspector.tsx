@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
 import { buildLandmark, type LandmarkDef } from '@/content/models/landmarks'
+import { FrameOnce, Gizmo, PartPanel, useOverrides, type GizmoMode } from './PartEditor'
 import { buildModel } from '@/content/models/procedural'
 import { GOLD_COAST } from '@/content/routes/goldcoast'
 import { SUBJECTS } from '@/content/subjects'
@@ -74,12 +75,18 @@ function InspectorScene({
   scrub,
   action,
   mode,
+  gizmoTarget,
+  gizmoMode,
+  onGizmoChange,
 }: {
   object: THREE.Object3D
   spin: boolean
   height: number
   reach: number
   mode: Mode
+  gizmoTarget?: THREE.Object3D | null
+  gizmoMode?: GizmoMode
+  onGizmoChange?: () => void
   mixer: THREE.AnimationMixer | null
   /** Null plays normally; a number holds the clip at that fraction of its length. */
   scrub: number | null
@@ -117,6 +124,31 @@ function InspectorScene({
     </>
   )
 
+  if (mode === 'parts') {
+    // The turntable is replaced by a fixed model with orbit + gizmo, because
+    // you cannot drag a handle on something that is rotating.
+    return (
+      <>
+        <color attach="background" args={[0x1a1f26]} />
+        <hemisphereLight args={[DAWN.skyFill, DAWN.groundFill, 1.4]} />
+        <directionalLight position={[6, 10, 5]} intensity={2.1} color={DAWN.key} />
+        <directionalLight position={[-7, 4, -6]} intensity={0.5} color={0x8fa8d0} />
+        <gridHelper args={[Math.max(4, reach * 3), 20, 0x4a5560, 0x2b333c]} position={[0, GROUND, 0]} />
+        <axesHelper args={[Math.max(0.6, reach * 0.35)]} />
+        <group position={[0, GROUND, 0]}>
+          <primitive object={object} />
+        </group>
+        <FrameOnce height={height} reach={reach} />
+        <Gizmo
+          target={gizmoTarget ?? null}
+          mode={gizmoMode ?? 'translate'}
+          onChange={onGizmoChange ?? (() => undefined)}
+          height={height}
+        />
+      </>
+    )
+  }
+
   // The angle grid takes over rendering, so the scene contents are the same —
   // only the cameras differ.
   if (mode === 'angles') {
@@ -130,7 +162,7 @@ function InspectorScene({
   return lights
 }
 
-type Mode = 'turntable' | 'angles' | 'animation'
+type Mode = 'turntable' | 'angles' | 'animation' | 'parts'
 
 type Entry =
   | { kind: 'subject'; id: string; label: string }
@@ -158,6 +190,10 @@ export function ModelInspector() {
   const [clip, setClip] = useState<string | null>(null)
   const [scrub, setScrub] = useState<number | null>(null)
   const [mode, setMode] = useState<Mode>('turntable')
+  const [selectedPart, setSelectedPart] = useState<string | null>(null)
+  const [gizmoMode, setGizmoMode] = useState<GizmoMode>('translate')
+  const [, forceRedraw] = useState(0)
+  const [overrides, saveOverrides, overrideStatus] = useOverrides()
   const actionRef = useRef<THREE.AnimationAction | null>(null)
 
   const entry = entries.find((e) => e.id === selected) ?? entries[0]
@@ -286,13 +322,33 @@ export function ModelInspector() {
         )}
 
         <h2 style={{ marginTop: '1.5rem' }}>View</h2>
-        {(['turntable', 'angles', 'animation'] as const).map((m) => (
+        {(['turntable', 'angles', 'animation', 'parts'] as const).map((m) => (
           <button key={m} className={mode === m ? 'primary' : ''} onClick={() => setMode(m)}>
-            {m === 'turntable' ? 'Turntable' : m === 'angles' ? 'All angles' : 'Keyframes'}
+            {m === 'turntable'
+              ? 'Turntable'
+              : m === 'angles'
+                ? 'All angles'
+                : m === 'animation'
+                  ? 'Keyframes'
+                  : 'Edit parts'}
           </button>
         ))}
-        {mode !== 'angles' && (
+        {mode !== 'angles' && mode !== 'parts' && (
           <button onClick={() => setSpin((s) => !s)}>{spin ? 'Stop' : 'Spin'}</button>
+        )}
+
+        {mode === 'parts' && entry.kind === 'subject' && (
+          <PartPanel
+            root={built.object}
+            species={entry.id}
+            selectedName={selectedPart}
+            onSelect={setSelectedPart}
+            mode={gizmoMode}
+            onMode={setGizmoMode}
+            table={overrides}
+            onSave={saveOverrides}
+            status={overrideStatus}
+          />
         )}
 
         <div className="inspector-stats">
@@ -320,6 +376,13 @@ export function ModelInspector() {
               scrub={scrub}
               action={actionRef.current}
               mode={mode}
+              gizmoTarget={
+                mode === 'parts' && selectedPart
+                  ? (built.object.getObjectByName(selectedPart) ?? null)
+                  : null
+              }
+              gizmoMode={gizmoMode}
+              onGizmoChange={() => forceRedraw((v) => v + 1)}
             />
           </Canvas>
 
