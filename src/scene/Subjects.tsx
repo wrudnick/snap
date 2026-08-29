@@ -86,6 +86,9 @@ function resolvePlacements(
     // `offset` is metres left of travel, so subtract the right-hand normal.
     return {
       ...p,
+      rotationY: p.alignToRoute
+        ? (p.rotationY ?? 0) + rail.headingAt(t)
+        : p.rotationY,
       position: [
         point.x - right.x * p.at.offset,
         ground + (p.at.y ?? 0),

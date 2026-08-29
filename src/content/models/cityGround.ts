@@ -4,7 +4,7 @@ import { SURFACE, type SurfaceKind } from '@/render/ground'
 
 import { CITY, type CityStreet } from './city'
 import { ASPHALT, SIDEWALK } from './environment'
-import { buildingAt, dominantStreet, lateralClearance } from './footprints'
+import { buildingAt, dominantStreet, inCarriageway, lateralClearance } from './footprints'
 import { applyLimits, curveLimits } from './ribbon'
 import { GROUND_PATCHES, type GroundPatch } from './patches'
 import { carriagewayHalfWidth, streetRank } from './streetWidths'
@@ -337,7 +337,7 @@ function inRing(ring: Array<[number, number]>, x: number, z: number): boolean {
  * about the world, not about where the camera goes.
  */
 function underPatch(x: number, z: number): boolean {
-  return GROUND_PATCHES.some((p) => inRing(p.ring, x, z))
+  return GROUND_PATCHES.some((p) => p.cullsAbove !== false && inRing(p.ring, x, z))
 }
 
 export function buildCityGround(): CityGroundResult {
@@ -488,12 +488,19 @@ export function buildCityGround(): CityGroundResult {
         const inner = lanes[l]!.offset
         const outer = lanes[l + 1]!.offset
         const mid = (inner + outer) / 2
+        // A pavement is never inside a road. Rank decides which of two
+        // crossing *carriageways* is paved through a junction, but it says
+        // nothing about pavements — and a higher-ranked street's pavement bands
+        // were being drawn straight across the carriageway it crosses, which is
+        // the slabs of kerb lying in the middle of the road.
+        const isWalk = lanes[l]!.kind === SURFACE.sidewalk && lanes[l + 1]!.kind === SURFACE.sidewalk
+
         let overlaps = false
         for (const row of [a, b] as const) {
           for (const o of [inner, mid, outer]) {
             const px = row.x + row.rx * o
             const pz = row.z + row.rz * o
-            if (underPatch(px, pz) || dominated(px, pz)) {
+            if (underPatch(px, pz) || dominated(px, pz) || (isWalk && inCarriageway(px, pz))) {
               overlaps = true
               break
             }
@@ -679,9 +686,10 @@ function addPatch(
   const sin = Math.sin(angle)
 
   const base = vertexCount()
-  for (const [x, z] of patch.ring) {
-    pushVertex(x, patch.y, z, x * cos - z * sin, x * sin + z * cos, patch.color, patch.kind)
-  }
+  patch.ring.forEach(([x, z], i) => {
+    const y = patch.heights?.[i] ?? patch.y
+    pushVertex(x, y, z, x * cos - z * sin, x * sin + z * cos, patch.color, patch.kind)
+  })
 
   const contour = patch.ring.map(([x, z]) => new THREE.Vector2(x, z))
   for (const face of THREE.ShapeUtils.triangulateShape(contour, [])) {

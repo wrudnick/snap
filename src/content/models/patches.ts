@@ -22,10 +22,23 @@ export interface GroundPatch {
   id: string
   kind: SurfaceKind
   color: number
-  /** Height above grade. */
+  /** Height above grade, for rings that lie flat. */
   y: number
   /** Polygon in world XZ. Convex or mildly concave; triangulated by ear clipping. */
   ring: Array<[number, number]>
+  /**
+   * Per-vertex height, parallel to `ring`. Only the underpass needs it: its
+   * floor ramps five metres down and back up, and a flat polygon cannot.
+   */
+  heights?: number[]
+  /**
+   * Whether streets and fill stop where this patch covers them.
+   *
+   * True for everything at grade. False for the underpass, which is *below*
+   * Lake Shore Drive rather than instead of it — culling the road there would
+   * put a hole in the carriageway that runs over the top.
+   */
+  cullsAbove?: boolean
   /**
    * Rotation of the pattern frame, radians. Sand ripples run along the shore
    * and floorboards along the room, so the shader's coordinates are turned to
@@ -43,6 +56,7 @@ const LAKE_DEEP = 0x3f6d8c
 const PARK_GREEN = 0x5f7247
 const ALLEY_FLOOR = 0x3f3c37
 const INTERIOR_FLOOR = 0x4a3526
+const TUNNEL_FLOOR = 0x4a4540
 
 /** Where two named streets meet, from the OSM ways themselves. */
 function intersection(a: RegExp, b: RegExp): [number, number] | null {
@@ -177,6 +191,96 @@ function strip(path: Array<[number, number]>, halfWidth: number): Array<[number,
 }
 
 /**
+ * A polyline with heights, widened into a ring.
+ *
+ * Same idea as `strip`, but the points carry a y — which the underpass needs
+ * and nothing else does, because it is the only piece of ground in the world
+ * that is not at grade.
+ */
+function ramp(
+  path: Array<[number, number, number]>,
+  halfWidth: number,
+): { ring: Array<[number, number]>; heights: number[] } {
+  const left: Array<[number, number]> = []
+  const right: Array<[number, number]> = []
+  const leftY: number[] = []
+  const rightY: number[] = []
+
+  for (let i = 0; i < path.length; i++) {
+    const [x, y, z] = path[i]!
+    const previous = path[i - 1] ?? path[i]!
+    const next = path[i + 1] ?? path[i]!
+    const dx = next[0] - previous[0]
+    const dz = next[2] - previous[2]
+    const length = Math.hypot(dx, dz) || 1
+    const rx = -dz / length
+    const rz = dx / length
+    left.push([x - rx * halfWidth, z - rz * halfWidth])
+    right.push([x + rx * halfWidth, z + rz * halfWidth])
+    leftY.push(y)
+    rightY.push(y)
+  }
+
+  return {
+    ring: [...left, ...right.reverse()],
+    heights: [...leftY, ...rightY.reverse()],
+  }
+}
+
+/**
+ * The floor of the Oak Street underpass.
+ *
+ * This is the one piece of ground that is not at grade, and when the ground
+ * stopped being extruded along the rail it stopped existing at all — the route
+ * still dipped five metres and the world no longer came with it, so the middle
+ * of the tunnel was the camera hanging in empty space under a floating city.
+ *
+ * These are the rail's own positions, sampled every seven metres and baked,
+ * rather than the waypoints interpolated by hand — which is what the first
+ * attempt did, and the spline bulges away from its own chords enough that the
+ * floor slid out from under the middle of the descent. Sampled densely, too:
+ * at twelve points the strip pinched on the inside of the two hard bends and
+ * the floor went missing there instead. Heights are the rail
+ * less eye height, because waypoints are authored 1.7 m above the floor.
+ *
+ * The underpass joins the alley and the restaurant as ground that follows the
+ * route: all three are places that exist *because* of the route rather than
+ * before it, so all three move with it.
+ */
+const UNDERPASS = ramp(
+  [
+    [159, 0.0, -104],
+    [152, -0.2, -109],
+    [145, -0.5, -114],
+    [138, -0.7, -119],
+    [131, -0.9, -124],
+    [124, -1.1, -129],
+    [117, -1.3, -133],
+    [109, -1.6, -137],
+    [103, -2.1, -133],
+    [96, -2.6, -127],
+    [90, -3.1, -121],
+    [83, -3.6, -116],
+    [77, -4.1, -110],
+    [71, -4.5, -104],
+    [65, -4.9, -98],
+    [59, -5.0, -92],
+    [53, -5.0, -86],
+    [46, -5.0, -80],
+    [42, -4.7, -73],
+    [40, -4.2, -65],
+    [38, -3.6, -57],
+    [37, -3.0, -48],
+    [35, -2.3, -40],
+    [32, -1.4, -32],
+    [30, -0.4, -24],
+    [27, 0.1, -16],
+    [25, 0.0, -8],
+  ],
+  5.4,
+)
+
+/**
  * The service alley behind the Triangle, and the restaurant it leads into.
  *
  * OSM maps the buildings either side but not the gap between them, and the
@@ -213,4 +317,16 @@ export const GROUND_PATCHES: GroundPatch[] = [
   { id: 'mariano-park', kind: SURFACE.park, color: PARK_GREEN, y: 0.18, ring: marianoPark() ?? [], layer: 4 },
   { id: 'alley', kind: SURFACE.concrete, color: ALLEY_FLOOR, y: 0.02, ring: ALLEY, patternAngle: 0.76, layer: 4 },
   { id: 'restaurant', kind: SURFACE.interior, color: INTERIOR_FLOOR, y: 0.05, ring: RESTAURANT, patternAngle: 1.05, layer: 5 },
+  {
+    id: 'underpass',
+    kind: SURFACE.concrete,
+    color: TUNNEL_FLOOR,
+    y: 0,
+    ring: UNDERPASS.ring,
+    heights: UNDERPASS.heights,
+    patternAngle: 0.9,
+    layer: 6,
+    // Lake Shore Drive runs over the top of this, not instead of it.
+    cullsAbove: false,
+  },
 ].filter((p) => p.ring.length >= 3)

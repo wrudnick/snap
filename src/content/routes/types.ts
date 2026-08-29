@@ -38,8 +38,19 @@ export interface SubjectPlacement {
   at?: SubjectAnchor
   /** Absolute world position. Only for things genuinely fixed in the world. */
   position?: [number, number, number]
-  /** Initial facing, radians about Y. */
+  /**
+   * Initial facing, radians about Y.
+   *
+   * A world angle by default, which is right for a person who is facing a
+   * particular way regardless of the street. With `alignToRoute` it becomes an
+   * offset from the route's heading instead — 0 is with the traffic, PI is
+   * against it — which is the only sane way to place a vehicle: a world angle
+   * that points down Michigan points sideways across Rush, and every car on the
+   * diagonal was parked broadside.
+   */
   rotationY?: number
+  /** Treat `rotationY` as an offset from the route heading rather than a world angle. */
+  alignToRoute?: boolean
   /**
    * Optional patrol path in world space. The subject loops along it; its facing
    * follows the direction of travel, which is what makes "direction" scoring

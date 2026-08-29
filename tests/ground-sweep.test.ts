@@ -75,7 +75,14 @@ function surfacesAt(x: number, z: number): number[] {
 }
 
 /** A grid of points across the corridor the player can actually see. */
-const samples: Array<{ x: number; z: number; t: number; section: string }> = []
+const samples: Array<{
+  x: number
+  z: number
+  t: number
+  section: string
+  floor: number
+  lateral: number
+}> = []
 {
   const point = new THREE.Vector3()
   const right = new THREE.Vector3()
@@ -92,6 +99,10 @@ const samples: Array<{ x: number; z: number; t: number; section: string }> = []
         z: point.z + right.z * lateral,
         t,
         section: section.id,
+        // Waypoints are authored at eye height, so the floor the player is
+        // walking on is 1.7 m below the rail.
+        floor: point.y - 1.7,
+        lateral,
       })
     }
   }
@@ -115,6 +126,32 @@ describe('ground sweep', () => {
     expect(
       `${(share * 100).toFixed(1)}% — worst: ${worst.slice(0, 4).map(([k, v]) => `${k} ${v}`).join(', ')}`,
     ).toBe('0.0% — worst: ')
+  })
+
+  it('puts the ground under the player, at the height they walk at', () => {
+    // "Is there a surface here" was not enough, and the gap it left was not
+    // subtle: when the ground moved into world space the underpass floor
+    // stopped existing, the route still dipped five metres into it, and the
+    // middle of the tunnel became the camera hanging in space under a floating
+    // city. Every check passed, because Lake Shore Drive is a surface at that
+    // XZ — four and a half metres over the player's head.
+    const wrong: string[] = []
+    for (const s of samples) {
+      // Under the path itself. Where the route is below grade it is in a
+      // trench a few metres wide, and the ground twenty metres to either side
+      // is *correctly* still up at street level — checking that far out flags
+      // the pavement above the underpass for not being in the underpass.
+      if (Math.abs(s.floor) < 0.6 || Math.abs(s.lateral) > 4) continue
+      const heights = surfacesAt(s.x, s.z)
+      if (heights.length === 0) continue
+      const nearest = heights.reduce((best, h) =>
+        Math.abs(h - s.floor) < Math.abs(best - s.floor) ? h : best,
+      )
+      if (Math.abs(nearest - s.floor) > 1.2) {
+        wrong.push(`${s.section} t=${s.t.toFixed(3)} floor ${s.floor.toFixed(1)} vs ${nearest.toFixed(1)}`)
+      }
+    }
+    expect(wrong.slice(0, 8)).toEqual([])
   })
 
   it('does not stack two surfaces close enough to z-fight', () => {
