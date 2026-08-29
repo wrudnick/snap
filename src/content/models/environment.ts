@@ -4,6 +4,7 @@ import type { RouteDef, SectionKind } from '@/content/routes/types'
 import type { Rail } from '@/game/rail'
 import type { ResolvedSection } from '@/game/sections'
 import { makeRng, pick, range, rangeInt } from '@/lib/rng'
+import { SURFACE, type SurfaceKind } from '@/render/ground'
 
 /**
  * Route-following environment generation.
@@ -34,12 +35,22 @@ export interface Prop {
 }
 
 /** One lateral lane of the ground ribbon, offset from the centreline. */
-interface Lane {
+export interface Lane {
   /** Metres right of the path centre. Negative is left. */
   offset: number
   /** Height above grade. */
   height: number
   color: number
+  /**
+   * Which material this edge of the ribbon is made of.
+   *
+   * Two adjacent lanes sharing a kind make a solid band; two differing make a
+   * boundary, and the ground shader draws the kerb, shoreline or lawn edge that
+   * belongs there. Which is why the profiles below pair their lanes up: a band
+   * needs both its edges to agree, or the material blends across the whole
+   * width instead of meeting at a line.
+   */
+  kind: SurfaceKind
 }
 
 export interface EnvironmentData {
@@ -77,7 +88,7 @@ const LAKE_DEEP = 0x3f6d8c
  * These widths are what make each act *feel* different before a single building
  * exists: the beach is 60 m across, the alley is 4.
  */
-function laneProfile(kind: SectionKind): Lane[] {
+export function laneProfile(kind: SectionKind): Lane[] {
   switch (kind) {
     case 'beach':
       // Much wider than the other sections, and deliberately so: this is the
@@ -85,63 +96,73 @@ function laneProfile(kind: SectionKind): Lane[] {
       // that the player sees lake and shoreline rather than empty sky where the
       // ground stops. Lake is to the right of travel (east), city to the left.
       return [
-        { offset: -70, height: 0.4, color: 0x9a8f78 },
-        { offset: -26, height: 0.1, color: SAND },
-        { offset: -6, height: 0.05, color: SAND },
-        { offset: 14, height: 0.0, color: 0xcabb95 },
-        { offset: 22, height: -0.3, color: LAKE_SHALLOW },
-        { offset: 150, height: -0.5, color: LAKE_DEEP },
+        { offset: -70, height: 0.4, color: 0x9a8f78, kind: SURFACE.sand },
+        { offset: -26, height: 0.1, color: SAND, kind: SURFACE.sand },
+        { offset: -6, height: 0.05, color: SAND, kind: SURFACE.sand },
+        // Wet sand, then a metre and a bit of waterline. The narrow gap is the
+        // whole point: it's the band the shader fills with foam, and an eight
+        // metre ramp into the lake gave a soft gradient where a beach has a
+        // hard, wandering edge.
+        { offset: 13, height: 0.0, color: 0xcabb95, kind: SURFACE.sand },
+        { offset: 14.4, height: -0.06, color: LAKE_SHALLOW, kind: SURFACE.water },
+        { offset: 26, height: -0.35, color: LAKE_SHALLOW, kind: SURFACE.water },
+        { offset: 150, height: -0.5, color: LAKE_DEEP, kind: SURFACE.water },
       ]
     case 'tunnel':
       return [
-        { offset: -3.4, height: 0.0, color: TUNNEL_FLOOR },
-        { offset: 0, height: 0.0, color: 0x555049 },
-        { offset: 3.4, height: 0.0, color: TUNNEL_FLOOR },
+        { offset: -3.4, height: 0.0, color: TUNNEL_FLOOR, kind: SURFACE.concrete },
+        { offset: 0, height: 0.0, color: 0x555049, kind: SURFACE.concrete },
+        { offset: 3.4, height: 0.0, color: TUNNEL_FLOOR, kind: SURFACE.concrete },
       ]
     case 'avenue':
       return [
-        { offset: -19, height: 0.16, color: SIDEWALK },
-        { offset: -9, height: 0.16, color: SIDEWALK },
-        { offset: -8.4, height: 0.0, color: ASPHALT },
-        { offset: 8.4, height: 0.0, color: ASPHALT },
-        { offset: 9, height: 0.16, color: SIDEWALK },
-        { offset: 19, height: 0.16, color: SIDEWALK },
+        { offset: -19, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
+        { offset: -9, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
+        { offset: -8.4, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
+        { offset: 8.4, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
+        { offset: 9, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
+        { offset: 19, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
       ]
     case 'boutique':
       return [
-        { offset: -13, height: 0.16, color: SIDEWALK },
-        { offset: -6, height: 0.16, color: 0xa39a8b },
-        { offset: -5.4, height: 0.0, color: ASPHALT },
-        { offset: 5.4, height: 0.0, color: ASPHALT },
-        { offset: 6, height: 0.16, color: 0xa39a8b },
-        { offset: 13, height: 0.16, color: SIDEWALK },
+        { offset: -13, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
+        { offset: -6, height: 0.16, color: 0xa39a8b, kind: SURFACE.sidewalk },
+        { offset: -5.4, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
+        { offset: 5.4, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
+        { offset: 6, height: 0.16, color: 0xa39a8b, kind: SURFACE.sidewalk },
+        { offset: 13, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
       ]
     case 'dining':
       return [
-        { offset: -14, height: 0.16, color: 0x9c9384 },
-        { offset: -6.2, height: 0.16, color: 0x9c9384 },
-        { offset: -5.6, height: 0.0, color: ASPHALT },
-        { offset: 5.6, height: 0.0, color: ASPHALT },
-        { offset: 6.2, height: 0.16, color: 0x9c9384 },
-        { offset: 14, height: 0.16, color: 0x9c9384 },
+        { offset: -14, height: 0.16, color: 0x9c9384, kind: SURFACE.sidewalk },
+        { offset: -6.2, height: 0.16, color: 0x9c9384, kind: SURFACE.sidewalk },
+        { offset: -5.6, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
+        { offset: 5.6, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
+        { offset: 6.2, height: 0.16, color: 0x9c9384, kind: SURFACE.sidewalk },
+        { offset: 14, height: 0.16, color: 0x9c9384, kind: SURFACE.sidewalk },
       ]
     case 'park':
+      // The lawn used to blend into the pavement across eight metres. Paired
+      // edges give Mariano Park a hard mown line, which is what a city park
+      // actually has and what the reference art would draw.
       return [
-        { offset: -15, height: 0.16, color: SIDEWALK },
-        { offset: -7, height: 0.2, color: PARK_GREEN },
-        { offset: 7, height: 0.2, color: PARK_GREEN },
-        { offset: 15, height: 0.16, color: SIDEWALK },
+        { offset: -15, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
+        { offset: -7.6, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
+        { offset: -7, height: 0.2, color: PARK_GREEN, kind: SURFACE.park },
+        { offset: 7, height: 0.2, color: PARK_GREEN, kind: SURFACE.park },
+        { offset: 7.6, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
+        { offset: 15, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
       ]
     case 'alley':
       return [
-        { offset: -2.6, height: 0.0, color: ALLEY_FLOOR },
-        { offset: 2.6, height: 0.0, color: ALLEY_FLOOR },
+        { offset: -2.6, height: 0.0, color: ALLEY_FLOOR, kind: SURFACE.concrete },
+        { offset: 2.6, height: 0.0, color: ALLEY_FLOOR, kind: SURFACE.concrete },
       ]
     case 'interior':
       return [
-        { offset: -2.4, height: 0.0, color: INTERIOR_FLOOR },
-        { offset: 0, height: 0.0, color: 0x53402f },
-        { offset: 2.4, height: 0.0, color: INTERIOR_FLOOR },
+        { offset: -2.4, height: 0.0, color: INTERIOR_FLOOR, kind: SURFACE.interior },
+        { offset: 0, height: 0.0, color: 0x53402f, kind: SURFACE.interior },
+        { offset: 2.4, height: 0.0, color: INTERIOR_FLOOR, kind: SURFACE.interior },
       ]
   }
 }
@@ -179,6 +200,11 @@ function buildGround(
 
   const positions: number[] = []
   const colors: number[] = []
+  // Metres across and metres along, so the shader can size paving and place
+  // road markings in real units rather than in normalised UVs — a slab has to
+  // be the same square on a 5 m alley and a 38 m avenue.
+  const grounds: number[] = []
+  const surfaces: number[] = []
   const indices: number[] = []
 
   const point = new THREE.Vector3()
@@ -209,6 +235,8 @@ function buildGround(
       )
       colour.setHex(lane.color)
       colors.push(colour.r, colour.g, colour.b)
+      grounds.push(lane.offset, t * totalLength)
+      surfaces.push(lane.kind)
     }
 
     if (previousRow && previousRow.lanes === lanes.length) {
@@ -227,6 +255,8 @@ function buildGround(
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+  geometry.setAttribute('aGround', new THREE.Float32BufferAttribute(grounds, 2))
+  geometry.setAttribute('aSurface', new THREE.Float32BufferAttribute(surfaces, 1))
   geometry.setIndex(indices)
   geometry.computeVertexNormals()
   return geometry

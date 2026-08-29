@@ -159,6 +159,9 @@ export function Environment({
           // normal per-fragment via gl_FrontFacing, so lighting stays correct.
           side: THREE.DoubleSide,
         }),
+        // Paving, road markings, sand ripples and water bands, all computed in
+        // the fragment shader from metre coordinates. See render/ground.ts.
+        { ground: {} },
       ),
     [],
   )

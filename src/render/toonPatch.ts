@@ -8,6 +8,14 @@ import {
   FACADE_VERTEX,
   type FacadeOptions,
 } from './facade'
+import {
+  GROUND_DEFAULTS,
+  GROUND_FRAGMENT,
+  GROUND_PARS_FRAGMENT,
+  GROUND_PARS_VERTEX,
+  GROUND_VERTEX,
+  type GroundOptions,
+} from './ground'
 import { DAWN } from './palette'
 
 /**
@@ -39,6 +47,12 @@ export interface ToonPatchOptions {
    * extruded OSM city.
    */
   facade?: FacadeOptions | false
+  /**
+   * Draw procedural paving, road markings, sand and water from the
+   * `aGround`/`aSurface` vertex attributes. Only meaningful on the ground
+   * ribbon, which is the only geometry that carries them.
+   */
+  ground?: GroundOptions | false
 }
 
 /**
@@ -71,6 +85,10 @@ export function patchToonMaterial(
     ? { ...FACADE_DEFAULTS, ...options.facade }
     : null
 
+  const ground = options.ground
+    ? { ...GROUND_DEFAULTS, ...options.ground }
+    : null
+
   material.onBeforeCompile = (shader) => {
     if (facade) {
       shader.uniforms.uFloorHeight = { value: facade.floorHeight }
@@ -84,6 +102,21 @@ export function patchToonMaterial(
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\n${FACADE_PARS_VERTEX}`)
         .replace('#include <begin_vertex>', `#include <begin_vertex>\n${FACADE_VERTEX}`)
+    }
+
+    if (ground) {
+      shader.uniforms.uSlab = { value: ground.slab }
+      shader.uniforms.uJoint = { value: new THREE.Color(ground.joint) }
+      shader.uniforms.uRoadPaint = { value: new THREE.Color(ground.roadPaint) }
+      shader.uniforms.uRoadCentre = { value: new THREE.Color(ground.roadCentre) }
+      shader.uniforms.uFoam = { value: new THREE.Color(ground.foam) }
+      shader.uniforms.uKerbDark = { value: new THREE.Color(ground.kerbDark) }
+      shader.uniforms.uKerbLight = { value: new THREE.Color(ground.kerbLight) }
+      shader.uniforms.uMarkings = { value: ground.markings }
+
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', `#include <common>\n${GROUND_PARS_VERTEX}`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>\n${GROUND_VERTEX}`)
     }
 
     // Materials with explicit overrides get their own uniforms; everything else
@@ -113,6 +146,7 @@ export function patchToonMaterial(
       /* glsl */ `
         #include <common>
         ${facade ? FACADE_PARS_FRAGMENT : ''}
+        ${ground ? GROUND_PARS_FRAGMENT : ''}
         uniform vec3 uShadowTint;
         uniform float uShadowTintStrength;
         uniform vec3 uRimColor;
@@ -129,6 +163,13 @@ export function patchToonMaterial(
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <color_fragment>',
         `#include <color_fragment>\n${FACADE_FRAGMENT}`,
+      )
+    }
+
+    if (ground) {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>\n${GROUND_FRAGMENT}`,
       )
     }
 
