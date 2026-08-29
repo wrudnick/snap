@@ -93,11 +93,16 @@ export const DINING_DAWN: LightingProfile = {
   fogFar: 440,
   key: 0xffcf9a,
   keyIntensity: 2.1,
-  skyFill: 0xa6c0dc,
-  groundFill: 0x8e7452,
-  fillIntensity: 1.3,
-  shadowTint: 0x6f7aa4,
-  shadowTintStrength: 0.78,
+  // Rush runs north–south with the sun low to the east, so one whole pavement
+  // is in shadow for the length of the strip — and that is the pavement the
+  // patios and the crowd are on. Adding people did nothing because they were
+  // unreadable, not absent. The fill is what decides whether a shadow is a
+  // shape or a hole, so it carries more here than anywhere else on the route.
+  skyFill: 0xb6cbe2,
+  groundFill: 0xa08663,
+  fillIntensity: 2.0,
+  shadowTint: 0x8590b8,
+  shadowTintStrength: 0.62,
   castShadows: true,
 }
 

@@ -61,7 +61,17 @@ const MAX_SEGMENT = 5
 /** Block fill: cell size, and how far from a street a cell has to be to exist. */
 const FILL_CELL = 20
 const FILL_REACH = 90
-const FILL_COLOR = 0x8b8377
+/**
+ * Fill is not pavement.
+ *
+ * It used to be the same colour and the same 1.5 m slab pattern as the
+ * sidewalks, which turned every block interior into a paved plaza — the
+ * Triangle read as a car park because most of what you can see there is fill.
+ * It is back lots and service yards: darker, and scored like concrete rather
+ * than laid like paving.
+ */
+const FILL_COLOR = 0x5f5a52
+const FILL_KIND = SURFACE.concrete
 
 interface GroundLane {
   offset: number
@@ -622,9 +632,9 @@ function buildFill(
       const base = vertexCount()
       // Lateral/along are just world coordinates here: the fill has no
       // centreline, and the paving grid only needs to be continuous.
-      pushVertex(x, FILL_Y, z, x, z, FILL_COLOR, SURFACE.sidewalk)
-      pushVertex(x + FILL_CELL, FILL_Y, z, x + FILL_CELL, z, FILL_COLOR, SURFACE.sidewalk)
-      pushVertex(x, FILL_Y, z + FILL_CELL, x, z + FILL_CELL, FILL_COLOR, SURFACE.sidewalk)
+      pushVertex(x, FILL_Y, z, x, z, FILL_COLOR, FILL_KIND)
+      pushVertex(x + FILL_CELL, FILL_Y, z, x + FILL_CELL, z, FILL_COLOR, FILL_KIND)
+      pushVertex(x, FILL_Y, z + FILL_CELL, x, z + FILL_CELL, FILL_COLOR, FILL_KIND)
       pushVertex(
         x + FILL_CELL,
         FILL_Y,
@@ -632,7 +642,7 @@ function buildFill(
         x + FILL_CELL,
         z + FILL_CELL,
         FILL_COLOR,
-        SURFACE.sidewalk,
+        FILL_KIND,
       )
       indices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3)
       cells++

@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { CITY, buildCityGeometry } from '../src/content/models/city'
 import { generateEnvironment, type Prop } from '../src/content/models/environment'
 import { buildingAt } from '../src/content/models/footprints'
+import { GROUND_PATCHES } from '../src/content/models/patches'
 import { ROUTES } from '../src/content/routes/goldcoast'
 import { Rail } from '../src/game/rail'
 import { resolveRoute } from '../src/game/sections'
@@ -161,8 +162,22 @@ describe('route sweep', () => {
     expect(overlaps).toEqual([])
   })
 
+  /** Inside the restaurant, being inside a building is the point. */
+  const indoorRings = GROUND_PATCHES.filter((p) => p.kind === 5).map((p) => p.ring)
+  const indoors = (x: number, z: number) =>
+    indoorRings.some((ring) => {
+      let inside = false
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, zi] = ring[i]!
+        const [xj, zj] = ring[j]!
+        if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside
+      }
+      return inside
+    })
+
   it('does not bury a prop inside a real building', () => {
     const buried = [...poles, ...clutter]
+      .filter((p) => !indoors(p.position[0], p.position[2]))
       .filter((p) => buildingAt(p.position[0], p.position[2]))
       .map((p) => p.position.map(Math.round).join(','))
 

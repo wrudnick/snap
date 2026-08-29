@@ -103,6 +103,17 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
     normalEdge
   );
 
+  // Creases fade out with distance; silhouettes hold on longer.
+  //
+  // At range, neighbouring pixels sample geometry metres apart, so their
+  // normals always disagree and every distant surface inks itself. Along the
+  // horizon that lands every building's base on the same few pixels and their
+  // lines stack into a solid black bar across the sky — the first thing you see
+  // in the game. A crease is detail, and detail is not legible at 200 m
+  // anyway; an outline still is, which is why the two fade at different rates.
+  creaseEdge *= 1.0 - smoothstep(55.0, 150.0, dC);
+  silhouetteEdge *= 1.0 - smoothstep(220.0, 420.0, dC);
+
   float edge = max(silhouetteEdge, creaseEdge);
 
   outputColor = vec4(mix(inputColor.rgb, uOutlineColor, clamp(edge, 0.0, 1.0)), inputColor.a);

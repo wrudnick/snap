@@ -98,7 +98,10 @@ function marianoPark(): Array<[number, number]> | null {
   // pavement, which is roughly where a park's railing sits.
   return points.map(([x, z]) => {
     const length = Math.hypot(x - cx, z - cz) || 1
-    const pull = Math.min(length * 0.45, 13)
+    // Pulled in only as far as the kerb. Thirteen metres left a token scrap of
+    // green in the middle of a large paved triangle; the park is most of what
+    // is inside those three streets.
+    const pull = Math.min(length * 0.28, 8)
     return [x + ((cx - x) / length) * pull, z + ((cz - z) / length) * pull]
   })
 }

@@ -57,14 +57,24 @@ describe('route corridor', () => {
  * the figure looming in the corner of the Michigan Avenue shots was. A pigeon
  * or a cat at the same distance is a good photograph, which is why this is a
  * rule about people rather than about subjects.
+ *
+ * Indoors is different and the difference is real, not an excuse to widen the
+ * bound: the rule exists because framing someone on an open street needs room,
+ * and the end of the route is a bar you walk the length of. Passing a foot from
+ * someone on a stool is the shot.
  */
 describe('subject placement', () => {
   const PEOPLE = new Set(['tourist-man', 'tourist-woman', 'old-man', 'escort', 'doorman'])
-  const MIN_METRES = 2.8
+  const OUTDOORS = 2.8
+  const INDOORS = 1.9
 
   it('keeps people far enough off the rail to photograph', () => {
     const tooClose = route.subjects
-      .filter((s) => PEOPLE.has(s.species) && s.at && Math.abs(s.at.offset) < MIN_METRES)
+      .filter((s) => {
+        if (!s.at || !PEOPLE.has(s.species)) return false
+        const indoors = 'section' in s.at && s.at.section === 'inside'
+        return Math.abs(s.at.offset) < (indoors ? INDOORS : OUTDOORS)
+      })
       .map((s) => `${s.id} at ${s.at!.offset}m`)
 
     expect(tooClose).toEqual([])

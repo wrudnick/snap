@@ -181,7 +181,7 @@ export const GOLD_COAST: RouteDef = {
   ],
 
   seed: 20260826,
-  film: 46,
+  film: 54,
 
   /**
    * Subjects anchored to the rail, not the world.
@@ -270,27 +270,51 @@ export const GOLD_COAST: RouteDef = {
     // pairs and threes on the patios — `offset` is metres LEFT of travel, and
     // the near sidewalk here runs from about −1 to −7 — with a scattering on
     // the far side for depth.
-    { id: 'old-rush-1', species: 'old-man', at: { section: 'rush', u: 0.20, offset: -3.0 }, rotationY: 1.5, seed: 331 },
-    { id: 'esc-rush-1', species: 'escort', at: { section: 'rush', u: 0.21, offset: -4.6 }, rotationY: 1.7, seed: 332 },
-    { id: 'door-rush-1', species: 'doorman', at: { section: 'rush', u: 0.26, offset: -3.2 }, rotationY: 1.5, seed: 337 },
+    { id: 'old-rush-1', species: 'old-man', at: { section: 'rush', u: 0.20, offset: 8.7 }, rotationY: 1.5, seed: 331 },
+    { id: 'esc-rush-1', species: 'escort', at: { section: 'rush', u: 0.21, offset: -10.2 }, rotationY: 1.7, seed: 332 },
+    { id: 'door-rush-1', species: 'doorman', at: { section: 'rush', u: 0.26, offset: -8.9 }, rotationY: 1.5, seed: 337 },
 
-    { id: 'old-rush-2', species: 'old-man', at: { section: 'rush', u: 0.34, offset: -5.2 }, rotationY: 1.2, seed: 333 },
-    { id: 'esc-rush-2', species: 'escort', at: { section: 'rush', u: 0.35, offset: -3.4 }, rotationY: 1.9, seed: 334 },
-    { id: 'tour-rush-1', species: 'tourist-woman', at: { section: 'rush', u: 0.37, offset: -6.2 }, rotationY: 2.4, seed: 338 },
+    { id: 'old-rush-2', species: 'old-man', at: { section: 'rush', u: 0.34, offset: 10.8 }, rotationY: 1.2, seed: 333 },
+    { id: 'esc-rush-2', species: 'escort', at: { section: 'rush', u: 0.35, offset: -9.1 }, rotationY: 1.9, seed: 334 },
+    { id: 'tour-rush-1', species: 'tourist-woman', at: { section: 'rush', u: 0.37, offset: -11.7 }, rotationY: 2.4, seed: 338 },
 
-    { id: 'old-rush-3', species: 'old-man', at: { section: 'rush', u: 0.47, offset: -4.0 }, rotationY: 1.4, seed: 339 },
-    { id: 'esc-rush-3', species: 'escort', at: { section: 'rush', u: 0.48, offset: -5.6 }, rotationY: 1.6, seed: 340 },
+    { id: 'old-rush-3', species: 'old-man', at: { section: 'rush', u: 0.47, offset: 9.6 }, rotationY: 1.4, seed: 339 },
+    { id: 'esc-rush-3', species: 'escort', at: { section: 'rush', u: 0.48, offset: -11.2 }, rotationY: 1.6, seed: 340 },
 
-    { id: 'tour-rush-2', species: 'tourist-man', at: { section: 'rush', u: 0.55, offset: -3.4 }, rotationY: -1.1, seed: 344 },
-    { id: 'esc-rush-4', species: 'escort', at: { section: 'rush', u: 0.57, offset: -6.0 }, rotationY: 2.1, seed: 345 },
-    { id: 'old-rush-4', species: 'old-man', at: { section: 'rush', u: 0.58, offset: -4.4 }, rotationY: 1.3, seed: 346 },
+    { id: 'tour-rush-2', species: 'tourist-man', at: { section: 'rush', u: 0.55, offset: -9.1 }, rotationY: -1.1, seed: 344 },
+    { id: 'esc-rush-4', species: 'escort', at: { section: 'rush', u: 0.57, offset: 11.5 }, rotationY: 2.1, seed: 345 },
+    { id: 'old-rush-4', species: 'old-man', at: { section: 'rush', u: 0.58, offset: -10.0 }, rotationY: 1.3, seed: 346 },
 
-    { id: 'door-rush-2', species: 'doorman', at: { section: 'rush', u: 0.66, offset: -3.0 }, rotationY: 1.5, seed: 335 },
-    { id: 'tour-rush-3', species: 'tourist-man', at: { section: 'rush', u: 0.68, offset: -5.0 }, rotationY: -1.1, seed: 336 },
-    { id: 'esc-rush-5', species: 'escort', at: { section: 'rush', u: 0.70, offset: -3.2 }, rotationY: 1.8, seed: 347 },
+    { id: 'door-rush-2', species: 'doorman', at: { section: 'rush', u: 0.66, offset: -8.7 }, rotationY: 1.5, seed: 335 },
+    { id: 'tour-rush-3', species: 'tourist-man', at: { section: 'rush', u: 0.68, offset: 10.6 }, rotationY: -1.1, seed: 336 },
+    { id: 'esc-rush-5', species: 'escort', at: { section: 'rush', u: 0.70, offset: -8.9 }, rotationY: 1.8, seed: 347 },
 
-    { id: 'old-rush-5', species: 'old-man', at: { section: 'rush', u: 0.80, offset: -4.8 }, rotationY: 1.5, seed: 348 },
-    { id: 'esc-rush-6', species: 'escort', at: { section: 'rush', u: 0.81, offset: -3.0 }, rotationY: 1.7, seed: 349 },
+    { id: 'old-rush-5', species: 'old-man', at: { section: 'rush', u: 0.80, offset: -10.4 }, rotationY: 1.5, seed: 348 },
+    { id: 'esc-rush-6', species: 'escort', at: { section: 'rush', u: 0.81, offset: 8.7 }, rotationY: 1.7, seed: 349 },
+
+    // Filling out the strip. Twenty people over 380 m is one every nineteen
+    // metres, which on a Saturday-night restaurant row still reads as thin —
+    // these close the gaps between the existing groups rather than starting new
+    // ones, because a crowd is clusters and the space between them.
+    { id: 'tour-rush-4', species: 'tourist-man', at: { section: 'rush', u: 0.16, offset: -11.0 }, rotationY: 1.9, seed: 371 },
+    { id: 'esc-rush-7', species: 'escort', at: { section: 'rush', u: 0.23, offset: -11.4 }, rotationY: 1.4, seed: 372 },
+    { id: 'old-rush-6', species: 'old-man', at: { section: 'rush', u: 0.30, offset: 8.9 }, rotationY: 1.6, seed: 373 },
+    { id: 'tour-rush-5', species: 'tourist-woman', at: { section: 'rush', u: 0.31, offset: -10.5 }, rotationY: 2.2, seed: 374 },
+    { id: 'door-rush-3', species: 'doorman', at: { section: 'rush', u: 0.43, offset: -8.7 }, rotationY: 1.5, seed: 375 },
+    { id: 'esc-rush-8', species: 'escort', at: { section: 'rush', u: 0.44, offset: 11.9 }, rotationY: 1.8, seed: 376 },
+    { id: 'old-rush-7', species: 'old-man', at: { section: 'rush', u: 0.50, offset: -11.2 }, rotationY: 1.2, seed: 377 },
+    { id: 'tour-rush-6', species: 'tourist-man', at: { section: 'rush', u: 0.61, offset: -9.8 }, rotationY: -1.2, seed: 378 },
+    { id: 'esc-rush-9', species: 'escort', at: { section: 'rush', u: 0.62, offset: 11.5 }, rotationY: 1.7, seed: 379 },
+    { id: 'old-rush-8', species: 'old-man', at: { section: 'rush', u: 0.73, offset: -9.3 }, rotationY: 1.4, seed: 380 },
+    { id: 'tour-rush-7', species: 'tourist-woman', at: { section: 'rush', u: 0.75, offset: -11.5 }, rotationY: 2.0, seed: 381 },
+    { id: 'esc-rush-10', species: 'escort', at: { section: 'rush', u: 0.87, offset: 10.0 }, rotationY: 1.6, seed: 382 },
+    { id: 'old-rush-9', species: 'old-man', at: { section: 'rush', u: 0.88, offset: -11.7 }, rotationY: 1.3, seed: 383 },
+    { id: 'tour-rush-8', species: 'tourist-man', at: { section: 'rush', u: 0.93, offset: -9.1 }, rotationY: 1.5, seed: 384 },
+
+    // Across the road, small in frame.
+    { id: 'esc-rush-far-2', species: 'escort', at: { section: 'rush', u: 0.20, offset: -17.2 }, rotationY: -1.4, seed: 385 },
+    { id: 'old-rush-far-2', species: 'old-man', at: { section: 'rush', u: 0.53, offset: -18.2 }, rotationY: -1.3, seed: 386 },
+    { id: 'tour-rush-far-3', species: 'tourist-woman', at: { section: 'rush', u: 0.90, offset: -17.6 }, rotationY: -1.5, seed: 387 },
 
     // Across the street, small in frame — depth, and something to zoom at.
     { id: 'tour-rush-far-1', species: 'tourist-woman', at: { section: 'rush', u: 0.30, offset: -17.5 }, rotationY: -1.4, seed: 361 },
@@ -302,8 +326,15 @@ export const GOLD_COAST: RouteDef = {
     { id: 'esc-tri', species: 'escort', at: { section: 'triangle', u: 0.35, offset: -4.5 }, rotationY: -0.6, seed: 342 },
     { id: 'tour-tri', species: 'tourist-woman', at: { section: 'triangle', u: 0.5, offset: 3.3 }, rotationY: 2.0, seed: 343 },
 
-    { id: 'esc-bar', species: 'escort', at: { section: 'inside', u: 0.5, offset: 2.9 }, rotationY: 1.4, seed: 351 },
-    { id: 'old-bar', species: 'old-man', at: { section: 'inside', u: 0.7, offset: -2.9 }, rotationY: -1.2, seed: 352 },
+    // At the bar. `offset` is metres LEFT of travel and the counter runs down
+    // the right, so these sit along it with a couple of staff behind.
+    { id: 'old-bar-1', species: 'old-man', at: { section: 'inside', u: 0.60, offset: -2.0 }, rotationY: -1.4, seed: 351 },
+    { id: 'esc-bar-1', species: 'escort', at: { section: 'inside', u: 0.63, offset: -2.0 }, rotationY: -1.5, seed: 352 },
+    { id: 'old-bar-2', species: 'old-man', at: { section: 'inside', u: 0.74, offset: -2.0 }, rotationY: -1.3, seed: 353 },
+    { id: 'esc-bar-2', species: 'escort', at: { section: 'inside', u: 0.77, offset: -2.0 }, rotationY: -1.6, seed: 354 },
+    { id: 'tour-bar', species: 'tourist-woman', at: { section: 'inside', u: 0.88, offset: -2.1 }, rotationY: -1.4, seed: 355 },
+    { id: 'door-bar', species: 'doorman', at: { section: 'inside', u: 0.70, offset: -3.5 }, rotationY: 1.6, seed: 356 },
+    { id: 'esc-bar-3', species: 'escort', at: { section: 'inside', u: 0.93, offset: 3.0 }, rotationY: 1.9, seed: 357 },
   ],
 }
 

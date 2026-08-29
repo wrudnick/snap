@@ -322,9 +322,122 @@ function buildProps(
     if (section.kind === 'tunnel') {
       addTunnelRoof(section, route, rail.length, at, buildings)
     }
+
+    if (section.kind === 'interior') {
+      addBar(section, route, rail.length, rng, at, headingAt, poles, heads, clutter, {
+        nearRail,
+        clashes,
+        claim: (x, z, r) => placed.push([x, z, r]),
+      })
+    }
   }
 
   return { buildings, poles, heads, clutter }
+}
+
+/**
+ * The bar the route ends at.
+ *
+ * The last section is called Through the Kitchen and finishes at "the end of
+ * the bar", and there was no bar — you walked down a corridor and stopped
+ * facing a wall. A counter runs along the second half of the section with
+ * stools down it, bottles behind, and low lamps over it, so the walk ends
+ * somewhere rather than just stopping.
+ */
+function addBar(
+  section: ResolvedSection,
+  route: RouteDef,
+  railLength: number,
+  rng: () => number,
+  at: (t: number, offset: number) => [number, number, number],
+  headingAt: (t: number) => number,
+  poles: Prop[],
+  heads: Prop[],
+  clutter: Prop[],
+  guards: {
+    nearRail: (x: number, z: number, radius: number) => boolean
+    clashes: (x: number, z: number, radius: number) => boolean
+    claim: (x: number, z: number, radius: number) => void
+  },
+): void {
+  const { nearRail, clashes, claim } = guards
+  const span = section.tEnd - section.tStart
+  const spanMetres = span * railLength
+  // The counter occupies the back half: kitchen first, then the room.
+  const from = section.tStart + span * 0.45
+  const length = span * 0.5
+  const steps = Math.max(6, Math.round((spanMetres * 0.5) / 1.2))
+  const segmentOf = (t: number) =>
+    Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount))
+
+  /** Which side the counter runs down. Stools face it from the other. */
+  const SIDE = -1
+  const COUNTER = 2.6
+  const GANTRY = 3.7
+  const STOOL = 1.4
+
+  for (let i = 0; i <= steps; i++) {
+    const t = from + (i / steps) * length
+    const segment = segmentOf(t)
+    const heading = headingAt(t)
+
+    // The room bends, so a counter laid at a fixed offset swings into the path
+    // on the inside of the turn — the same way the tunnel walls did.
+    const [bx, by, bz] = at(t, SIDE * COUNTER)
+    if (!nearRail(bx, bz, 1.35)) {
+      clutter.push({
+        position: [bx, by + 0.55, bz],
+        scale: [1.3, 1.1, 1.35],
+        rotationY: heading,
+        color: 0x3a2b20,
+        segment,
+      })
+    }
+
+    // The back gantry: bottles, read at this scale as a band of colour.
+    if (i % 2 === 0) {
+      const [sx, sy, sz] = at(t, SIDE * GANTRY)
+      if (!nearRail(sx, sz, 1.2)) clutter.push({
+        position: [sx, sy + 1.15, sz],
+        scale: [0.7, 2.3, 1.2],
+        rotationY: heading,
+        color: pick(rng, [0x5c3a2a, 0x4a3550, 0x2f4a44]),
+        segment,
+      })
+    }
+
+    // Stools, on the room side.
+    if (i % 2 === 1) {
+      const [tx, ty, tz] = at(t, SIDE * STOOL)
+      if (!nearRail(tx, tz, 0.9) && !clashes(tx, tz, 0.5)) claim(tx, tz, 0.5)
+      if (!nearRail(tx, tz, 0.9)) clutter.push({
+        position: [tx, ty + 0.4, tz],
+        scale: [0.42, 0.8, 0.42],
+        rotationY: heading + range(rng, -0.4, 0.4),
+        color: 0x33241c,
+        segment,
+      })
+    }
+
+    // Low lamps over the counter.
+    if (i % 3 === 0) {
+      const [lx, ly, lz] = at(t, SIDE * COUNTER)
+      poles.push({
+        position: [lx, ly + 2.55, lz],
+        scale: [0.05, 0.9, 0.05],
+        rotationY: 0,
+        color: 0x241c16,
+        segment,
+      })
+      heads.push({
+        position: [lx, ly + 2.02, lz],
+        scale: [0.42, 0.28, 0.42],
+        rotationY: heading,
+        color: 0xffcf8a,
+        segment,
+      })
+    }
+  }
 }
 
 /**
@@ -548,8 +661,10 @@ function frontageSpec(kind: SectionKind): FrontageSpec | null {
     case 'alley':
       return { frontage: 10, setback: 2.8, depth: [10, 16], height: [16, 30], gapChance: 0 }
     case 'interior':
-      // Walls and ceiling of the restaurant.
-      return { frontage: 6, setback: 2.6, depth: [1, 1.4], height: [3.4, 3.6], gapChance: 0 }
+      // Walls and ceiling of the restaurant. Wide enough for a bar, stools and
+      // room to walk past them — at the old 2.6 m setback the room was six
+      // metres across and the gantry ended up inside the wall.
+      return { frontage: 6, setback: 4.2, depth: [1, 1.4], height: [3.4, 3.6], gapChance: 0 }
   }
 }
 
