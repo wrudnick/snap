@@ -26,7 +26,7 @@ import { makeRng, range } from '@/lib/rng'
 
 export const CELL = 128
 export const COLS = 4
-export const ROWS = 5
+export const ROWS = 7
 const W = CELL * COLS
 const H = CELL * ROWS
 
@@ -200,12 +200,34 @@ function drawTorsoFront(ctx: CanvasRenderingContext2D, x: number, y: number, var
     ctx.strokeStyle = light
     ctx.strokeRect(x + CELL * 0.6, y + CELL * 0.22, CELL * 0.22, CELL * 0.18)
   } else {
-    // Collar only — the plain garment.
+    // A printed graphic across the chest. This is what the reference art
+    // actually puts on a torso — a bold mark, not tailoring — and it is the
+    // single most recognisable thing about those characters' clothes.
     ctx.beginPath()
     ctx.moveTo(x + CELL * 0.32, y + CELL * 0.02)
-    ctx.lineTo(cx, y + CELL * 0.2)
+    ctx.lineTo(cx, y + CELL * 0.18)
     ctx.lineTo(x + CELL * 0.68, y + CELL * 0.02)
     ctx.stroke()
+
+    ctx.save()
+    ctx.translate(cx, y + CELL * 0.5)
+    ctx.strokeStyle = 'rgba(255,240,180,0.85)'
+    ctx.lineWidth = CELL * 0.045
+    ctx.lineJoin = 'round'
+    // A blocky glyph: reads as a logo without pretending to be a brand.
+    const u = CELL * 0.1
+    ctx.beginPath()
+    ctx.moveTo(-u * 1.4, -u * 1.4)
+    ctx.lineTo(u * 1.4, -u * 1.4)
+    ctx.lineTo(u * 1.4, 0)
+    ctx.lineTo(-u * 0.4, 0)
+    ctx.lineTo(-u * 0.4, u * 1.4)
+    ctx.lineTo(u * 1.6, u * 1.4)
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'
+    ctx.lineWidth = CELL * 0.012
+    ctx.strokeRect(-u * 2.1, -u * 2.1, u * 4.2, u * 4.2)
+    ctx.restore()
   }
 
   // Shoulder seams, on every variant: they give a flat panel some structure.
@@ -234,6 +256,66 @@ function drawTorsoBack(ctx: CanvasRenderingContext2D, x: number, y: number, vari
     // A printed panel — the closest thing to a logo without inventing a brand.
     ctx.fillStyle = 'rgba(255,255,255,0.14)'
     ctx.fillRect(x + CELL * 0.3, y + CELL * 0.38, CELL * 0.4, CELL * 0.26)
+  }
+}
+
+/**
+ * Trousers.
+ *
+ * Wraps every face of the leg box, so the pattern is continuous rather than
+ * being a decal on the front. Camo especially has to wrap — a camouflage panel
+ * that stops at the seam looks like a sticker.
+ */
+function drawLeg(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number) {
+  const rng = makeRng(variant * 104729 + 11)
+
+  if (variant === 0) {
+    // Camo: soft irregular blobs, the baggy-trouser staple.
+    for (let i = 0; i < 22; i++) {
+      const bx = x + range(rng, 0, CELL)
+      const by = y + range(rng, 0, CELL)
+      const r = CELL * range(rng, 0.06, 0.17)
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.24)' : 'rgba(255,255,255,0.16)'
+      ctx.beginPath()
+      ctx.ellipse(bx, by, r, r * range(rng, 0.6, 1.3), range(rng, 0, Math.PI), 0, Math.PI * 2)
+      ctx.fill()
+    }
+  } else if (variant === 1) {
+    // Side stripe down the outseam.
+    ctx.fillStyle = 'rgba(255,255,255,0.28)'
+    ctx.fillRect(x + CELL * 0.06, y, CELL * 0.09, CELL)
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'
+    ctx.fillRect(x + CELL * 0.5, y, CELL * 0.02, CELL)
+  } else if (variant === 2) {
+    // Cargo pocket and a knee seam.
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'
+    ctx.fillRect(x + CELL * 0.24, y + CELL * 0.34, CELL * 0.5, CELL * 0.26)
+    ctx.strokeStyle = 'rgba(0,0,0,0.24)'
+    ctx.lineWidth = CELL * 0.02
+    ctx.beginPath()
+    ctx.moveTo(x, y + CELL * 0.66)
+    ctx.lineTo(x + CELL, y + CELL * 0.66)
+    ctx.stroke()
+  } else {
+    // Plain, with a turn-up at the hem.
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'
+    ctx.fillRect(x, y + CELL * 0.86, CELL, CELL * 0.14)
+  }
+}
+
+/** Sleeves: a cuff and, on some, a contrast band at the bicep. */
+function drawSleeve(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number) {
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'
+  ctx.fillRect(x, y + CELL * 0.84, CELL, CELL * 0.16)
+
+  if (variant % 2 === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.22)'
+    ctx.fillRect(x, y + CELL * 0.2, CELL, CELL * 0.12)
+  }
+  if (variant === 3) {
+    // Rolled to the elbow: bare forearm below the roll.
+    ctx.fillStyle = 'rgba(255,255,255,0.1)'
+    ctx.fillRect(x, y + CELL * 0.5, CELL, CELL * 0.34)
   }
 }
 
@@ -274,6 +356,8 @@ export function characterAtlas(): THREE.Texture {
     drawFace(ctx, col * CELL, CELL, col, true)
     drawTorsoFront(ctx, col * CELL, CELL * 2, col)
     drawTorsoBack(ctx, col * CELL, CELL * 3, col)
+    drawLeg(ctx, col * CELL, CELL * 4, col)
+    drawSleeve(ctx, col * CELL, CELL * 5, col)
   }
 
   const texture = new THREE.CanvasTexture(canvas)
@@ -290,12 +374,14 @@ export function characterAtlas(): THREE.Texture {
 }
 
 /** Row 4 is never drawn: the cell every non-front box face maps to. */
-export const BLANK_CELL = cellAt(0, 4)
+export const BLANK_CELL = cellAt(0, 6)
 
 export const FACE_ROW = 0
 export const OLD_FACE_ROW = 1
 export const TORSO_FRONT_ROW = 2
 export const TORSO_BACK_ROW = 3
+export const LEG_ROW = 4
+export const SLEEVE_ROW = 5
 
 /**
  * A box whose front face shows one atlas cell and whose other faces are blank.
@@ -384,6 +470,28 @@ export function facedFrustum(
     else remap(i0, BLANK_CELL, meanU < 0.25 ? 0 : 0.5)
   }
 
+  uv.needsUpdate = true
+  return geometry
+}
+
+/**
+ * A box with the same cell on every face.
+ *
+ * Trousers and sleeves need their pattern to continue around the limb — camo
+ * that stops at a seam reads as a sticker rather than as cloth. `facedBox` puts
+ * a cell on the front only, which is right for a face and wrong for a leg.
+ */
+export function wrappedBox(cell: AtlasCell): THREE.BufferGeometry {
+  const geometry = new THREE.BoxGeometry(1, 1, 1)
+  const uv = geometry.getAttribute('uv') as THREE.BufferAttribute
+
+  for (let i = 0; i < uv.count; i++) {
+    uv.setXY(
+      i,
+      cell.offset[0] + uv.getX(i) * cell.repeat[0],
+      cell.offset[1] + uv.getY(i) * cell.repeat[1],
+    )
+  }
   uv.needsUpdate = true
   return geometry
 }

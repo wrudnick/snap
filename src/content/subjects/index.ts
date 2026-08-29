@@ -118,7 +118,9 @@ const TAXI: SubjectDef = {
  */
 const SKIN = [0xf0c9a4, 0xe0ab7f, 0xc98a5e, 0xa0673f, 0x77482a, 0x5a3620, 0xf7dcc0]
 const HAIR = [0x2b2118, 0x120e0a, 0x6b4a2c, 0x9a7443, 0xc9b18a, 0x8e8e8e, 0xd6d2cb]
-const DENIM = [0x3f5470, 0x2f4258, 0x55637a, 0x1f2a38]
+// Baggy-trouser colours from the reference: washed denim, olive, and the
+// slate-navy that most of that crowd wears.
+const DENIM = [0x3f5470, 0x2f4258, 0x55637a, 0x1f2a38, 0x4a5240, 0x6b6f52]
 
 const TOURIST_MAN: SubjectDef = {
   species: 'tourist-man',
@@ -135,7 +137,9 @@ const TOURIST_MAN: SubjectDef = {
     build: 1.02,
     skin: SKIN,
     hair: HAIR,
-    top: [0xd94f3d, 0x3f8f5f, 0xe8b23a, 0x4a7fb5, 0xe4e0d6, 0xc9552f],
+    // Saturated but slightly muted — the reference sits between cartoon and
+    // grubby, and fully clean primaries read as toy-like next to it.
+    top: [0xd94f3d, 0x2f9c86, 0xe8b23a, 0x3d6fa8, 0xe4e0d6, 0xc9552f, 0x7fae4a],
     bottom: [...DENIM, 0x8a7f6a, 0x4a4a4a],
     accessories: ['cap', 'bag', 'stripes'],
   },
@@ -164,7 +168,7 @@ const TOURIST_WOMAN: SubjectDef = {
     build: 0.94,
     skin: SKIN,
     hair: HAIR,
-    top: [0xe86a8a, 0xf0c04a, 0x5fa8a0, 0xe8e2d4, 0xb45fa8, 0xdc6f4a],
+    top: [0xe86a8a, 0xf0c04a, 0x3fa89c, 0xe8e2d4, 0xa45f9c, 0xdc6f4a, 0x2f6f7a],
     bottom: [...DENIM, 0xe8e2d4, 0x6a5f52],
     accessories: ['sunhat', 'tote', 'stripes'],
   },

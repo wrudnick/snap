@@ -5,9 +5,12 @@ import {
   characterAtlas,
   facedBox,
   facedFrustum,
+  wrappedBox,
   COLS,
   FACE_ROW,
+  LEG_ROW,
   OLD_FACE_ROW,
+  SLEEVE_ROW,
   TORSO_BACK_ROW,
   TORSO_FRONT_ROW,
 } from './characterAtlas'
@@ -517,8 +520,23 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   const g = new THREE.Group()
 
   /** A limb that swings from its joint. */
-  const limb = (name: string, at: [number, number, number], size: [number, number, number], color: number) => {
-    const mesh = new THREE.Mesh(BOX, mat(color))
+  // Trousers and sleeves get their own wrapped cells, so a pattern continues
+  // around the limb instead of stopping at a seam.
+  const legCol = Math.floor(rng() * COLS)
+  const sleeveCol = Math.floor(rng() * COLS)
+
+  const limb = (
+    name: string,
+    at: [number, number, number],
+    size: [number, number, number],
+    color: number,
+    row?: number,
+    col?: number,
+  ) => {
+    const mesh =
+      row === undefined
+        ? new THREE.Mesh(BOX, mat(color))
+        : new THREE.Mesh(wrappedBox(cellAt(col ?? 0, row)), texMat(color))
     mesh.scale.set(...size)
     mesh.castShadow = true
     return pivot(name, at, mesh, [0, -size[1] / 2, 0])
@@ -526,12 +544,15 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
 
   // --- legs, from the hip ---
   const legLen = hipY - bootLift
-  const legW = h * 0.062 * build
-  const stance = h * 0.05 * build
+  const legW = h * 0.072 * build
+  // Wider than anatomy wants. Two legs the same colour close together read as
+  // a single column, which is what the reference avoids by putting people in
+  // baggy trousers with a visible gap between the legs.
+  const stance = h * 0.075 * build
 
   g.add(
-    limb('legL', [-stance, hipY, 0], [legW, legLen, legW * 1.15], bottomColor),
-    limb('legR', [stance, hipY, 0], [legW, legLen, legW * 1.15], bottomColor),
+    limb('legL', [-stance, hipY, 0], [legW, legLen, legW * 1.15], bottomColor, LEG_ROW, legCol),
+    limb('legR', [stance, hipY, 0], [legW, legLen, legW * 1.15], bottomColor, LEG_ROW, legCol),
   )
 
   // Shoes ride inside the leg pivots so they swing with the foot. Deliberately
@@ -648,8 +669,8 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   const armX = shoulderHalf + armW * 0.35
 
   torsoGroup.add(
-    limb('armL', [-armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor),
-    limb('armR', [armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor),
+    limb('armL', [-armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor, SLEEVE_ROW, sleeveCol),
+    limb('armR', [armX, rel(shoulderY) - h * 0.015, 0], [armW, armLen * 0.86, armW], sleeveColor, SLEEVE_ROW, sleeveCol),
   )
 
   // Hands at the end of each arm, inside the pivot so they swing along.
