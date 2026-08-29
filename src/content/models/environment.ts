@@ -199,6 +199,12 @@ function buildProps(
         // camera still fills half the frame as you pass it — the restaurant
         // ended with forty percent of the last shot being a brown rectangle.
         if (boxNearRail(x, z, depth, width, headingAt(t), 2.4)) continue
+        // On the inside of a hard bend, consecutive wall segments bunch up and
+        // sit inside one another — which reads as one thick broken wall rather
+        // than as a run of panels. Abutting is fine; occupying the same spot is
+        // not, and the same claim the clutter uses tells them apart.
+        if (clashes(x, z, depth / 2)) continue
+        placed.push([x, z, depth / 2])
         buildings.push({
           position: [x, y + height / 2, z],
           scale: [depth, height, width],
@@ -452,12 +458,11 @@ function addBar(
 /**
  * The deck over the underpass.
  *
- * Without it the section is a trench with the sky overhead, not a tunnel — and
- * the whole point of the underpass is that Lake Shore Drive runs over the top
- * of you. Slabs are placed at a fixed world height rather than at a height
- * above the floor, so the roof appears only across the deep middle and the
- * ramps at either end stay open to the sky, which is how you see where you are
- * going in and coming out.
+ * A roof only where there is a road on top of it. The ramps at either end are
+ * open cuts — walls and sky — and the covered stretch is exactly the width of
+ * Lake Shore Drive, because that is the thing being gone under. Roofing by
+ * depth instead put a lid over the ramps too, which turns a walk that dips
+ * beneath a road into a corridor with no outside.
  */
 function addTunnelRoof(
   section: ResolvedSection,
@@ -477,9 +482,15 @@ function addTunnelRoof(
   for (let i = 0; i <= steps; i++) {
     const t = section.tStart + (i / steps) * span
     const [x, y, z] = at(t, 0)
+
+    // Only under the Drive. Two metres of margin so the deck reaches its own
+    // kerbs rather than stopping short and showing daylight at the edges.
+    const street = nearestStreet(x, z, 60)
+    if (!street || !/Lake Shore Drive/.test(street.name)) continue
+    if (street.distance > street.half + 2) continue
+
     // `y` is the floor. Roofing a stretch with less than head height under it
-    // puts the deck through the camera, which is exactly what it did on the
-    // ramps at either end.
+    // puts the deck through the camera.
     if (y + HEADROOM > DECK_Y) continue
     buildings.push({
       position: [x, DECK_Y + THICKNESS / 2, z],

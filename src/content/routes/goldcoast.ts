@@ -70,13 +70,20 @@ export const GOLD_COAST: RouteDef = {
     // — Oak Street Beach —
     [137.06, 1.7, -178.265], //  0
     [177.111, 1.7, -138.676], //  1
+    // The top of the ramp: the second turn, where the walk leaves the sand and
+    // starts down into the cut.
     [160.971, 1.7, -103.513], //  2
 
     // — The Underpass —
-    [109.514, 0.1, -137.055], //  3
-    [65.7509, -3.2, -98.873], //  4
-    [43.2658, -3.2, -76.3298], //  5
-    [34.9721, -0.7, -40.5951], //  6
+    //   Down the ramp to the left-hand turn, then dead level for the width of
+    //   Lake Shore Drive — which is the only stretch with a roof over it — and
+    //   then a longer, gentler climb back to street level. The descent is 8%
+    //   over 61 m and the climb 5% over 91 m, which is what makes going down
+    //   feel like going under something and coming up feel like arriving.
+    [109.514, -3.2, -137.055], //  3  bottom of the ramp, turn left
+    [65.7509, -3.2, -98.873], //  4  clear of Lake Shore Drive
+    [43.2658, -1.6, -76.3298], //  5
+    [34.9721, 0.2, -40.5951], //  6
 
     // — East Lake Shore Drive —
     [28.7218, 1.7, -19.8772], //  7
@@ -120,8 +127,8 @@ export const GOLD_COAST: RouteDef = {
   ],
 
   sections: [
-    { id: 'beach', kind: 'beach', title: 'Oak Street Beach', waypoints: [0, 2], lighting: BEACH_DAWN },
-    { id: 'underpass', kind: 'tunnel', title: 'The Underpass', waypoints: [3, 6], lighting: TUNNEL },
+    { id: 'beach', kind: 'beach', title: 'Oak Street Beach', waypoints: [0, 1], lighting: BEACH_DAWN },
+    { id: 'underpass', kind: 'tunnel', title: 'The Underpass', waypoints: [2, 6], lighting: TUNNEL },
     { id: 'lakeshore', kind: 'boutique', title: 'East Lake Shore Drive', waypoints: [7, 8], lighting: BOUTIQUE_DAWN },
     { id: 'michigan', kind: 'avenue', title: 'Michigan Avenue', waypoints: [9, 13], lighting: AVENUE_DAWN },
     { id: 'delaware', kind: 'boutique', title: 'Delaware Place', waypoints: [14, 16], lighting: BOUTIQUE_SUNSET },
@@ -133,7 +140,7 @@ export const GOLD_COAST: RouteDef = {
 
   checkpoints: [
     { id: 'cp-beach', title: 'Oak Street Beach', waypoint: 0 },
-    { id: 'cp-underpass', title: 'The Underpass', waypoint: 3 },
+    { id: 'cp-underpass', title: 'The Underpass', waypoint: 2 },
     { id: 'cp-lakeshore', title: 'East Lake Shore Drive', waypoint: 7 },
     { id: 'cp-michigan', title: 'Michigan Avenue', waypoint: 9 },
     { id: 'cp-delaware', title: 'Delaware Place', waypoint: 14 },
