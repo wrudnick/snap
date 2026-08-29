@@ -241,6 +241,7 @@ function buildGround(
     const t = i / steps
     const section = sectionFor(sections, t)
     const lanes = laneProfile(section.kind)
+    const shift = section.ribbonShift ?? 0
 
     point.copy(centres[i]!)
     right.copy(rights[i]!)
@@ -248,7 +249,7 @@ function buildGround(
     const rowStart = positions.length / 3
 
     for (const lane of lanes) {
-      const offset = applyLimits(lane.offset, limits, i)
+      const offset = applyLimits(lane.offset + shift, limits, i)
       positions.push(
         point.x + right.x * offset,
         // Waypoints sit at eye height; ground is below that.
@@ -322,17 +323,24 @@ function buildProps(
   for (const section of sections) {
     const palette = BUILDING_COLORS[section.kind] ?? BUILDING_COLORS.avenue!
     const spanMetres = (section.tEnd - section.tStart) * rail.length
+    // Everything on the street is placed relative to the street, not the rail.
+    // Lampposts at a fixed offset from a rail that runs along the sidewalk end
+    // up standing in the carriageway.
+    const shift = section.ribbonShift ?? 0
 
-    // Frontage width, setback from the kerb, and height range per kind. These
-    // are the numbers that make Michigan feel like a canyon and Oak feel like a
-    // shopping street.
+    // Frontage width, setback from the kerb, and height range per kind. Null
+    // for every outdoor section, because OSM supplies real footprints there —
+    // only the tunnel, alley and restaurant interior still need massing.
+    //
+    // This used to `continue` on null, which quietly took the street furniture,
+    // the clutter and the patios with it: since the OSM import, not one
+    // lamppost, bin or planter had been placed on any street the player walks
+    // down. That is most of why the route reads as deserted.
     const spec = frontageSpec(section.kind)
-    if (!spec) continue
-
-    const count = Math.max(1, Math.round(spanMetres / spec.frontage))
+    const count = spec ? Math.max(1, Math.round(spanMetres / spec.frontage)) : 0
 
     for (let side of [-1, 1] as const) {
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; spec && i < count; i++) {
         // Skip the occasional plot so the street reads as buildings, not a wall.
         if (rng() < spec.gapChance) continue
 
@@ -340,7 +348,7 @@ function buildProps(
         const depth = range(rng, spec.depth[0], spec.depth[1])
         const height = range(rng, spec.height[0], spec.height[1])
         const width = range(rng, spec.frontage * 0.8, spec.frontage * 1.05)
-        const offset = side * (spec.setback + depth / 2)
+        const offset = shift + side * (spec.setback + depth / 2)
 
         const [x, y, z] = at(t, offset)
         buildings.push({
@@ -358,11 +366,28 @@ function buildProps(
     const furniture = furnitureSpec(section.kind)
     if (furniture) {
       const spacing = Math.max(1, Math.round(spanMetres / furniture.spacing))
+      const lanes = laneProfile(section.kind)
+      const edges = furniture.from && lanes.length >= 6 ? {
+        // outer (frontage) and inner (kerb) edge of each sidewalk, shifted onto
+        // the real street.
+        frontage: [lanes[0]!.offset + shift, lanes[5]!.offset + shift] as const,
+        kerb: [lanes[1]!.offset + shift, lanes[4]!.offset + shift] as const,
+      } : null
+
+      const lateralFor = (side: -1 | 1): number => {
+        if (!edges) return shift + side * furniture.offset
+        const inset = furniture.inset ?? 1.2
+        const pair = edges[furniture.from!]
+        return side < 0
+          ? (furniture.from === 'kerb' ? pair[0] - inset : pair[0] + inset)
+          : (furniture.from === 'kerb' ? pair[1] + inset : pair[1] - inset)
+      }
+
       for (let side of [-1, 1] as const) {
         for (let i = 0; i < spacing; i++) {
           const t =
             section.tStart + ((i + 0.35) / spacing) * (section.tEnd - section.tStart)
-          const [x, y, z] = at(t, side * furniture.offset)
+          const [x, y, z] = at(t, lateralFor(side))
           const segment = Math.min(
             route.segmentCount - 1,
             Math.floor(t * route.segmentCount),
@@ -393,7 +418,7 @@ function buildProps(
     for (let i = 0; i < clutterCount; i++) {
       const t = range(rng, section.tStart, section.tEnd)
       const side = rng() < 0.5 ? -1 : 1
-      const [x, y, z] = at(t, side * range(rng, clutterSpec[0], clutterSpec[1]))
+      const [x, y, z] = at(t, shift + side * range(rng, clutterSpec[0], clutterSpec[1]))
       const size = range(rng, 0.6, 1.2)
       clutter.push({
         position: [x, y + size / 2, z],
@@ -403,9 +428,122 @@ function buildProps(
         segment: Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount)),
       })
     }
+
+    if (section.kind === 'dining') {
+      addPatios(section, route, rail.length, rng, at, poles, heads, clutter)
+    }
   }
 
   return { buildings, poles, heads, clutter }
+}
+
+/**
+ * The strip the whole route exists to photograph.
+ *
+ * Rush Street was a correctly-paved, correctly-lit, entirely empty road. The
+ * dining is the reason the section is called dining and the reason the escorts
+ * and the old men are standing there, and none of it was built.
+ *
+ * Patios go against the building line rather than at a fixed offset, because
+ * the sidewalk is not where it used to be — `ribbonShift` slid the street off
+ * the rail and onto the real one, so the bands are read out of the lane profile
+ * instead of hardcoded.
+ */
+function addPatios(
+  section: ResolvedSection,
+  route: RouteDef,
+  railLength: number,
+  rng: () => number,
+  at: (t: number, offset: number) => [number, number, number],
+  poles: Prop[],
+  heads: Prop[],
+  clutter: Prop[],
+): void {
+  const lanes = laneProfile(section.kind)
+  const shift = section.ribbonShift ?? 0
+  if (lanes.length < 6) return
+
+  // Outer half of each sidewalk: tables sit against the frontage, not the kerb.
+  const zones: Array<[number, number]> = [
+    [lanes[0]!.offset + shift, lanes[0]!.offset + shift + 4.5],
+    [lanes[5]!.offset + shift - 4.5, lanes[5]!.offset + shift],
+  ]
+
+  const span = section.tEnd - section.tStart
+  const spanMetres = span * railLength
+  // One cluster every eight metres, alternating sides.
+  const clusters = Math.max(6, Math.round(spanMetres / 8))
+  /** Metres along the route, as a fraction of t. */
+  const perMetre = 1 / railLength
+  const segmentOf = (t: number) =>
+    Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount))
+
+  const CANOPY = [0xc4553f, 0x2f7d74, 0xd8a53f, 0x8f4a63]
+
+  for (let i = 0; i < clusters; i++) {
+    const t = section.tStart + ((i + 0.5) / clusters) * span
+    const zone = zones[i % 2]!
+    const base = range(rng, zone[0], zone[1])
+    const segment = segmentOf(t)
+
+    const table = at(t, base)
+    clutter.push({
+      position: [table[0], table[1] + 0.36, table[2]],
+      scale: [0.95, 0.72, 0.95],
+      rotationY: range(rng, 0, Math.PI),
+      color: 0x4a3a2c,
+      segment,
+    })
+
+    // Chairs around it. Offsetting both laterally and along the route keeps a
+    // cluster from reading as a row.
+    const chairs = rangeInt(rng, 2, 4)
+    for (let c = 0; c < chairs; c++) {
+      const angle = (c / chairs) * Math.PI * 2 + range(rng, -0.3, 0.3)
+      const dt = Math.cos(angle) * 0.95 * perMetre
+      const seat = at(t + dt, base + Math.sin(angle) * 0.95)
+      clutter.push({
+        position: [seat[0], seat[1] + 0.45, seat[2]],
+        scale: [0.44, 0.9, 0.44],
+        rotationY: angle,
+        color: 0x36302a,
+        segment,
+      })
+    }
+
+    // Umbrella: a thin pole and a flat canopy, in the one saturated colour on
+    // the street. At dawn the whole strip is grey-blue, and these are what make
+    // it read as a place people go to.
+    if (rng() < 0.75) {
+      poles.push({
+        position: [table[0], table[1] + 1.1, table[2]],
+        scale: [0.09, 2.2, 0.09],
+        rotationY: 0,
+        color: 0x2a2620,
+        segment,
+      })
+      heads.push({
+        position: [table[0], table[1] + 2.3, table[2]],
+        scale: [2.5, 0.14, 2.5],
+        rotationY: range(rng, 0, Math.PI / 2),
+        color: pick(rng, CANOPY),
+        segment,
+      })
+    }
+
+    // A planter marking the patio's edge toward the road.
+    if (rng() < 0.55) {
+      const kerbward = zone[0] < 0 ? zone[1] + 1.2 : zone[0] - 1.2
+      const planter = at(t + range(rng, -1.5, 1.5) * perMetre, kerbward)
+      clutter.push({
+        position: [planter[0], planter[1] + 0.4, planter[2]],
+        scale: [0.8, 0.8, 0.8],
+        rotationY: range(rng, 0, Math.PI),
+        color: pick(rng, [0x3f5a3a, 0x4a5f42, 0x55483a]),
+        segment,
+      })
+    }
+  }
 }
 
 interface FrontageSpec {
@@ -445,6 +583,19 @@ function frontageSpec(kind: SectionKind): FrontageSpec | null {
 
 interface FurnitureSpec {
   spacing: number
+  /**
+   * Where on the sidewalk this stands.
+   *
+   * `kerb` puts it a short step in from the road — lampposts, street trees.
+   * `frontage` puts it against the building — awnings. Both are measured from
+   * the lane profile rather than from the rail, because the rail runs along the
+   * sidewalk's inner edge: a fixed offset from the street's centre put Rush
+   * Street's awnings 10 cm from the camera, filling a quarter of the frame.
+   */
+  from?: 'kerb' | 'frontage'
+  /** Metres in from whichever edge `from` names. */
+  inset?: number
+  /** Fallback lateral offset for kinds with no kerb — beach, park, tunnel. */
   offset: number
   poleHeight: number
   poleWidth: number
@@ -459,18 +610,19 @@ function furnitureSpec(kind: SectionKind): FurnitureSpec | null {
       // Chicago's double-globe standards, plus the flagpoles that give the
       // Mag Mile its silhouette.
       return {
-        spacing: 22, offset: 9.6, poleHeight: 5.2, poleWidth: 0.18,
+        spacing: 22, from: 'kerb', inset: 1.4, offset: 9.6, poleHeight: 5.2, poleWidth: 0.18,
         poleColor: 0x2f3238, headSize: [0.5, 0.5, 0.5], headColor: 0xffe9c0,
       }
     case 'boutique':
       // Street trees: trunk and canopy through the same instanced pair.
       return {
-        spacing: 12, offset: 6.6, poleHeight: 3.4, poleWidth: 0.26,
+        spacing: 12, from: 'kerb', inset: 1.6, offset: 6.6, poleHeight: 3.4, poleWidth: 0.26,
         poleColor: 0x5a4636, headSize: [3.4, 2.6, 3.4], headColor: 0x5d7a46,
       }
     case 'dining':
+      // Awnings, against the frontage they belong to.
       return {
-        spacing: 10, offset: 6.8, poleHeight: 2.6, poleWidth: 0.12,
+        spacing: 10, from: 'frontage', inset: 1.6, offset: 6.8, poleHeight: 2.6, poleWidth: 0.12,
         poleColor: 0x2b2b2b, headSize: [3.0, 0.32, 3.0], headColor: 0x8d2f2f,
       }
     case 'park':

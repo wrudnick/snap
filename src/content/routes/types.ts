@@ -94,6 +94,22 @@ export interface RouteSection {
   /** Inclusive waypoint index range this section spans. */
   waypoints: [number, number]
   lighting: LightingProfile
+  /**
+   * Metres to slide the ground's cross-section along the rail's right vector.
+   *
+   * The ribbon lays pavement, kerb, carriageway, kerb, pavement out from the
+   * rail — which is correct only when the rail runs down the middle of the
+   * road. It does not: on Michigan the rail sits twelve metres east so the
+   * player walks the sidewalk facing the towers, and without a shift the
+   * painted carriageway sat twelve metres east of the real one, with the
+   * tourists standing on asphalt that should have been pavement.
+   *
+   * So the rail says where the player walks and this says where the street is.
+   * Positive is toward the rail's right. Checked against the OSM centreline in
+   * tests/alignment.test.ts, because the sign of this is very easy to get
+   * backwards and completely invisible until someone stands in the road.
+   */
+  ribbonShift?: number
 }
 
 export interface Checkpoint {

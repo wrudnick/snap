@@ -89,9 +89,13 @@ export function buildCorridor(rail: Rail, sections: ResolvedSection[]): Corridor
     const t = i / steps
     const section = sectionFor(sections, t)
     const lanes = laneProfile(section.kind)
+    const shift = section.ribbonShift ?? 0
 
-    const leftEdge = Math.min(-(lanes[0]?.offset ?? 0), limits.left[i] ?? Infinity)
-    const rightEdge = Math.min(lanes[lanes.length - 1]?.offset ?? 0, limits.right[i] ?? Infinity)
+    const leftEdge = Math.min(-((lanes[0]?.offset ?? 0) + shift), limits.left[i] ?? Infinity)
+    const rightEdge = Math.min(
+      (lanes[lanes.length - 1]?.offset ?? 0) + shift,
+      limits.right[i] ?? Infinity,
+    )
 
     samples.push({
       x: centres[i]!.x,

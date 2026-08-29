@@ -147,10 +147,14 @@ export const GOLD_COAST: RouteDef = {
   sections: [
     { id: 'beach', kind: 'beach', title: 'Oak Street Beach', waypoints: [0, 2], lighting: BEACH_DAWN },
     { id: 'underpass', kind: 'tunnel', title: 'The Underpass', waypoints: [3, 6], lighting: TUNNEL },
-    { id: 'lakeshore', kind: 'boutique', title: 'East Lake Shore Drive', waypoints: [7, 11], lighting: BOUTIQUE_DAWN },
-    { id: 'michigan', kind: 'avenue', title: 'Michigan Avenue', waypoints: [12, 16], lighting: AVENUE_DAWN },
-    { id: 'delaware', kind: 'boutique', title: 'Delaware Place', waypoints: [17, 20], lighting: BOUTIQUE_DAWN },
-    { id: 'rush', kind: 'dining', title: 'Rush Street', waypoints: [21, 26], lighting: DINING_DAWN },
+    // ribbonShift slides the painted street off the rail and onto the real one.
+    // The rail runs along a sidewalk in each of these; the street does not.
+    // Values are measured from the OSM centreline, not guessed — see
+    // tests/alignment.test.ts.
+    { id: 'lakeshore', kind: 'boutique', title: 'East Lake Shore Drive', waypoints: [7, 11], lighting: BOUTIQUE_DAWN, ribbonShift: -7.7 },
+    { id: 'michigan', kind: 'avenue', title: 'Michigan Avenue', waypoints: [12, 16], lighting: AVENUE_DAWN, ribbonShift: 11.9 },
+    { id: 'delaware', kind: 'boutique', title: 'Delaware Place', waypoints: [17, 20], lighting: BOUTIQUE_DAWN, ribbonShift: -3.6 },
+    { id: 'rush', kind: 'dining', title: 'Rush Street', waypoints: [21, 26], lighting: DINING_DAWN, ribbonShift: -6.7 },
     { id: 'triangle', kind: 'park', title: 'The Triangle', waypoints: [27, 29], lighting: PARK_DAWN },
     { id: 'alley', kind: 'alley', title: 'The Alley', waypoints: [30, 33], lighting: ALLEY },
     { id: 'inside', kind: 'interior', title: 'Through the Kitchen', waypoints: [34, 37], lighting: INTERIOR },
@@ -290,12 +294,39 @@ export const GOLD_COAST: RouteDef = {
     { id: 'tour-del', species: 'tourist-woman', at: { section: 'delaware', u: 0.72, offset: -4.0 }, rotationY: -1.3, seed: 323 },
 
     // The dining strip: the crowd this route exists to photograph.
-    { id: 'old-rush-1', species: 'old-man', at: { section: 'rush', u: 0.38, offset: 3.0 }, rotationY: 1.5, seed: 331 },
-    { id: 'esc-rush-1', species: 'escort', at: { section: 'rush', u: 0.4, offset: 4.5 }, rotationY: 1.7, seed: 332 },
-    { id: 'old-rush-2', species: 'old-man', at: { section: 'rush', u: 0.52, offset: -3.5 }, rotationY: -1.5, seed: 333 },
-    { id: 'esc-rush-2', species: 'escort', at: { section: 'rush', u: 0.55, offset: -5.0 }, rotationY: -1.3, seed: 334 },
-    { id: 'door-rush', species: 'doorman', at: { section: 'rush', u: 0.66, offset: 2.5 }, rotationY: 1.5, seed: 335 },
-    { id: 'tour-rush', species: 'tourist-man', at: { section: 'rush', u: 0.7, offset: -4.5 }, rotationY: -1.1, seed: 336 },
+    //
+    // Six people across 269 m was one person every forty-five metres, which on
+    // a Saturday-night restaurant row reads as an evacuation. These sit in
+    // pairs and threes on the patios — `offset` is metres LEFT of travel, and
+    // the near sidewalk here runs from about −1 to −7 — with a scattering on
+    // the far side for depth.
+    { id: 'old-rush-1', species: 'old-man', at: { section: 'rush', u: 0.20, offset: -3.0 }, rotationY: 1.5, seed: 331 },
+    { id: 'esc-rush-1', species: 'escort', at: { section: 'rush', u: 0.21, offset: -4.6 }, rotationY: 1.7, seed: 332 },
+    { id: 'door-rush-1', species: 'doorman', at: { section: 'rush', u: 0.26, offset: -2.2 }, rotationY: 1.5, seed: 337 },
+
+    { id: 'old-rush-2', species: 'old-man', at: { section: 'rush', u: 0.34, offset: -5.2 }, rotationY: 1.2, seed: 333 },
+    { id: 'esc-rush-2', species: 'escort', at: { section: 'rush', u: 0.35, offset: -3.4 }, rotationY: 1.9, seed: 334 },
+    { id: 'tour-rush-1', species: 'tourist-woman', at: { section: 'rush', u: 0.37, offset: -6.2 }, rotationY: 2.4, seed: 338 },
+
+    { id: 'old-rush-3', species: 'old-man', at: { section: 'rush', u: 0.47, offset: -4.0 }, rotationY: 1.4, seed: 339 },
+    { id: 'esc-rush-3', species: 'escort', at: { section: 'rush', u: 0.48, offset: -5.6 }, rotationY: 1.6, seed: 340 },
+
+    { id: 'tour-rush-2', species: 'tourist-man', at: { section: 'rush', u: 0.55, offset: -2.6 }, rotationY: -1.1, seed: 344 },
+    { id: 'esc-rush-4', species: 'escort', at: { section: 'rush', u: 0.57, offset: -6.0 }, rotationY: 2.1, seed: 345 },
+    { id: 'old-rush-4', species: 'old-man', at: { section: 'rush', u: 0.58, offset: -4.4 }, rotationY: 1.3, seed: 346 },
+
+    { id: 'door-rush-2', species: 'doorman', at: { section: 'rush', u: 0.66, offset: -1.8 }, rotationY: 1.5, seed: 335 },
+    { id: 'tour-rush-3', species: 'tourist-man', at: { section: 'rush', u: 0.68, offset: -5.0 }, rotationY: -1.1, seed: 336 },
+    { id: 'esc-rush-5', species: 'escort', at: { section: 'rush', u: 0.70, offset: -3.2 }, rotationY: 1.8, seed: 347 },
+
+    { id: 'old-rush-5', species: 'old-man', at: { section: 'rush', u: 0.80, offset: -4.8 }, rotationY: 1.5, seed: 348 },
+    { id: 'esc-rush-6', species: 'escort', at: { section: 'rush', u: 0.81, offset: -3.0 }, rotationY: 1.7, seed: 349 },
+
+    // Across the street, small in frame — depth, and something to zoom at.
+    { id: 'tour-rush-far-1', species: 'tourist-woman', at: { section: 'rush', u: 0.30, offset: -17.5 }, rotationY: -1.4, seed: 361 },
+    { id: 'old-rush-far', species: 'old-man', at: { section: 'rush', u: 0.44, offset: -18.5 }, rotationY: -1.2, seed: 362 },
+    { id: 'tour-rush-far-2', species: 'tourist-man', at: { section: 'rush', u: 0.62, offset: -17.0 }, rotationY: -1.5, seed: 363 },
+    { id: 'esc-rush-far', species: 'escort', at: { section: 'rush', u: 0.75, offset: -18.0 }, rotationY: -1.3, seed: 364 },
 
     { id: 'old-tri', species: 'old-man', at: { section: 'triangle', u: 0.3, offset: -3.0 }, rotationY: -0.8, seed: 341 },
     { id: 'esc-tri', species: 'escort', at: { section: 'triangle', u: 0.35, offset: -4.5 }, rotationY: -0.6, seed: 342 },

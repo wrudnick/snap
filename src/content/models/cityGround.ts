@@ -5,6 +5,7 @@ import { SURFACE, type SurfaceKind } from '@/render/ground'
 import { CITY, type CityStreet } from './city'
 import { ASPHALT, SIDEWALK } from './environment'
 import { insideRibbon, type CorridorSample } from './corridor'
+import { buildingAt, lateralClearance } from './footprints'
 
 /**
  * Ground for the whole city, not just the route.
@@ -40,6 +41,11 @@ const HALF_WIDTHS: Array<{ match: RegExp; half: number }> = [
 ]
 
 const DEFAULT_HALF = 6
+
+/** Carriageway half-width for a street, in metres. */
+export function carriagewayHalfWidth(name: string): number {
+  return HALF_WIDTHS.find((w) => w.match.test(name))?.half ?? DEFAULT_HALF
+}
 
 /** Pavement each side of the kerb. */
 const WALK = 4.5
@@ -80,8 +86,50 @@ interface GroundLane {
   kind: SurfaceKind
 }
 
-function laneProfileFor(street: CityStreet): GroundLane[] {
-  const half = HALF_WIDTHS.find((w) => w.match.test(street.n))?.half ?? DEFAULT_HALF
+/** Narrowest a carriageway may be squeezed to before the street is dropped. */
+export const MIN_HALF = 2.5
+
+/** How fast the carriageway may narrow, in metres of width per metre travelled. */
+const WIDTH_TAPER = 0.25
+
+/**
+ * How wide each point of a street can actually be paved.
+ *
+ * The name-based table is a judgement call — 24 street names and no road
+ * classification in the export — and where it runs wider than the buildings
+ * allow, a tower grows out of the middle of the road. Michigan at ten metres
+ * swallowed the Water Tower, which stands on an island in the roadway, plus the
+ * Drake and the Pumping Station; The Shops at North Bridge contains the whole
+ * of East Grand because the mall genuinely bridges over it.
+ *
+ * So the table is an upper bound and the buildings set the real one. Widths are
+ * tapered rather than stepped, for the same reason ribbon offsets are: a width
+ * that collapses between two rows folds the edge just like a corner does.
+ */
+export function halfWidths(street: CityStreet, points: Array<[number, number]>): number[] {
+  const configured = carriagewayHalfWidth(street.n)
+  const raw = points.map(([x, z], i) => {
+    const next = points[i + 1] ?? points[i - 1] ?? [x, z]
+    const dx = next[0] - x
+    const dz = next[1] - z
+    const length = Math.hypot(dx, dz) || 1
+    // Half a metre of margin, so the kerb does not touch the wall.
+    const room = lateralClearance(x, z, -dz / length, dx / length, configured + 1) - 0.5
+    return Math.min(configured, Math.max(0, room))
+  })
+
+  for (let i = 1; i < raw.length; i++) {
+    const step = Math.hypot(points[i]![0] - points[i - 1]![0], points[i]![1] - points[i - 1]![1])
+    raw[i] = Math.min(raw[i]!, raw[i - 1]! + step * WIDTH_TAPER)
+  }
+  for (let i = raw.length - 2; i >= 0; i--) {
+    const step = Math.hypot(points[i + 1]![0] - points[i]![0], points[i + 1]![1] - points[i]![1])
+    raw[i] = Math.min(raw[i]!, raw[i + 1]! + step * WIDTH_TAPER)
+  }
+  return raw
+}
+
+function laneProfileFor(half: number): GroundLane[] {
   return [
     { offset: -(half + KERB + WALK), y: WALK_Y, color: SIDEWALK, kind: SURFACE.sidewalk },
     { offset: -(half + KERB), y: WALK_Y, color: SIDEWALK, kind: SURFACE.sidewalk },
@@ -171,12 +219,19 @@ export function buildCityGround(corridor: CorridorSample[]): CityGroundResult {
     if (street.p.length < 2) continue
     const points = resample(street.p)
 
-    const lanes = laneProfileFor(street)
     const dirs = directions(points)
+    const halves = halfWidths(street, points)
 
     // Distance along this way, so paving and lane dashes stay continuous.
     let along = 0
-    const rows: Array<{ start: number; x: number; z: number; rx: number; rz: number }> = []
+    const rows: Array<{
+      start: number
+      x: number
+      z: number
+      rx: number
+      rz: number
+      lanes: GroundLane[]
+    } | null> = []
 
     for (let i = 0; i < points.length; i++) {
       const [x, z] = points[i]!
@@ -189,6 +244,16 @@ export function buildCityGround(corridor: CorridorSample[]): CityGroundResult {
       const rx = -dz
       const rz = dx
 
+      // Under a building — the mall bridges the street here, so there is no
+      // street surface to paint. Breaking the strip is better than paving
+      // through the inside of it.
+      const half = halves[i]!
+      if (half < MIN_HALF || buildingAt(x, z)) {
+        rows.push(null)
+        continue
+      }
+
+      const lanes = laneProfileFor(half)
       const start = positions.length / 3
       for (const lane of lanes) {
         pushVertex(
@@ -201,13 +266,15 @@ export function buildCityGround(corridor: CorridorSample[]): CityGroundResult {
           lane.kind,
         )
       }
-      rows.push({ start, x, z, rx, rz })
+      rows.push({ start, x, z, rx, rz, lanes })
     }
 
     let emitted = false
     for (let i = 1; i < rows.length; i++) {
-      const a = rows[i - 1]!
-      const b = rows[i]!
+      const a = rows[i - 1]
+      const b = rows[i]
+      if (!a || !b) continue
+      const lanes = a.lanes
       for (let l = 0; l < lanes.length - 1; l++) {
         // Cull per quad, testing every corner and the centre.
         //
