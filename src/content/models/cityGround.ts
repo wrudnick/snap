@@ -4,8 +4,9 @@ import { SURFACE, type SurfaceKind } from '@/render/ground'
 
 import { CITY, type CityStreet } from './city'
 import { ASPHALT, SIDEWALK } from './environment'
-import { insideRibbon, type CorridorSample } from './corridor'
 import { buildingAt, lateralClearance } from './footprints'
+import { applyLimits, curveLimits } from './ribbon'
+import { GROUND_PATCHES, type GroundPatch } from './patches'
 import { carriagewayHalfWidth } from './streetWidths'
 
 export { carriagewayHalfWidth }
@@ -168,7 +169,30 @@ export interface CityGroundResult {
   fillCells: number
 }
 
-export function buildCityGround(corridor: CorridorSample[]): CityGroundResult {
+/** Ray-cast point-in-polygon on the XZ plane. */
+function inRing(ring: Array<[number, number]>, x: number, z: number): boolean {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, zi] = ring[i]!
+    const [xj, zj] = ring[j]!
+    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside
+  }
+  return inside
+}
+
+/**
+ * Is this covered by an authored surface?
+ *
+ * Streets and fill stand back where sand, water, a park or a restaurant floor
+ * already covers the ground. This replaces the old test against the route's own
+ * ribbon — which is the whole point of the change: what is paved is now a fact
+ * about the world, not about where the camera goes.
+ */
+function underPatch(x: number, z: number): boolean {
+  return GROUND_PATCHES.some((p) => inRing(p.ring, x, z))
+}
+
+export function buildCityGround(): CityGroundResult {
   const positions: number[] = []
   const colors: number[] = []
   const grounds: number[] = []
@@ -201,6 +225,12 @@ export function buildCityGround(corridor: CorridorSample[]): CityGroundResult {
 
     const dirs = directions(points)
     const halves = halfWidths(street, points)
+    // Streets bend too, and a ribbon offset sideways folds wherever the bend is
+    // tighter than the ribbon is wide. Gentler here than on the old route
+    // ribbon, but a right-angled OSM corner would still do it.
+    const limits = curveLimits(
+      points.map(([x, z], i) => ({ x, z, rx: -dirs[i]![1], rz: dirs[i]![0] })),
+    )
 
     // Distance along this way, so paving and lane dashes stay continuous.
     let along = 0
@@ -233,7 +263,10 @@ export function buildCityGround(corridor: CorridorSample[]): CityGroundResult {
         continue
       }
 
-      const lanes = laneProfileFor(half)
+      const lanes = laneProfileFor(half).map((lane) => ({
+        ...lane,
+        offset: applyLimits(lane.offset, limits, i),
+      }))
       const start = positions.length / 3
       for (const lane of lanes) {
         pushVertex(
@@ -273,7 +306,7 @@ export function buildCityGround(corridor: CorridorSample[]): CityGroundResult {
         let overlaps = false
         for (const row of [a, b] as const) {
           for (const o of [inner, mid, outer]) {
-            if (insideRibbon(row.x + row.rx * o, row.z + row.rz * o, corridor)) {
+            if (underPatch(row.x + row.rx * o, row.z + row.rz * o)) {
               overlaps = true
               break
             }
@@ -297,7 +330,23 @@ export function buildCityGround(corridor: CorridorSample[]): CityGroundResult {
     if (emitted) streetCount++
   }
 
-  const fillCells = buildFill(corridor, pushVertex, indices, () => positions.length / 3)
+  const fillCells = buildFill(pushVertex, indices, () => positions.length / 3)
+
+  // Authored surfaces last, so they sit over the fill they displaced.
+  for (const patch of [...GROUND_PATCHES].sort((a, b) => (a.layer ?? 0) - (b.layer ?? 0))) {
+    addPatch(patch, pushVertex, indices, () => positions.length / 3)
+  }
+
+  // Ground faces up, always. Rather than get the winding right in four
+  // different builders — street strips wind by which way the street bends, and
+  // a hand-drawn patch winds however it was drawn — any triangle that came out
+  // pointing down is flipped here.
+  //
+  // The old ground papered over this with `side: DoubleSide`, which hides a
+  // reversed normal by lighting both faces. That works and costs a rendering
+  // branch on every ground fragment, and it means nothing can ever *check* the
+  // geometry is right.
+  faceUp(positions, indices)
 
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
@@ -318,7 +367,6 @@ export function buildCityGround(corridor: CorridorSample[]): CityGroundResult {
  * the lake.
  */
 function buildFill(
-  corridor: CorridorSample[],
   pushVertex: (
     x: number,
     y: number,
@@ -377,14 +425,14 @@ function buildFill(
       const cz = z + FILL_CELL / 2
       if (!nearStreet(cx, cz)) continue
 
-      // Dropped only when the WHOLE cell is under the route ribbon.
+      // Dropped only when the WHOLE cell is under an authored surface.
       //
       // The opposite rule — drop on the centre — quietly took the rest of the
-      // cell with it, leaving a strip of missing ground beside the ribbon with
-      // the sky showing through it at the Triangle. The fill is the floor of
-      // last resort: street quads above it cull aggressively so they never
-      // leave a ledge sticking out of the road, and this catches whatever they
-      // give up. Ground hidden under the ribbon costs nothing; a hole does not.
+      // cell with it, leaving a strip of missing ground with the sky showing
+      // through it. The fill is the floor of last resort: street quads above it
+      // cull aggressively so they never leave a ledge sticking out of the road,
+      // and this catches whatever they give up. Ground hidden underneath costs
+      // nothing; a hole does not.
       const corners: Array<[number, number]> = [
         [x, z],
         [x + FILL_CELL, z],
@@ -392,7 +440,7 @@ function buildFill(
         [x + FILL_CELL, z + FILL_CELL],
         [cx, cz],
       ]
-      if (corners.every(([px, pz]) => insideRibbon(px, pz, corridor))) continue
+      if (corners.every(([px, pz]) => underPatch(px, pz))) continue
 
       const base = vertexCount()
       // Lateral/along are just world coordinates here: the fill has no
@@ -415,4 +463,65 @@ function buildFill(
   }
 
   return cells
+}
+
+/**
+ * One authored surface, triangulated.
+ *
+ * Ear clipping via three's own `ShapeUtils`, so a mildly concave outline works
+ * and nothing here has to reimplement a triangulator. The pattern frame is
+ * rotated per patch: sand ripples have to run along the shore, and floorboards
+ * along the room, neither of which is aligned to the world axes.
+ */
+function addPatch(
+  patch: GroundPatch,
+  pushVertex: (
+    x: number,
+    y: number,
+    z: number,
+    lateral: number,
+    along: number,
+    color: number,
+    kind: SurfaceKind,
+  ) => void,
+  indices: number[],
+  vertexCount: () => number,
+): void {
+  const angle = patch.patternAngle ?? 0
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+
+  const base = vertexCount()
+  for (const [x, z] of patch.ring) {
+    pushVertex(x, patch.y, z, x * cos - z * sin, x * sin + z * cos, patch.color, patch.kind)
+  }
+
+  const contour = patch.ring.map(([x, z]) => new THREE.Vector2(x, z))
+  for (const face of THREE.ShapeUtils.triangulateShape(contour, [])) {
+    const [a, b, c] = face
+    if (a === undefined || b === undefined || c === undefined) continue
+    // Reversed, because +Z is south: a ring wound clockwise on the map is
+    // counter-clockwise seen from above, and a downward normal renders black.
+    indices.push(base + a, base + c, base + b)
+  }
+}
+
+/** Flip any triangle whose normal points downwards. */
+function faceUp(positions: number[], indices: number[]): void {
+  for (let i = 0; i < indices.length; i += 3) {
+    const a = indices[i]! * 3
+    const b = indices[i + 1]! * 3
+    const c = indices[i + 2]! * 3
+
+    const ux = positions[b]! - positions[a]!
+    const uz = positions[b + 2]! - positions[a + 2]!
+    const vx = positions[c]! - positions[a]!
+    const vz = positions[c + 2]! - positions[a + 2]!
+
+    if (uz * vx - ux * vz < 0) {
+      const swap = indices[i + 1]!
+      indices[i + 1] = indices[i + 2]!
+      indices[i + 2] = swap
+    }
+  }
 }

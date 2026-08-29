@@ -3,32 +3,26 @@ import * as THREE from 'three'
 import type { Rail } from '@/game/rail'
 import type { ResolvedSection } from '@/game/sections'
 
-import { laneProfile } from './environment'
-import { curveLimits } from './ribbon'
-
 /**
- * The route, sampled as a corridor.
+ * The route, sampled — for one question: does the player walk through a wall?
  *
- * Answers two questions, and they have to agree with each other or the world
- * comes apart:
+ * OSM footprints are the real Chicago and the route is drawn over them by hand,
+ * so nothing makes the two agree. This is deliberately a *test* rather than a
+ * runtime filter. Culling whichever footprints the route touches was the first
+ * attempt and it is a trap: at any clearance wide enough to be worth having it
+ * deleted 900 North Michigan, the Drake and the Thompson — buildings the route
+ * merely walks close to, whose absence leaves holes on the Magnificent Mile far
+ * worse than the near-miss it was fixing. And a route that ends up inside a
+ * restaurant on purpose is indistinguishable, from the outside, from one that
+ * has gone wrong.
  *
- *  1. **Which ground is already paved?** The route ribbon covers its own
- *     surface. The city ground has to stop where the ribbon starts, or the two
- *     z-fight along the entire route.
+ * So the route gets fixed and this holds it fixed.
  *
- *  2. **Does the route walk through a building?** OSM footprints are the real
- *     Chicago and the route is drawn over them by hand, so nothing guarantees
- *     the two agree.
- *
- * The second is deliberately a *test*, not a runtime filter. Culling footprints
- * that the route touches was the first attempt and it is a trap: at any
- * clearance wide enough to be worth having it started deleting 900 North
- * Michigan, the Drake and the Thompson — buildings the route merely walks close
- * to, whose absence leaves holes on the Magnificent Mile far worse than the
- * near-miss. And a route that ends up *inside* a restaurant on purpose is
- * indistinguishable, from the outside, from one that has gone wrong.
- *
- * So the route gets fixed instead, and this holds it fixed.
+ * It used to answer a second question — which ground the route ribbon had
+ * already paved — back when the ground was extruded along the rail. It isn't
+ * any more: streets pave themselves from OSM and everything else is a polygon
+ * fixed in the world, so what is paved has nothing to do with where the camera
+ * goes.
  */
 
 export interface CorridorSample {
@@ -37,9 +31,6 @@ export interface CorridorSample {
   /** Unit vector pointing right of travel, in the XZ plane. */
   rx: number
   rz: number
-  /** Ribbon extent either side, in metres. Negative offsets are left. */
-  left: number
-  right: number
   /**
    * Whether the route is meant to be inside a building here. The last section
    * walks in through a kitchen door, so containment there is the point.
@@ -47,64 +38,26 @@ export interface CorridorSample {
   indoors: boolean
 }
 
-/** Metres between samples. Also the longitudinal tolerance of every test. */
+/** Metres between samples. */
 const STEP = 3
-
-/**
- * Fraction of the ribbon's width the corridor claims.
- *
- * Deliberately less than all of it. Claiming too little leaves a sliver of city
- * ground under the edge of the route ribbon, which is invisible because the
- * ribbon sits above it; claiming too much leaves a hole with the sky showing
- * through. The two failure modes are not remotely equal, so this errs small.
- */
-const CLAIM = 0.9
 
 export function buildCorridor(rail: Rail, sections: ResolvedSection[]): CorridorSample[] {
   const steps = Math.max(2, Math.ceil(rail.length / STEP))
-
-  const centres: THREE.Vector3[] = []
-  const rights: THREE.Vector3[] = []
-  for (let i = 0; i <= steps; i++) {
-    const p = new THREE.Vector3()
-    const r = new THREE.Vector3()
-    rail.positionAt(i / steps, p)
-    rail.rightAt(i / steps, r)
-    centres.push(p)
-    rights.push(r)
-  }
-
-  // The same limits the ribbon itself is built with. Without this the corridor
-  // claims the profile's full width while the ribbon has been pinched in to
-  // avoid folding — and the city ground is cut away from under a surface that
-  // is no longer there. At the Triangle, where the route loops back on itself
-  // inside seven metres, that opened a hole with the sky visible through it.
-  const limits = curveLimits(
-    centres.map((c, i) => ({ x: c.x, z: c.z, rx: rights[i]!.x, rz: rights[i]!.z })),
-  )
-
   const samples: CorridorSample[] = []
+
+  const point = new THREE.Vector3()
+  const right = new THREE.Vector3()
 
   for (let i = 0; i <= steps; i++) {
     const t = i / steps
-    const section = sectionFor(sections, t)
-    const lanes = laneProfile(section.kind)
-    const shift = section.ribbonShift ?? 0
-
-    const leftEdge = Math.min(-((lanes[0]?.offset ?? 0) + shift), limits.left[i] ?? Infinity)
-    const rightEdge = Math.min(
-      (lanes[lanes.length - 1]?.offset ?? 0) + shift,
-      limits.right[i] ?? Infinity,
-    )
-
+    rail.positionAt(t, point)
+    rail.rightAt(t, right)
     samples.push({
-      x: centres[i]!.x,
-      z: centres[i]!.z,
-      rx: rights[i]!.x,
-      rz: rights[i]!.z,
-      left: leftEdge * CLAIM,
-      right: rightEdge * CLAIM,
-      indoors: section.kind === 'interior',
+      x: point.x,
+      z: point.z,
+      rx: right.x,
+      rz: right.z,
+      indoors: sectionFor(sections, t).kind === 'interior',
     })
   }
 
@@ -114,25 +67,6 @@ export function buildCorridor(rail: Rail, sections: ResolvedSection[]): Corridor
 function sectionFor(sections: ResolvedSection[], t: number): ResolvedSection {
   for (const s of sections) if (t >= s.tStart && t < s.tEnd) return s
   return sections[sections.length - 1]!
-}
-
-/**
- * Is this point on ground the route ribbon already paves?
- *
- * Longitudinal tolerance is one sample step, which is why STEP has to stay
- * small — at coarse sampling this leaves unpaved rings between samples.
- */
-export function insideRibbon(x: number, z: number, corridor: CorridorSample[]): boolean {
-  for (const s of corridor) {
-    const dx = x - s.x
-    const dz = z - s.z
-    const lateral = dx * s.rx + dz * s.rz
-    if (lateral < -s.left || lateral > s.right) continue
-    // Distance along the path, taken as the component perpendicular to `right`.
-    const along = Math.abs(dx * -s.rz + dz * s.rx)
-    if (along <= STEP) return true
-  }
-  return false
 }
 
 /** Ray-cast point-in-polygon, on the XZ plane. */

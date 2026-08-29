@@ -5,7 +5,6 @@ import * as THREE from 'three'
 import { generateEnvironment, type Prop } from '@/content/models/environment'
 import { buildCityGeometry } from '@/content/models/city'
 import { buildCityGround } from '@/content/models/cityGround'
-import { buildCorridor, type CorridorSample } from '@/content/models/corridor'
 import { buildLandmark } from '@/content/models/landmarks'
 import type { LandmarkDef } from '@/content/models/landmarks'
 import type { RouteDef } from '@/content/routes/types'
@@ -110,8 +109,8 @@ function City() {
  * two are built from different sources and change independently — and it costs
  * exactly one extra draw call.
  */
-function CityGround({ corridor }: { corridor: CorridorSample[] }) {
-  const built = useMemo(() => buildCityGround(corridor), [corridor])
+function CityGround() {
+  const built = useMemo(() => buildCityGround(), [])
 
   const material = useMemo(
     () =>
@@ -120,7 +119,9 @@ function CityGround({ corridor }: { corridor: CorridorSample[] }) {
           color: 0xffffff,
           gradientMap: toonRamp(),
           vertexColors: true,
-          side: THREE.DoubleSide,
+          // Front faces only: the builder flips any triangle that came out
+          // pointing down, so a reversed normal is now a bug rather than
+          // something the material quietly absorbs.
         }),
         { ground: {} },
       ),
@@ -185,7 +186,6 @@ export function Environment({
     () => generateEnvironment(route, rail, sections),
     [route, rail, sections],
   )
-  const corridor = useMemo(() => buildCorridor(rail, sections), [rail, sections])
   const segment = useActiveSegment()
 
   // Vertex colours carry the ground's material variation, so one mesh covers
@@ -213,7 +213,6 @@ export function Environment({
   useEffect(() => {
     return () => {
       groundMaterial.dispose()
-      data.ground.dispose()
     }
   }, [groundMaterial, data])
 
@@ -232,11 +231,7 @@ export function Environment({
 
   return (
     <group>
-      <mesh geometry={data.ground} receiveShadow frustumCulled={false}>
-        <primitive object={groundMaterial} attach="material" dispose={null} />
-      </mesh>
-
-      <CityGround corridor={corridor} />
+      <CityGround />
       <City />
       <Landmarks landmarks={route.landmarks} />
 

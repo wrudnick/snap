@@ -81,6 +81,7 @@ export function lateralClearance(
  * Shore Drive — 24 of 34 procedural buildings were in a road.
  */
 interface Segment {
+  name: string
   ax: number
   az: number
   bx: number
@@ -96,7 +97,7 @@ for (const street of CITY.streets) {
   for (let i = 1; i < street.p.length; i++) {
     const [ax, az] = street.p[i - 1]!
     const [bx, bz] = street.p[i]!
-    const seg: Segment = { ax, az, bx, bz, half }
+    const seg: Segment = { name: street.n, ax, az, bx, bz, half }
     const x0 = Math.floor(Math.min(ax, bx) / ROAD_CELL)
     const x1 = Math.floor(Math.max(ax, bx) / ROAD_CELL)
     const z0 = Math.floor(Math.min(az, bz) / ROAD_CELL)
@@ -128,4 +129,53 @@ export function inCarriageway(x: number, z: number, margin = 0): boolean {
     }
   }
   return false
+}
+
+export interface NearestStreet {
+  name: string
+  /** Closest point on the centreline. */
+  x: number
+  z: number
+  /** Unit vector right of the street's direction of travel. */
+  rx: number
+  rz: number
+  half: number
+  distance: number
+}
+
+/**
+ * The street a world position belongs to.
+ *
+ * Street furniture used to be placed at an offset from the rail, which meant a
+ * lamppost's position depended on where the *camera* went. It belongs to the
+ * street instead — that is what makes the world independent of the route.
+ */
+export function nearestStreet(x: number, z: number, within = 40): NearestStreet | null {
+  let best: NearestStreet | null = null
+  const cx = Math.floor(x / ROAD_CELL)
+  const cz = Math.floor(z / ROAD_CELL)
+  for (let ox = -1; ox <= 1; ox++) {
+    for (let oz = -1; oz <= 1; oz++) {
+      for (const s of roads.get(`${cx + ox},${cz + oz}`) ?? []) {
+        const vx = s.bx - s.ax
+        const vz = s.bz - s.az
+        const len = Math.hypot(vx, vz) || 1
+        const t = Math.max(0, Math.min(1, ((x - s.ax) * vx + (z - s.az) * vz) / (len * len)))
+        const px = s.ax + vx * t
+        const pz = s.az + vz * t
+        const distance = Math.hypot(x - px, z - pz)
+        if (distance > within || (best && distance >= best.distance)) continue
+        best = {
+          name: s.name,
+          x: px,
+          z: pz,
+          rx: -vz / len,
+          rz: vx / len,
+          half: s.half,
+          distance,
+        }
+      }
+    }
+  }
+  return best
 }

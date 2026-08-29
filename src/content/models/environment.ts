@@ -4,27 +4,18 @@ import type { RouteDef, SectionKind } from '@/content/routes/types'
 import type { Rail } from '@/game/rail'
 import type { ResolvedSection } from '@/game/sections'
 import { makeRng, pick, range, rangeInt } from '@/lib/rng'
-import { SURFACE, type SurfaceKind } from '@/render/ground'
 
-import { inCarriageway } from './footprints'
-
-import { applyLimits, curveLimits } from './ribbon'
+import { inCarriageway, lateralClearance, nearestStreet } from './footprints'
 
 /**
- * Route-following environment generation.
+ * Props alongside the route.
  *
- * The old generator laid a straight street down the Z axis. This one walks the
- * spline, so the world follows the route through Oak Street's turn onto Rush and
- * around Mariano Park without any of it being hand-placed.
- *
- * Two outputs:
- *
- *  - A **ground ribbon**: one vertex-coloured mesh covering sand, road,
- *    sidewalk, tunnel floor and interior flooring for the entire route. A curved
- *    path can't be paved with stretched boxes, and a ribbon is one draw call for
- *    all 540 m.
- *  - **Side props**: instanced boxes placed perpendicular to the path, with the
- *    mix chosen per section kind.
+ * Props only. The ground is NOT here and deliberately so: it used to be a
+ * ribbon extruded sideways along the camera rail, which coupled where the
+ * player walks to where the world's surfaces are. That folded into a flap at
+ * every corner, and it meant dragging a waypoint in the editor could unpave a
+ * block. Streets now pave themselves from OSM and everything else is a polygon
+ * fixed in the world — see cityGround and patches.
  *
  * Deterministic from the route seed, so the world is identical every load —
  * photo scores have to be comparable between runs.
@@ -38,28 +29,7 @@ export interface Prop {
   segment: number
 }
 
-/** One lateral lane of the ground ribbon, offset from the centreline. */
-export interface Lane {
-  /** Metres right of the path centre. Negative is left. */
-  offset: number
-  /** Height above grade. */
-  height: number
-  color: number
-  /**
-   * Which material this edge of the ribbon is made of.
-   *
-   * Two adjacent lanes sharing a kind make a solid band; two differing make a
-   * boundary, and the ground shader draws the kerb, shoreline or lawn edge that
-   * belongs there. Which is why the profiles below pair their lanes up: a band
-   * needs both its edges to agree, or the material blends across the whole
-   * width instead of meeting at a line.
-   */
-  kind: SurfaceKind
-}
-
 export interface EnvironmentData {
-  /** Vertex-coloured ground for the whole route. One draw call. */
-  ground: THREE.BufferGeometry
   buildings: Prop[]
   poles: Prop[]
   heads: Prop[]
@@ -72,106 +42,10 @@ export interface EnvironmentData {
   skyline: Prop[]
 }
 
-// ---------------------------------------------------------------------------
-// Per-section lateral profiles
-// ---------------------------------------------------------------------------
-
+/** Surface colours shared with the city ground. */
 export const SAND = 0xd8c9a4
 export const ASPHALT = 0x44484f
 export const SIDEWALK = 0x9a9184
-const TUNNEL_FLOOR = 0x4a4540
-const PARK_GREEN = 0x5f7247
-const ALLEY_FLOOR = 0x3f3c37
-const INTERIOR_FLOOR = 0x4a3526
-const LAKE_SHALLOW = 0x6f9bb0
-const LAKE_DEEP = 0x3f6d8c
-
-/**
- * The cross-section of each kind of place, left to right.
- *
- * These widths are what make each act *feel* different before a single building
- * exists: the beach is 60 m across, the alley is 4.
- */
-export function laneProfile(kind: SectionKind): Lane[] {
-  switch (kind) {
-    case 'beach':
-      // Much wider than the other sections, and deliberately so: this is the
-      // only place with an open horizon, and the ribbon has to reach far enough
-      // that the player sees lake and shoreline rather than empty sky where the
-      // ground stops. Lake is to the right of travel (east), city to the left.
-      return [
-        { offset: -70, height: 0.4, color: 0x9a8f78, kind: SURFACE.sand },
-        { offset: -26, height: 0.1, color: SAND, kind: SURFACE.sand },
-        { offset: -6, height: 0.05, color: SAND, kind: SURFACE.sand },
-        // Wet sand, then a metre and a bit of waterline. The narrow gap is the
-        // whole point: it's the band the shader fills with foam, and an eight
-        // metre ramp into the lake gave a soft gradient where a beach has a
-        // hard, wandering edge.
-        { offset: 13, height: 0.0, color: 0xcabb95, kind: SURFACE.sand },
-        { offset: 14.4, height: -0.06, color: LAKE_SHALLOW, kind: SURFACE.water },
-        { offset: 26, height: -0.35, color: LAKE_SHALLOW, kind: SURFACE.water },
-        { offset: 150, height: -0.5, color: LAKE_DEEP, kind: SURFACE.water },
-      ]
-    case 'tunnel':
-      return [
-        { offset: -3.4, height: 0.0, color: TUNNEL_FLOOR, kind: SURFACE.concrete },
-        { offset: 0, height: 0.0, color: 0x555049, kind: SURFACE.concrete },
-        { offset: 3.4, height: 0.0, color: TUNNEL_FLOOR, kind: SURFACE.concrete },
-      ]
-    case 'avenue':
-      return [
-        { offset: -19, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-        { offset: -9, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-        { offset: -8.4, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
-        { offset: 8.4, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
-        { offset: 9, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-        { offset: 19, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-      ]
-    case 'boutique':
-      return [
-        { offset: -13, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-        { offset: -6, height: 0.16, color: 0xa39a8b, kind: SURFACE.sidewalk },
-        { offset: -5.4, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
-        { offset: 5.4, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
-        { offset: 6, height: 0.16, color: 0xa39a8b, kind: SURFACE.sidewalk },
-        { offset: 13, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-      ]
-    case 'dining':
-      return [
-        { offset: -14, height: 0.16, color: 0x9c9384, kind: SURFACE.sidewalk },
-        { offset: -6.2, height: 0.16, color: 0x9c9384, kind: SURFACE.sidewalk },
-        { offset: -5.6, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
-        { offset: 5.6, height: 0.0, color: ASPHALT, kind: SURFACE.asphalt },
-        { offset: 6.2, height: 0.16, color: 0x9c9384, kind: SURFACE.sidewalk },
-        { offset: 14, height: 0.16, color: 0x9c9384, kind: SURFACE.sidewalk },
-      ]
-    case 'park':
-      // The lawn used to blend into the pavement across eight metres. Paired
-      // edges give Mariano Park a hard mown line, which is what a city park
-      // actually has and what the reference art would draw.
-      return [
-        { offset: -15, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-        { offset: -7.6, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-        { offset: -7, height: 0.2, color: PARK_GREEN, kind: SURFACE.park },
-        { offset: 7, height: 0.2, color: PARK_GREEN, kind: SURFACE.park },
-        { offset: 7.6, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-        { offset: 15, height: 0.16, color: SIDEWALK, kind: SURFACE.sidewalk },
-      ]
-    case 'alley':
-      return [
-        { offset: -2.6, height: 0.0, color: ALLEY_FLOOR, kind: SURFACE.concrete },
-        { offset: 2.6, height: 0.0, color: ALLEY_FLOOR, kind: SURFACE.concrete },
-      ]
-    case 'interior':
-      return [
-        { offset: -2.4, height: 0.0, color: INTERIOR_FLOOR, kind: SURFACE.interior },
-        { offset: 0, height: 0.0, color: 0x53402f, kind: SURFACE.interior },
-        { offset: 2.4, height: 0.0, color: INTERIOR_FLOOR, kind: SURFACE.interior },
-      ]
-  }
-}
-
-// ---------------------------------------------------------------------------
 
 const BUILDING_COLORS: Record<string, number[]> = {
   // Michigan Avenue: limestone, terracotta, dark granite.
@@ -187,112 +61,6 @@ const BUILDING_COLORS: Record<string, number[]> = {
   tunnel: [0x3e3934],
 }
 
-/**
- * Build the ground ribbon.
- *
- * Steps along the spline emitting one row of vertices per lane, then stitches
- * consecutive rows into quads. Because rows come from `getPointAt`, the surface
- * follows every curve of the route exactly.
- */
-function buildGround(
-  rail: Rail,
-  sections: ResolvedSection[],
-  stepMetres = 4,
-): THREE.BufferGeometry {
-  const totalLength = rail.length
-  const steps = Math.max(2, Math.ceil(totalLength / stepMetres))
-
-  const positions: number[] = []
-  const colors: number[] = []
-  // Metres across and metres along, so the shader can size paving and place
-  // road markings in real units rather than in normalised UVs — a slab has to
-  // be the same square on a 5 m alley and a 38 m avenue.
-  const grounds: number[] = []
-  const surfaces: number[] = []
-  const indices: number[] = []
-
-  const point = new THREE.Vector3()
-  const right = new THREE.Vector3()
-  const colour = new THREE.Color()
-
-  // Every row's centre and right vector up front, so each row can see the step
-  // after it and know how hard the route is turning there.
-  const centres: THREE.Vector3[] = []
-  const rights: THREE.Vector3[] = []
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps
-    const p = new THREE.Vector3()
-    const r = new THREE.Vector3()
-    rail.positionAt(t, p)
-    rail.rightAt(t, r)
-    centres.push(p)
-    rights.push(r)
-  }
-
-  // Offset limits that stop the ribbon folding at the corners. See ribbon.ts.
-  const limits = curveLimits(
-    centres.map((c, i) => ({ x: c.x, z: c.z, rx: rights[i]!.x, rz: rights[i]!.z })),
-  )
-
-  // Rows can differ in lane count between section kinds, so stitch only where
-  // consecutive rows agree — a mismatch means a section boundary, and a visible
-  // seam there is better than a twisted ribbon.
-  let previousRow: { start: number; lanes: number } | null = null
-
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps
-    const section = sectionFor(sections, t)
-    const lanes = laneProfile(section.kind)
-    const shift = section.ribbonShift ?? 0
-
-    point.copy(centres[i]!)
-    right.copy(rights[i]!)
-
-    const rowStart = positions.length / 3
-
-    for (const lane of lanes) {
-      const offset = applyLimits(lane.offset + shift, limits, i)
-      positions.push(
-        point.x + right.x * offset,
-        // Waypoints sit at eye height; ground is below that.
-        point.y - 1.7 + lane.height,
-        point.z + right.z * offset,
-      )
-      colour.setHex(lane.color)
-      colors.push(colour.r, colour.g, colour.b)
-      grounds.push(offset, t * totalLength)
-      surfaces.push(lane.kind)
-    }
-
-    if (previousRow && previousRow.lanes === lanes.length) {
-      for (let l = 0; l < lanes.length - 1; l++) {
-        const a = previousRow.start + l
-        const b = previousRow.start + l + 1
-        const c = rowStart + l
-        const d = rowStart + l + 1
-        indices.push(a, c, b, b, c, d)
-      }
-    }
-
-    previousRow = { start: rowStart, lanes: lanes.length }
-  }
-
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-  geometry.setAttribute('aGround', new THREE.Float32BufferAttribute(grounds, 2))
-  geometry.setAttribute('aSurface', new THREE.Float32BufferAttribute(surfaces, 1))
-  geometry.setIndex(indices)
-  geometry.computeVertexNormals()
-  return geometry
-}
-
-function sectionFor(sections: ResolvedSection[], t: number): ResolvedSection {
-  for (const s of sections) {
-    if (t >= s.tStart && t < s.tEnd) return s
-  }
-  return sections[sections.length - 1]!
-}
 
 /**
  * Place props alongside the path.
@@ -325,10 +93,6 @@ function buildProps(
   for (const section of sections) {
     const palette = BUILDING_COLORS[section.kind] ?? BUILDING_COLORS.avenue!
     const spanMetres = (section.tEnd - section.tStart) * rail.length
-    // Everything on the street is placed relative to the street, not the rail.
-    // Lampposts at a fixed offset from a rail that runs along the sidewalk end
-    // up standing in the carriageway.
-    const shift = section.ribbonShift ?? 0
 
     // Frontage width, setback from the kerb, and height range per kind. Null
     // for every outdoor section, because OSM supplies real footprints there —
@@ -350,7 +114,7 @@ function buildProps(
         const depth = range(rng, spec.depth[0], spec.depth[1])
         const height = range(rng, spec.height[0], spec.height[1])
         const width = range(rng, spec.frontage * 0.8, spec.frontage * 1.05)
-        const offset = shift + side * (spec.setback + depth / 2)
+        const offset = side * (spec.setback + depth / 2)
 
         const [x, y, z] = at(t, offset)
         // Props are placed at an offset from the rail, which knows nothing
@@ -377,29 +141,44 @@ function buildProps(
     const furniture = furnitureSpec(section.kind)
     if (furniture) {
       const spacing = Math.max(1, Math.round(spanMetres / furniture.spacing))
-      const lanes = laneProfile(section.kind)
-      const edges = furniture.from && lanes.length >= 6 ? {
-        // outer (frontage) and inner (kerb) edge of each sidewalk, shifted onto
-        // the real street.
-        frontage: [lanes[0]!.offset + shift, lanes[5]!.offset + shift] as const,
-        kerb: [lanes[1]!.offset + shift, lanes[4]!.offset + shift] as const,
-      } : null
 
-      const lateralFor = (side: -1 | 1): number => {
-        if (!edges) return shift + side * furniture.offset
+      /**
+       * Where a piece of furniture stands, relative to the street it belongs to.
+       *
+       * Everything used to be offset from the rail, so a lamppost's position
+       * depended on where the *camera* went — and with the rail running along a
+       * sidewalk, a symmetric offset put one side of the furniture in the road
+       * and the other on the player's head. Asking the street where its kerb is
+       * makes the answer independent of the route, which is the whole point.
+       */
+      const placeFor = (t: number, side: -1 | 1): [number, number, number] | null => {
+        const [rx, ry, rz] = at(t, 0)
+        const street = nearestStreet(rx, rz)
+        if (!street) {
+          const [x, y, z] = at(t, side * furniture.offset)
+          return inCarriageway(x, z) ? null : [x, y, z]
+        }
+
         const inset = furniture.inset ?? 1.2
-        const pair = edges[furniture.from!]
-        return side < 0
-          ? (furniture.from === 'kerb' ? pair[0] - inset : pair[0] + inset)
-          : (furniture.from === 'kerb' ? pair[1] + inset : pair[1] - inset)
+        let lateral = street.half + inset
+        if (furniture.from === 'frontage') {
+          // As far back as the buildings allow, so an awning meets its wall.
+          const room = lateralClearance(street.x, street.z, street.rx, street.rz, 26)
+          lateral = Math.max(street.half + 1.5, room - inset)
+        }
+
+        const x = street.x + street.rx * lateral * side
+        const z = street.z + street.rz * lateral * side
+        return inCarriageway(x, z) ? null : [x, ry, z]
       }
 
       for (let side of [-1, 1] as const) {
         for (let i = 0; i < spacing; i++) {
           const t =
             section.tStart + ((i + 0.35) / spacing) * (section.tEnd - section.tStart)
-          const [x, y, z] = at(t, lateralFor(side))
-          if (inCarriageway(x, z)) continue
+          const place = placeFor(t, side)
+          if (!place) continue
+          const [x, y, z] = place
           const segment = Math.min(
             route.segmentCount - 1,
             Math.floor(t * route.segmentCount),
@@ -430,7 +209,7 @@ function buildProps(
     for (let i = 0; i < clutterCount; i++) {
       const t = range(rng, section.tStart, section.tEnd)
       const side = rng() < 0.5 ? -1 : 1
-      const [x, y, z] = at(t, shift + side * range(rng, clutterSpec[0], clutterSpec[1]))
+      const [x, y, z] = at(t, side * range(rng, clutterSpec[0], clutterSpec[1]))
       if (inCarriageway(x, z)) continue
       const size = range(rng, 0.6, 1.2)
       clutter.push({
@@ -478,10 +257,9 @@ function footprintInRoad(
  * dining is the reason the section is called dining and the reason the escorts
  * and the old men are standing there, and none of it was built.
  *
- * Patios go against the building line rather than at a fixed offset, because
- * the sidewalk is not where it used to be — `ribbonShift` slid the street off
- * the rail and onto the real one, so the bands are read out of the lane profile
- * instead of hardcoded.
+ * Patios go against the building line of whatever street they are beside,
+ * asked for at each cluster's own position. A fixed offset from the rail put
+ * them in the road on one side and under the camera on the other.
  */
 function addPatios(
   section: ResolvedSection,
@@ -493,22 +271,10 @@ function addPatios(
   heads: Prop[],
   clutter: Prop[],
 ): void {
-  const lanes = laneProfile(section.kind)
-  const shift = section.ribbonShift ?? 0
-  if (lanes.length < 6) return
-
-  // Outer half of each sidewalk: tables sit against the frontage, not the kerb.
-  const zones: Array<[number, number]> = [
-    [lanes[0]!.offset + shift, lanes[0]!.offset + shift + 4.5],
-    [lanes[5]!.offset + shift - 4.5, lanes[5]!.offset + shift],
-  ]
-
   const span = section.tEnd - section.tStart
   const spanMetres = span * railLength
   // One cluster every eight metres, alternating sides.
   const clusters = Math.max(6, Math.round(spanMetres / 8))
-  /** Metres along the route, as a fraction of t. */
-  const perMetre = 1 / railLength
   const segmentOf = (t: number) =>
     Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount))
 
@@ -516,28 +282,44 @@ function addPatios(
 
   for (let i = 0; i < clusters; i++) {
     const t = section.tStart + ((i + 0.5) / clusters) * span
-    const zone = zones[i % 2]!
-    const base = range(rng, zone[0], zone[1])
+    const side: -1 | 1 = i % 2 === 0 ? -1 : 1
     const segment = segmentOf(t)
 
-    const table = at(t, base)
+    const [railX, railY, railZ] = at(t, 0)
+    const street = nearestStreet(railX, railZ)
+    if (!street) continue
+
+    // Against the frontage, a table's depth in from it.
+    const room = lateralClearance(street.x, street.z, street.rx, street.rz, 26)
+    const band = Math.max(street.half + 1.6, room - range(rng, 1.4, 3.2))
+    const centreX = street.x + street.rx * band * side
+    const centreZ = street.z + street.rz * band * side
+    if (inCarriageway(centreX, centreZ)) continue
+
+    // A local frame: along the street, and across it.
+    const alongX = -street.rz
+    const alongZ = street.rx
+
+    const place = (forward: number, across: number): [number, number] => [
+      centreX + alongX * forward + street.rx * across * side,
+      centreZ + alongZ * forward + street.rz * across * side,
+    ]
+
+    const [tableX, tableZ] = place(0, 0)
     clutter.push({
-      position: [table[0], table[1] + 0.36, table[2]],
+      position: [tableX, railY + 0.36, tableZ],
       scale: [0.95, 0.72, 0.95],
       rotationY: range(rng, 0, Math.PI),
       color: 0x4a3a2c,
       segment,
     })
 
-    // Chairs around it. Offsetting both laterally and along the route keeps a
-    // cluster from reading as a row.
     const chairs = rangeInt(rng, 2, 4)
     for (let c = 0; c < chairs; c++) {
       const angle = (c / chairs) * Math.PI * 2 + range(rng, -0.3, 0.3)
-      const dt = Math.cos(angle) * 0.95 * perMetre
-      const seat = at(t + dt, base + Math.sin(angle) * 0.95)
+      const [cx, cz] = place(Math.cos(angle) * 0.95, Math.sin(angle) * 0.95)
       clutter.push({
-        position: [seat[0], seat[1] + 0.45, seat[2]],
+        position: [cx, railY + 0.45, cz],
         scale: [0.44, 0.9, 0.44],
         rotationY: angle,
         color: 0x36302a,
@@ -550,14 +332,14 @@ function addPatios(
     // it read as a place people go to.
     if (rng() < 0.75) {
       poles.push({
-        position: [table[0], table[1] + 1.1, table[2]],
+        position: [tableX, railY + 1.1, tableZ],
         scale: [0.09, 2.2, 0.09],
         rotationY: 0,
         color: 0x2a2620,
         segment,
       })
       heads.push({
-        position: [table[0], table[1] + 2.3, table[2]],
+        position: [tableX, railY + 2.3, tableZ],
         scale: [2.5, 0.14, 2.5],
         rotationY: range(rng, 0, Math.PI / 2),
         color: pick(rng, CANOPY),
@@ -567,15 +349,16 @@ function addPatios(
 
     // A planter marking the patio's edge toward the road.
     if (rng() < 0.55) {
-      const kerbward = zone[0] < 0 ? zone[1] + 1.2 : zone[0] - 1.2
-      const planter = at(t + range(rng, -1.5, 1.5) * perMetre, kerbward)
-      clutter.push({
-        position: [planter[0], planter[1] + 0.4, planter[2]],
-        scale: [0.8, 0.8, 0.8],
-        rotationY: range(rng, 0, Math.PI),
-        color: pick(rng, [0x3f5a3a, 0x4a5f42, 0x55483a]),
-        segment,
-      })
+      const [px, pz] = place(range(rng, -1.5, 1.5), -1.6)
+      if (!inCarriageway(px, pz)) {
+        clutter.push({
+          position: [px, railY + 0.4, pz],
+          scale: [0.8, 0.8, 0.8],
+          rotationY: range(rng, 0, Math.PI),
+          color: pick(rng, [0x3f5a3a, 0x4a5f42, 0x55483a]),
+          segment,
+        })
+      }
     }
   }
 }
@@ -759,7 +542,6 @@ export function generateEnvironment(
   sections: ResolvedSection[],
 ): EnvironmentData {
   return {
-    ground: buildGround(rail, sections),
     skyline: buildCorridors(route),
     ...buildProps(route, rail, sections),
   }

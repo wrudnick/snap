@@ -156,14 +156,10 @@ export const GOLD_COAST: RouteDef = {
   sections: [
     { id: 'beach', kind: 'beach', title: 'Oak Street Beach', waypoints: [0, 2], lighting: BEACH_DAWN },
     { id: 'underpass', kind: 'tunnel', title: 'The Underpass', waypoints: [3, 6], lighting: TUNNEL },
-    // ribbonShift slides the painted street off the rail and onto the real one.
-    // The rail runs along a sidewalk in each of these; the street does not.
-    // Values are measured from the OSM centreline, not guessed — see
-    // tests/alignment.test.ts.
-    { id: 'lakeshore', kind: 'boutique', title: 'East Lake Shore Drive', waypoints: [7, 11], lighting: BOUTIQUE_DAWN, ribbonShift: -7.7 },
-    { id: 'michigan', kind: 'avenue', title: 'Michigan Avenue', waypoints: [12, 16], lighting: AVENUE_DAWN, ribbonShift: 11.9 },
-    { id: 'chestnut', kind: 'boutique', title: 'Chestnut Street', waypoints: [17, 20], lighting: BOUTIQUE_DAWN, ribbonShift: -2.8 },
-    { id: 'rush', kind: 'dining', title: 'Rush Street', waypoints: [21, 26], lighting: DINING_DAWN, ribbonShift: -6.7 },
+    { id: 'lakeshore', kind: 'boutique', title: 'East Lake Shore Drive', waypoints: [7, 11], lighting: BOUTIQUE_DAWN },
+    { id: 'michigan', kind: 'avenue', title: 'Michigan Avenue', waypoints: [12, 16], lighting: AVENUE_DAWN },
+    { id: 'chestnut', kind: 'boutique', title: 'Chestnut Street', waypoints: [17, 20], lighting: BOUTIQUE_DAWN },
+    { id: 'rush', kind: 'dining', title: 'Rush Street', waypoints: [21, 26], lighting: DINING_DAWN },
     { id: 'triangle', kind: 'park', title: 'The Triangle', waypoints: [27, 29], lighting: PARK_DAWN },
     { id: 'alley', kind: 'alley', title: 'The Alley', waypoints: [30, 33], lighting: ALLEY },
     { id: 'inside', kind: 'interior', title: 'Through the Kitchen', waypoints: [34, 37], lighting: INTERIOR },

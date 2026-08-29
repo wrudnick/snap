@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { CITY } from '../src/content/models/city'
-import { buildCorridor, insideRibbon, routeEnters } from '../src/content/models/corridor'
+import { buildCorridor, routeEnters } from '../src/content/models/corridor'
 import { ROUTES } from '../src/content/routes/goldcoast'
 import { Rail } from '../src/game/rail'
 import { resolveRoute } from '../src/game/sections'
@@ -29,8 +29,6 @@ describe('route corridor', () => {
     for (const s of corridor) {
       // A unit right-vector, or every lateral projection means nothing.
       expect(Math.hypot(s.rx, s.rz)).toBeCloseTo(1, 3)
-      expect(s.left).toBeGreaterThan(0)
-      expect(s.right).toBeGreaterThan(0)
     }
   })
 
@@ -48,12 +46,5 @@ describe('route corridor', () => {
     // without deleting the building the route exists to end up in.
     expect(corridor[corridor.length - 1]!.indoors).toBe(true)
     expect(corridor.some((s) => !s.indoors)).toBe(true)
-  })
-
-  it('claims the ground the route ribbon paves, and no more', () => {
-    const mid = corridor[Math.floor(corridor.length / 2)]!
-    expect(insideRibbon(mid.x, mid.z, corridor)).toBe(true)
-    // A kilometre off the route is somebody else's ground.
-    expect(insideRibbon(mid.x + 1000, mid.z + 1000, corridor)).toBe(false)
   })
 })

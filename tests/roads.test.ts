@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import * as THREE from 'three'
-
 import { CITY } from '../src/content/models/city'
 import { MIN_HALF, halfWidths } from '../src/content/models/cityGround'
 import { generateEnvironment } from '../src/content/models/environment'
 import { buildingAt, inCarriageway } from '../src/content/models/footprints'
-import { laneProfile } from '../src/content/models/environment'
 import { ROUTES } from '../src/content/routes/goldcoast'
 import { Rail } from '../src/game/rail'
 import { resolveRoute } from '../src/game/sections'
@@ -81,42 +78,4 @@ describe('roads', () => {
     expect(offenders.map((p) => p.position.map(Math.round).join(','))).toEqual([])
   })
 
-  it('has no building standing in the route’s own carriageway', () => {
-    // The route paints its own street, offset off the rail by ribbonShift, so
-    // it can disagree with the network's idea of where the road is.
-    const route = ROUTES.goldcoast!
-    const rail = new Rail(route)
-    const sections = resolveRoute(route, rail).sections
-
-    const point = new THREE.Vector3()
-    const right = new THREE.Vector3()
-    const offenders = new Set<string>()
-
-    const steps = Math.ceil(rail.length / 4)
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps
-      const section =
-        sections.find((s) => t >= s.tStart && t < s.tEnd) ?? sections[sections.length - 1]!
-      if (section.kind === 'interior' || section.kind === 'alley') continue
-
-      const lanes = laneProfile(section.kind)
-      // The carriageway is the pair of lanes either side of the centre.
-      const road = lanes.filter((l) => l.height === 0)
-      if (road.length < 2) continue
-      const shift = section.ribbonShift ?? 0
-
-      rail.positionAt(t, point)
-      rail.rightAt(t, right)
-
-      for (const lane of road) {
-        const o = lane.offset + shift
-        const hitBuilding = buildingAt(point.x + right.x * o, point.z + right.z * o)
-        if (hitBuilding) {
-          offenders.add(`${section.id} @ ${o.toFixed(1)}m — ${hitBuilding.n ?? `footprint ${hitBuilding.i}`}`)
-        }
-      }
-    }
-
-    expect([...offenders].sort()).toEqual([])
-  })
 })
