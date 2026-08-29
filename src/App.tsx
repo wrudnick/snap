@@ -6,6 +6,7 @@ import { Menu } from '@/ui/Menu'
 import { Results } from '@/ui/Results'
 import { Review } from '@/ui/Review'
 
+import { MapView } from './dev/MapView'
 import { ModelInspector } from './dev/ModelInspector'
 import { Game } from './scene/Game'
 import './ui/ui.css'
@@ -13,7 +14,7 @@ import './ui/ui.css'
 /**
  * Debug screens, reachable by URL rather than by a menu.
  *
- * `?debug=models` opens the model inspector. Routing on a query param keeps the
+ * `?debug=models` opens the model inspector, `?debug=map` the route map. Routing on a query param keeps the
  * debug tools out of the game's own state machine entirely — they're a separate
  * app that happens to share a bundle, and nothing in the game has to know they
  * exist.
@@ -33,6 +34,7 @@ function debugScreen(): string | null {
 export function App() {
   const debug = debugScreen()
   if (debug === 'models') return <ModelInspector />
+  if (debug === 'map') return <MapView />
 
   return <GameApp />
 }

@@ -470,3 +470,84 @@ h2 {
   color: var(--dim);
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Top-down route map (?debug=map) -------------------------------------- */
+
+.mapview {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  background: #0d0f13;
+  color: #c9d1d9;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mapview__panel {
+  padding: 16px 14px;
+  border-right: 1px solid #232a34;
+  overflow-y: auto;
+}
+
+.mapview__panel h1 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: #ffd45e;
+}
+
+.mapview__panel h2 {
+  margin: 18px 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: #7d859a;
+}
+
+.mapview__hint,
+.mapview__coords {
+  color: #7d859a;
+  margin: 0 0 14px;
+}
+
+.mapview__coords {
+  margin-top: 18px;
+}
+
+.mapview__panel label {
+  display: block;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.mapview__panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mapview__panel li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.mapview__panel li span {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.mapview__panel a {
+  color: #ffd45e;
+  text-decoration: none;
+}
+
+.mapview__canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}

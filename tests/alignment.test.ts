@@ -28,7 +28,7 @@ const sections = resolveRoute(route, rail).sections
 const STREETS: Record<string, RegExp> = {
   lakeshore: /^East Lake Shore Drive$/,
   michigan: /^North Michigan Avenue$/,
-  delaware: /^East Delaware Place$/,
+  chestnut: /^East Chestnut Street$/,
   rush: /^North Rush Street$/,
 }
 

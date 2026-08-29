@@ -30,7 +30,7 @@ import type { RouteDef } from './types'
  * THE WALK
  *   Sand at Oak Street Beach → the 1934 WPA underpass beneath DuSable Lake Shore
  *   Drive → surface at the top of the Magnificent Mile → south on Michigan past
- *   the towers for two blocks → west on Delaware → north on Rush through the
+ *   the towers for three blocks → west on Chestnut → north on Rush through the
  *   whole dining strip → Mariano Park where Rush meets State → east on Bellevue
  *   into a service alley → through a kitchen → the far end of the bar.
  *
@@ -44,13 +44,14 @@ import type { RouteDef } from './types'
  *   position here is now a real OSM node or a point interpolated between two of
  *   them, and no block is shortened.
  *
- * WHY DELAWARE AND NOT OAK
+ * WHY CHESTNUT AND NOT OAK
  *   Walking south on Michigan and then west on *Oak* is geometrically impossible
- *   without doubling back — Oak is the street you surfaced on. Two blocks south
- *   puts you at Delaware Place, which reaches Rush without backtracking and
- *   joins it further south than Walton did, so the northbound leg now passes the
- *   entire strip (Taverne 1015, Hugo's 1024, Gooby's 1028, Clementine's 1043)
- *   with room to spare.
+ *   without doubling back — Oak is the street you surfaced on. Chestnut is the
+ *   third block south and the one the Hancock stands on: its footprint runs
+ *   z 195 to 249, so Delaware turns before it and Chestnut runs its whole
+ *   frontage first. Chestnut also joins Rush at its southern end, so the
+ *   northbound leg covers the entire strip (Taverne 1015, Hugo's 1024,
+ *   Gooby's 1028, Clementine's 1043) rather than the top half of it.
  *
  * CORNERS
  *   Waypoints cluster in pairs at every turn. Combined with the rail's low
@@ -62,7 +63,7 @@ export const GOLD_COAST: RouteDef = {
   displayName: 'Gold Coast',
   // ~1.3 km at a brisk walk. Long — which is what the speed control and the
   // checkpoints are for.
-  durationSeconds: 380,
+  durationSeconds: 420,
 
   waypoints: [
     // — Oak Street Beach. No OSM street data out on the sand; placed relative
@@ -86,40 +87,44 @@ export const GOLD_COAST: RouteDef = {
     [109, 1.7, -13], // 10
     [38, 1.7, -10], // 11
 
-    // — Michigan Avenue southbound: Oak (z 0) → Walton (z 89) → Delaware
-    //   (z 178). Two blocks, at their real length. The avenue is mapped as two
-    //   parallel ways about 14 m apart, so the centreline is their midpoint —
-    //   x 9.8 at Oak drifting to 11.4 at Delaware — and the route sits 12 m east
-    //   of it, on the sidewalk that faces the towers. —
+    // — Michigan Avenue southbound: Oak (z 0) past Walton (89) and Delaware
+    //   (178) to Chestnut (270). Three blocks, at their real length.
+    //
+    //   The turn is at Chestnut because that is where the Hancock is: its
+    //   footprint runs z 195 to 249, between Delaware and Chestnut, so turning
+    //   at Delaware turns *before* it and turning at Chestnut runs its whole
+    //   frontage and then turns at its south face. It is also the length that
+    //   makes this read as the Magnificent Mile rather than as a corner.
+    //
+    //   The avenue is mapped as two parallel ways about 14 m apart, so the
+    //   centreline is their midpoint — x 9.8 at Oak drifting to 12.2 at
+    //   Chestnut — and the route sits 12 m east of it, on the sidewalk that
+    //   faces the towers. —
     [22, 1.7, 1], // 12  Michigan & Oak
-    [22, 1.7, 45], // 13
-    [22, 1.7, 89], // 14  Michigan & Walton
-    [23, 1.7, 134], // 15
-    // Stops just short of Delaware's centreline rather than crossing it and
-    // doubling back onto the westbound line. Three metres of backtrack at a
-    // corner is invisible on the map and a cusp on the spline: heading swung
-    // +48 degrees and then −77 in consecutive steps, which folded the ribbon
-    // into a flap lying across the junction.
-    [23, 1.7, 174], // 16  Michigan & Delaware
+    [22, 1.7, 68], // 13
+    [23, 1.7, 135], // 14  Michigan & Walton (89) is behind us
+    [24, 1.7, 202], // 15  alongside the Hancock
+    [24, 1.7, 266], // 16  Michigan & Chestnut
 
-    // — Delaware Place westbound to Rush (−205.9, 182.8). Delaware's centreline
-    //   drifts from z 178 at Michigan to z 183 at Rush; the route runs 3 m north
-    //   of it, which is the side with clearance. —
-    [16, 1.7, 175], // 17
-    [-50, 1.7, 176], // 18
-    [-130, 1.7, 178], // 19
-    [-203, 1.7, 180], // 20
+    // — Chestnut Street westbound to Rush (−173.9, 273.8). Chestnut's
+    //   centreline runs z 270 at Michigan to z 274 at Rush; the route sits 3 m
+    //   north of it, and stops just short of the junction rather than crossing
+    //   it and doubling back onto the northbound line. —
+    [14, 1.7, 267], // 17
+    [-60, 1.7, 269], // 18
+    [-120, 1.7, 270], // 19
+    [-170, 1.7, 271], // 20
 
-    // — Rush Street northbound: Delaware (−205.9, 182.8) → Walton (−237.2,
-    //   94.7) → Oak (−269.0, 5.6) → Bellevue (−301.4, −84.5). This is the
-    //   diagonal, and every one of those is a shared OSM node; the intermediate
-    //   points are interpolated between them. Offset 7 m east onto the patio
-    //   side. —
-    [-214, 1.7, 140], // 21
-    [-230, 1.7, 95], // 22  Rush & Walton
-    [-246, 1.7, 50], // 23
+    // — Rush Street northbound, the whole diagonal: Chestnut (−173.9, 273.8) →
+    //   Delaware (−205.9, 182.8) → Walton (−237.2, 94.7) → Oak (−269.0, 5.6) →
+    //   Bellevue (−301.4, −84.5). Every one of those is a shared OSM node and
+    //   the points between them are interpolated. Offset 7 m east onto the
+    //   patio side. 358 m of it, which is the strip. —
+    [-183, 1.7, 228], // 21
+    [-199, 1.7, 183], // 22  Rush & Delaware
+    [-230, 1.7, 95], // 23  Rush & Walton
     [-262, 1.7, 6], // 24  Rush & Oak
-    [-278, 1.7, -39], // 25  the dining strip
+    [-278, 1.7, -40], // 25  the dining strip
     [-294, 1.7, -84], // 26  Rush & Bellevue
 
     // — The Triangle: Rush, State (−338.3) and Bellevue enclosing Mariano Park —
@@ -153,7 +158,7 @@ export const GOLD_COAST: RouteDef = {
     // tests/alignment.test.ts.
     { id: 'lakeshore', kind: 'boutique', title: 'East Lake Shore Drive', waypoints: [7, 11], lighting: BOUTIQUE_DAWN, ribbonShift: -7.7 },
     { id: 'michigan', kind: 'avenue', title: 'Michigan Avenue', waypoints: [12, 16], lighting: AVENUE_DAWN, ribbonShift: 11.9 },
-    { id: 'delaware', kind: 'boutique', title: 'Delaware Place', waypoints: [17, 20], lighting: BOUTIQUE_DAWN, ribbonShift: -3.6 },
+    { id: 'chestnut', kind: 'boutique', title: 'Chestnut Street', waypoints: [17, 20], lighting: BOUTIQUE_DAWN, ribbonShift: -2.8 },
     { id: 'rush', kind: 'dining', title: 'Rush Street', waypoints: [21, 26], lighting: DINING_DAWN, ribbonShift: -6.7 },
     { id: 'triangle', kind: 'park', title: 'The Triangle', waypoints: [27, 29], lighting: PARK_DAWN },
     { id: 'alley', kind: 'alley', title: 'The Alley', waypoints: [30, 33], lighting: ALLEY },
@@ -165,7 +170,7 @@ export const GOLD_COAST: RouteDef = {
     { id: 'cp-tunnel', title: 'The Underpass', waypoint: 3 },
     { id: 'cp-lakeshore', title: 'East Lake Shore Drive', waypoint: 7 },
     { id: 'cp-michigan', title: 'Michigan Avenue', waypoint: 12 },
-    { id: 'cp-delaware', title: 'Delaware Place', waypoint: 17 },
+    { id: 'cp-chestnut', title: 'Chestnut Street', waypoint: 17 },
     { id: 'cp-rush', title: 'Rush Street', waypoint: 21 },
     { id: 'cp-triangle', title: 'The Triangle', waypoint: 27 },
     { id: 'cp-alley', title: 'The Alley', waypoint: 30 },
@@ -176,7 +181,7 @@ export const GOLD_COAST: RouteDef = {
   fov: { default: 62, zoomed: 26 },
 
   // ~29 m per segment.
-  segmentCount: 44,
+  segmentCount: 48,
   activeWindow: 3,
   // Buildings reach ~270 m so the avenue has real depth; furniture and clutter
   // stay tight because they are numerous and only read up close.
@@ -211,7 +216,7 @@ export const GOLD_COAST: RouteDef = {
   ],
 
   seed: 20260826,
-  film: 46,
+  film: 50,
 
   /**
    * Subjects anchored to the rail, not the world.
@@ -245,12 +250,12 @@ export const GOLD_COAST: RouteDef = {
     { id: 'dog-mich', species: 'dog', at: { section: 'michigan', u: 0.55, offset: -7 }, rotationY: 2.4, seed: 134 },
     { id: 'taxi-mich-2', species: 'taxi', at: { section: 'michigan', u: 0.78, offset: 15 }, rotationY: Math.PI, seed: 135 },
 
-    // — Delaware Place —
-    { id: 'cat-del', species: 'cat', at: { section: 'delaware', u: 0.12, offset: -7 }, rotationY: -1.5, seed: 141 },
-    { id: 'pig-del-1', species: 'pigeon', at: { section: 'delaware', u: 0.3, offset: 6, y: 0.15 }, rotationY: 1.2, seed: 142 },
-    { id: 'pig-del-2', species: 'pigeon', at: { section: 'delaware', u: 0.33, offset: 8, y: 0.15 }, rotationY: 1.9, seed: 143 },
-    { id: 'pig-del-3', species: 'pigeon', at: { section: 'delaware', u: 0.36, offset: 5, y: 0.15 }, rotationY: 0.7, seed: 144 },
-    { id: 'dog-del', species: 'dog', at: { section: 'delaware', u: 0.62, offset: -6 }, rotationY: 0.9, seed: 145 },
+    // — Chestnut Street —
+    { id: 'cat-chest', species: 'cat', at: { section: 'chestnut', u: 0.12, offset: -7 }, rotationY: -1.5, seed: 141 },
+    { id: 'pig-chest-1', species: 'pigeon', at: { section: 'chestnut', u: 0.3, offset: 6, y: 0.15 }, rotationY: 1.2, seed: 142 },
+    { id: 'pig-chest-2', species: 'pigeon', at: { section: 'chestnut', u: 0.33, offset: 8, y: 0.15 }, rotationY: 1.9, seed: 143 },
+    { id: 'pig-chest-3', species: 'pigeon', at: { section: 'chestnut', u: 0.36, offset: 5, y: 0.15 }, rotationY: 0.7, seed: 144 },
+    { id: 'dog-chest', species: 'dog', at: { section: 'chestnut', u: 0.62, offset: -6 }, rotationY: 0.9, seed: 145 },
 
     // — Rush Street: the patios —
     { id: 'taxi-rush', species: 'taxi', at: { section: 'rush', u: 0.12, offset: 12 }, rotationY: 0.35, seed: 151 },
@@ -289,9 +294,9 @@ export const GOLD_COAST: RouteDef = {
     { id: 'old-mich', species: 'old-man', at: { section: 'michigan', u: 0.66, offset: 3.5 }, rotationY: 1.8, seed: 316 },
     { id: 'esc-mich', species: 'escort', at: { section: 'michigan', u: 0.72, offset: 5.5 }, rotationY: 2.2, seed: 317 },
 
-    { id: 'door-del', species: 'doorman', at: { section: 'delaware', u: 0.2, offset: -3.5 }, rotationY: -0.2, seed: 321 },
-    { id: 'esc-del', species: 'escort', at: { section: 'delaware', u: 0.45, offset: 3.0 }, rotationY: 1.6, seed: 322 },
-    { id: 'tour-del', species: 'tourist-woman', at: { section: 'delaware', u: 0.72, offset: -4.0 }, rotationY: -1.3, seed: 323 },
+    { id: 'door-chest', species: 'doorman', at: { section: 'chestnut', u: 0.2, offset: -3.5 }, rotationY: -0.2, seed: 321 },
+    { id: 'esc-chest', species: 'escort', at: { section: 'chestnut', u: 0.45, offset: 3.0 }, rotationY: 1.6, seed: 322 },
+    { id: 'tour-chest', species: 'tourist-woman', at: { section: 'chestnut', u: 0.72, offset: -4.0 }, rotationY: -1.3, seed: 323 },
 
     // The dining strip: the crowd this route exists to photograph.
     //
