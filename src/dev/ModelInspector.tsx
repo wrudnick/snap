@@ -233,7 +233,7 @@ export function ModelInspector() {
       }
     }
     const def = SUBJECTS[entry.id]!
-    const model = buildModel(def, seed)
+    const model = buildModel(def, seed, false)
     const box = new THREE.Box3().setFromObject(model.group)
     const size = box.getSize(new THREE.Vector3())
     return {

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 import {
   cellAt,
@@ -852,7 +853,12 @@ function buildVehicle(def: SubjectDef, seed: number): BuiltModel {
 function buildBus(def: SubjectDef): BuiltModel {
   const { body: c, accent: a } = def.palette
   const g = new THREE.Group()
-  const wheel: [number, number, number] = [0.52, 0.22, 0.52]
+  /**
+   * Diameter, matching the 0.52 pivot height — the same disagreement the cars
+   * had, which left a 12-tonne bus balanced on 26 cm castors held clear of the
+   * road.
+   */
+  const wheel: [number, number, number] = [1.04, 0.3, 1.04]
   const L = 12.2
   const W = 2.55
   const H = 2.05
@@ -871,10 +877,20 @@ function buildBus(def: SubjectDef): BuiltModel {
     part('skirtL', BOX, 0x2b3038, [-W / 2 - 0.01, 0.9, 0], [0.05, 0.62, L * 0.94]),
     part('skirtR', BOX, 0x2b3038, [W / 2 + 0.01, 0.9, 0], [0.05, 0.62, L * 0.94]),
     part('roof', BOX, 0xd8dbe0, [0, 2.7, 0.4], [W * 0.86, 0.14, L * 0.7]),
-    wheelPivot('wheelFL', [-1.12, 0.52, -L / 2 + 1.9], wheel, 0x1b1d22),
-    wheelPivot('wheelFR', [1.12, 0.52, -L / 2 + 1.9], wheel, 0x1b1d22),
-    wheelPivot('wheelBL', [-1.12, 0.52, L / 2 - 2.6], wheel, 0x1b1d22),
-    wheelPivot('wheelBR', [1.12, 0.52, L / 2 - 2.6], wheel, 0x1b1d22),
+    ...([
+      ['wheelFL', -1.12, -L / 2 + 1.9],
+      ['wheelFR', 1.12, -L / 2 + 1.9],
+      ['wheelBL', -1.12, L / 2 - 2.6],
+      ['wheelBR', 1.12, L / 2 - 2.6],
+    ] as const).map(([name, x, z]) => {
+      const p = wheelPivot(name, [x, 0.52, z], wheel, 0x17191d)
+      const out = Math.sign(x) * 0.16
+      p.add(
+        part(`${name}Hub`, CYL, 0x9aa0a8, [out, 0, 0], [0.44, 0.05, 0.44], [0, 0, Math.PI / 2]),
+        part(`${name}Nut`, CYL, 0x6d7278, [out * 1.2, 0, 0], [0.16, 0.05, 0.16], [0, 0, Math.PI / 2]),
+      )
+      return p
+    }),
   )
 
   // CTA livery and the fittings that say bus rather than shipping container.
@@ -1842,6 +1858,77 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     )
   }
 
+  /**
+   * Duty kit.
+   *
+   * `badge` was in the allowed-accessory list but the builder never drew it, so
+   * a Chicago police officer was a man in a dark suit and a blue cap. The belt
+   * and its pouches are what actually read as police at photograph distance —
+   * a chest badge alone is four pixels.
+   *
+   * Not rolled: unlike a tote or a cap, this is the thing that makes the class
+   * legible, so every officer gets it.
+   */
+  if (allowed.has('badge')) {
+    const kit = 0x16181d
+    const metal = 0xd8b24a
+    torsoGroup.add(
+      // Duty belt, with the pouches an officer carries on it.
+      part('dutyBelt', BOX, kit, [0, rel(hipY) + h * 0.035, 0], [waistHalf * 2.16, h * 0.036, torsoDepth * 2.16]),
+      part('holster', BOX, kit, [waistHalf * 1.05, rel(hipY) + h * 0.005, h * 0.01], [h * 0.032, h * 0.062, h * 0.036]),
+      part('cuffPouch', BOX, kit, [-waistHalf * 1.05, rel(hipY) + h * 0.02, h * 0.02], [h * 0.026, h * 0.03, h * 0.03]),
+      part('radioPouch', BOX, kit, [-waistHalf * 0.98, rel(hipY) + h * 0.02, -h * 0.03], [h * 0.026, h * 0.038, h * 0.026]),
+      part('beltBuckle', BOX, metal, [0, rel(hipY) + h * 0.035, -torsoDepth * 1.1], [h * 0.03, h * 0.028, h * 0.012]),
+      // Chest badge and name bar.
+      part('badge', BOX, metal, [-shoulderHalf * 0.46, rel(shoulderY) - h * 0.055, -torsoDepth * 1.02], [h * 0.026, h * 0.03, h * 0.01]),
+      part('nameBar', BOX, 0xd8d4c6, [shoulderHalf * 0.44, rel(shoulderY) - h * 0.06, -torsoDepth * 1.02], [h * 0.042, h * 0.012, h * 0.01]),
+      // Shoulder patch and the radio mic clipped to it — the silhouette bump
+      // that reads as a uniform from behind.
+      part('patchL', BOX, 0x2e4a86, [-shoulderHalf * 0.92, rel(shoulderY) - h * 0.04, 0], [h * 0.012, h * 0.03, h * 0.028]),
+      part('patchR', BOX, 0x2e4a86, [shoulderHalf * 0.92, rel(shoulderY) - h * 0.04, 0], [h * 0.012, h * 0.03, h * 0.028]),
+      part('shoulderMic', BOX, kit, [-shoulderHalf * 0.6, rel(shoulderY) - h * 0.012, -torsoDepth * 0.9], [h * 0.018, h * 0.03, h * 0.016]),
+      // Vest panel over the shirt, a shade off the shirt colour.
+      part('vest', BOX, shadeOf(topColor, 0.72), [0, rel(shoulderY) - h * 0.09, 0], [shoulderHalf * 1.86, h * 0.11, torsoDepth * 2.02]),
+    )
+  }
+
+  /**
+   * Hi-vis, worn over everything.
+   *
+   * Also declared but never drawn. On the street it is the single most visible
+   * thing a person can wear, which is exactly why it belongs on the classes
+   * that are meant to be spotted.
+   */
+  if (allowed.has('hivis')) {
+    torsoGroup.add(
+      part('hivis', BOX, 0xe4ea3c, [0, rel(shoulderY) - h * 0.1, 0], [shoulderHalf * 1.94, h * 0.15, torsoDepth * 2.1]),
+      part('hivisBandL', BOX, 0xd8dce0, [0, rel(shoulderY) - h * 0.07, 0], [shoulderHalf * 1.98, h * 0.018, torsoDepth * 2.14]),
+      part('hivisBandR', BOX, 0xd8dce0, [0, rel(shoulderY) - h * 0.13, 0], [shoulderHalf * 1.98, h * 0.018, torsoDepth * 2.14]),
+    )
+  }
+
+  /**
+   * Bedroll and bags, for someone carrying what they own.
+   *
+   * Third of the declared-but-undrawn accessories. A rough sleeper read as an
+   * ordinary person in a shabby coat; the load is the difference.
+   */
+  if (allowed.has('bedroll')) {
+    torsoGroup.add(
+      // Slung across the shoulders, sitting on the back rather than floating
+      // behind it — torsoDepth is the half-depth, so the roll's centre belongs
+      // just outside it.
+      part('bedroll', CYL, 0x6b5f4a, [0, rel(shoulderY) - h * 0.06, torsoDepth * 1.15], [h * 0.055, shoulderHalf * 1.75, h * 0.055], [0, 0, Math.PI / 2]),
+      part('bedrollTieL', BOX, 0x3a3128, [-shoulderHalf * 0.5, rel(shoulderY) - h * 0.06, torsoDepth * 1.15], [h * 0.009, h * 0.06, h * 0.06]),
+      part('bedrollTieR', BOX, 0x3a3128, [shoulderHalf * 0.5, rel(shoulderY) - h * 0.06, torsoDepth * 1.15], [h * 0.009, h * 0.06, h * 0.06]),
+      // Carrier bags hang from the hands, so they sit at hip height against the
+      // arm rather than out at chest level with daylight between.
+      part('carrier', BOX, 0x4a5240, [-armX * 0.94, -h * 0.03, h * 0.02], [h * 0.08, h * 0.11, h * 0.05]),
+      part('carrierHandle', BOX, 0x2f3a2c, [-armX * 0.94, h * 0.035, h * 0.02], [h * 0.05, h * 0.02, h * 0.012]),
+      part('bottle', CYL, 0x3f6b52, [armX * 0.94, -h * 0.01, h * 0.015], [h * 0.026, h * 0.075, h * 0.026]),
+    )
+  }
+
   if (spec.stoop) g.rotation.x = spec.stoop
 
   const armSwing = 0.55
@@ -1912,11 +1999,97 @@ const BUILDERS: Record<
  * Each call returns its own Group, because every subject animates independently
  * and so cannot share an Object3D. Geometry and materials *are* shared.
  */
-export function buildModel(def: SubjectDef, seed = 0): BuiltModel {
+/**
+ * Collapse every mesh an animation never touches into one mesh per material.
+ *
+ * Draw calls, not polygons, are what cost on a street full of objects, and the
+ * detail pass took a taxi from 28 meshes to 74 — across a hundred-odd placed
+ * subjects that is thousands of draw calls for a scene budgeted at 150. Almost
+ * none of that detail moves: a car's grille, sills, arches and chequers are
+ * welded to its body, and only the four wheels ever rotate.
+ *
+ * So: work out which node names the clips actually address, then within each
+ * node merge its non-animated leaf children by material. The merged geometry
+ * carries each part's local transform baked in, so the result is identical on
+ * screen. Detail is now free — it costs triangles, which we have, instead of
+ * draw calls, which we do not.
+ *
+ * Skipped in the part editor, which needs every part individually selectable.
+ */
+export function mergeStatics(group: THREE.Object3D, clips: THREE.AnimationClip[]): void {
+  const animated = new Set<string>()
+  for (const clip of clips) {
+    for (const track of clip.tracks) {
+      // Track names are `node.property` or `node.property[component]`.
+      const node = track.name.split('.')[0]
+      if (node) animated.add(node)
+    }
+  }
+
+  const walk = (node: THREE.Object3D) => {
+    for (const child of [...node.children]) walk(child)
+
+    /**
+     * Leaf meshes here that nothing animates and nothing is parented to,
+     * bucketed by material *and* attribute set.
+     *
+     * The attribute set matters: `chamferedBox` carries position and normal
+     * only, while the primitives also carry uv, and the atlas-textured clothing
+     * parts genuinely need theirs. `mergeGeometries` rejects a mixture, so
+     * parts that cannot merge together simply land in different buckets and
+     * stay as they are.
+     */
+    const buckets = new Map<string, { material: THREE.Material; meshes: THREE.Mesh[] }>()
+    for (const child of node.children) {
+      if (!(child instanceof THREE.Mesh)) continue
+      if (child.children.length > 0) continue
+      if (animated.has(child.name)) continue
+      const material = child.material as THREE.Material
+      const attributes = Object.keys(child.geometry.attributes).sort().join(',')
+      const key = `${material.uuid}|${attributes}`
+      const bucket = buckets.get(key)
+      if (bucket) bucket.meshes.push(child)
+      else buckets.set(key, { material, meshes: [child] })
+    }
+
+    for (const { material, meshes } of buckets.values()) {
+      if (meshes.length < 2) continue
+      /**
+       * Everything de-indexed first.
+       *
+       * `chamferedBox` is built by hand and non-indexed; the sphere, cylinder,
+       * cone and torus primitives are all indexed. `mergeGeometries` refuses a
+       * mixture, so normalise rather than hope every part on a node happens to
+       * come from the same family.
+       */
+      const geometries = meshes.map((m) => {
+        m.updateMatrix()
+        const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()
+        return g.applyMatrix4(m.matrix)
+      })
+      const merged = mergeGeometries(geometries, false)
+      for (const geometry of geometries) geometry.dispose()
+      if (!merged) continue
+
+      const mesh = new THREE.Mesh(merged, material)
+      mesh.name = `merged${meshes.length}`
+      mesh.castShadow = meshes.some((m) => m.castShadow)
+      mesh.receiveShadow = meshes.some((m) => m.receiveShadow)
+      for (const m of meshes) node.remove(m)
+      node.add(mesh)
+    }
+  }
+
+  walk(group)
+}
+
+export function buildModel(def: SubjectDef, seed = 0, merge = true): BuiltModel {
   const built = BUILDERS[def.model](def, seed)
   // Hand adjustments from the part editor, applied on top of what the builder
-  // produced. See partOverrides.ts.
+  // produced. See partOverrides.ts. Necessarily before the merge, which
+  // dissolves the part names the overrides are keyed on.
   applyPartOverrides(built.group, def.species)
+  if (merge) mergeStatics(built.group, built.clips)
   built.group.scale.setScalar(def.scale)
   built.bounds.expandByScalar(0)
   return built

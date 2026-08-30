@@ -5,7 +5,7 @@ test('inspect', async ({ page }: { page: Page }) => {
   await page.setViewportSize({ width: 1300, height: 900 })
   await page.goto('/?debug=models')
   await page.waitForTimeout(2500)
-  for (const name of ['Mounted Police', 'Dog', 'Police Officer', 'Rough Sleeper', 'Taxi']) {
+  for (const name of ['Police Officer', 'Rough Sleeper', 'CTA Bus', 'Squad Car', 'Doorman']) {
     const b = page.getByRole('button', { name, exact: true }).first()
     if (!(await b.count())) { console.log('MISSING ' + name); continue }
     await b.click()

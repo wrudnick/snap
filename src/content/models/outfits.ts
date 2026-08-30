@@ -35,7 +35,7 @@ export interface OutfitDef {
   hood?: boolean
 
   /** Which palettes this look draws from. */
-  palette: 'street' | 'formal' | 'sport' | 'muted' | 'bright'
+  palette: 'street' | 'formal' | 'sport' | 'muted' | 'bright' | 'uniform'
   /** Headwear this outfit permits; one may be rolled. */
   headwear?: Array<'cap' | 'beanie' | 'sunhat' | 'bandana'>
   bag?: Array<'sling' | 'tote' | 'backpack'>
@@ -95,6 +95,12 @@ export const OUTFITS: OutfitDef[] = [
     top: 5, legs: 4, sleeve: 2,
     longCoat: true,
     palette: 'formal',
+    headwear: ['cap'],
+  },
+  {
+    id: 'police-uniform',
+    top: 5, legs: 4, sleeve: 2,
+    palette: 'uniform',
     headwear: ['cap'],
   },
   {
@@ -177,6 +183,19 @@ export const OUTFIT_PALETTES: Record<
     trim: [0xc9a45f, 0xe8e2d4, 0x8a1f3a],
     shirt: [0xeceae2, 0xdfe3e8, 0xd8d2c4, 0xc9d2dc],
   },
+  /**
+   * Service navy.
+   *
+   * Police were drawing from `formal`, so a Chicago officer came out in a brown
+   * suit — the class's own navy in its `human.top` is never consulted, because
+   * colours follow the outfit's palette family, not the class.
+   */
+  uniform: {
+    top: [0x232f4a, 0x1e2942, 0x28334f],
+    bottom: [0x171c28, 0x1c2130, 0x202634],
+    trim: [0xd8b24a, 0x2e4a86],
+    shirt: [0xa8bcd4, 0x9db2cc, 0xc4d2e0],
+  },
   sport: {
     top: [0xe4453a, 0x2f7fc4, 0xf0c04a, 0x3fa85f, 0xe8e2d4],
     bottom: [0x1f2a38, 0x2b3038, 0x3f5470],
@@ -208,7 +227,7 @@ export const CLASS_OUTFITS: Record<string, string[]> = {
   // half past five is a crowd of the same four outfits.
   'business-man': ['suit', 'overcoat', 'shirt-sleeves', 'blouse-and-slacks'],
   'business-woman': ['skirt-suit', 'blouse-and-slacks', 'suit', 'overcoat'],
-  police: ['suit'],
+  police: ['police-uniform'],
   homeless: ['overcoat', 'puffer', 'patchwork'],
 }
 
