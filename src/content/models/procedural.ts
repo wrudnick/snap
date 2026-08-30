@@ -874,8 +874,11 @@ function buildBus(def: SubjectDef): BuiltModel {
     part('rear', BOX, a, [0, 2.06, L / 2 + 0.01], [W * 0.86, 0.8, 0.06]),
     // Destination blind over the windscreen.
     part('blind', BOX, 0x1c1f26, [0, 2.78, -L / 2 + 0.06], [1.5, 0.3, 0.1]),
-    part('skirtL', BOX, 0x2b3038, [-W / 2 - 0.01, 0.9, 0], [0.05, 0.62, L * 0.94]),
-    part('skirtR', BOX, 0x2b3038, [W / 2 + 0.01, 0.9, 0], [0.05, 0.62, L * 0.94]),
+    // Skirt kept low, below the livery band. At 0.62 tall it occupied the same
+    // strip of flank as the stripes, 5 mm inboard of them, and swallowed the
+    // whole CTA livery.
+    part('skirtL', BOX, 0x2b3038, [-W / 2 - 0.01, 0.76, 0], [0.05, 0.34, L * 0.94]),
+    part('skirtR', BOX, 0x2b3038, [W / 2 + 0.01, 0.76, 0], [0.05, 0.34, L * 0.94]),
     part('roof', BOX, 0xd8dbe0, [0, 2.7, 0.4], [W * 0.86, 0.14, L * 0.7]),
     ...([
       ['wheelFL', -1.12, -L / 2 + 1.9],
@@ -895,8 +898,12 @@ function buildBus(def: SubjectDef): BuiltModel {
 
   // CTA livery and the fittings that say bus rather than shipping container.
   g.add(
-    part('stripe', BOX, 0x1d4f8f, [0, 1.12, 0], [W + 0.03, 0.24, L * 0.98]),
-    part('stripeRed', BOX, 0xb8352f, [0, 0.94, 0], [W + 0.03, 0.12, L * 0.98]),
+    // Blue band under the window line with a red pinstripe beneath it, standing
+    // clear of the skirt so nothing fights for the same 5 mm.
+    part('stripe', BOX, 0x1d4f8f, [0, 1.42, 0], [W + 0.08, 0.3, L * 0.98]),
+    part('stripeRed', BOX, 0xb8352f, [0, 1.2, 0], [W + 0.08, 0.1, L * 0.98]),
+    part('stripeFront', BOX, 0x1d4f8f, [0, 1.42, -L / 2 - 0.03], [W * 0.94, 0.3, 0.08]),
+    part('stripeBack', BOX, 0x1d4f8f, [0, 1.42, L / 2 + 0.03], [W * 0.94, 0.3, 0.08]),
     part('doorFront', BOX, 0x2b3038, [W / 2 + 0.02, 1.5, -L / 2 + 2.6], [0.06, 1.8, 1.1]),
     part('doorMid', BOX, 0x2b3038, [W / 2 + 0.02, 1.5, 1.2], [0.06, 1.8, 1.1]),
     part('headL', BOX, 0xfff2cf, [-0.85, 1.02, -L / 2 - 0.02], [0.4, 0.22, 0.08]),
@@ -907,6 +914,26 @@ function buildBus(def: SubjectDef): BuiltModel {
     part('mirrorR', BOX, 0x1b1d22, [W / 2 + 0.22, 2.5, -L / 2 + 0.5], [0.3, 0.34, 0.1]),
     part('vent', BOX, 0xb9bec5, [0, 2.82, -2.2], [1.1, 0.2, 1.6]),
     part('poleAC', BOX, 0xb9bec5, [0, 2.82, 2.6], [0.9, 0.16, 1.2]),
+    // A lit destination blind with a route number beside it. The blind was a
+    // dark box on a white bus, which reads as a hole rather than a sign.
+    part('blindFace', BOX, 0xe8c05a, [0, 2.78, -L / 2 + 0.01], [1.34, 0.2, 0.06]),
+    part('routeBox', BOX, 0xe8c05a, [0.98, 2.78, -L / 2 + 0.01], [0.34, 0.2, 0.06]),
+    // Wheel arches, so the wheels sit in the body rather than beside it.
+    part('archFL', BOX, shadeOf(c, 0.8), [-W / 2 - 0.015, 1.06, -L / 2 + 1.9], [0.06, 0.34, 1.5]),
+    part('archFR', BOX, shadeOf(c, 0.8), [W / 2 + 0.015, 1.06, -L / 2 + 1.9], [0.06, 0.34, 1.5]),
+    part('archBL', BOX, shadeOf(c, 0.8), [-W / 2 - 0.015, 1.06, L / 2 - 2.6], [0.06, 0.34, 1.5]),
+    part('archBR', BOX, shadeOf(c, 0.8), [W / 2 + 0.015, 1.06, L / 2 - 2.6], [0.06, 0.34, 1.5]),
+    // Door leaves and their rubber seals, on the kerb side.
+    part('doorSplitF', BOX, 0x9aa0a8, [W / 2 + 0.03, 1.5, -L / 2 + 2.6], [0.06, 1.8, 0.06]),
+    part('doorSplitM', BOX, 0x9aa0a8, [W / 2 + 0.03, 1.5, 1.2], [0.06, 1.8, 0.06]),
+    // Grab rail down the kerb side and the bike rack folded up on the front.
+    part('rack', BOX, 0x4a4f57, [0, 0.96, -L / 2 - 0.16], [1.9, 0.5, 0.12]),
+    part('rackBarL', BOX, 0x4a4f57, [-0.7, 1.24, -L / 2 - 0.14], [0.08, 0.3, 0.08]),
+    part('rackBarR', BOX, 0x4a4f57, [0.7, 1.24, -L / 2 - 0.14], [0.08, 0.3, 0.08]),
+    // Front bumper and the plate under it.
+    part('bumperF', BOX, 0x3a3f47, [0, 0.72, -L / 2 - 0.05], [W * 0.98, 0.3, 0.14]),
+    part('bumperB', BOX, 0x3a3f47, [0, 0.72, L / 2 + 0.05], [W * 0.98, 0.3, 0.14]),
+    part('plate', BOX, 0xd8d4c6, [0, 0.74, L / 2 + 0.13], [0.44, 0.16, 0.06]),
   )
 
   const spin = (path: string, dur: number) =>
@@ -1968,6 +1995,68 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
       num('legL.rotation[x]', [0, 4.0], [0.18, 0.18]),
       num('armL.rotation[x]', [0, 2.0, 4.0], [0.2, 0.1, 0.2]),
       num('head.rotation[y]', [0, 2.0, 4.0], [-0.35, -0.2, -0.35]),
+    ]),
+
+    /**
+     * Sitting on the sand, propped back on both hands.
+     *
+     * Every joint that leaves the standing pose has to be driven, including the
+     * hips: the legs hang from their own pivots on the group rather than from
+     * the torso, so dropping only `torso.position[y]` sits a person's chest on
+     * the ground with their legs still standing underneath.
+     *
+     * Sign convention, as everywhere on these models: negative rotation about X
+     * carries the far end of a part forward (−Z). The torso leans *back*, so it
+     * is positive; the legs extend forward, so they are negative.
+     */
+    new THREE.AnimationClip('lounge', 5.2, [
+      num('torso.position[y]', [0, 5.2], [h * 0.28, h * 0.28]),
+      num('torso.rotation[x]', [0, 2.6, 5.2], [0.62, 0.56, 0.62]),
+      num('legL.position[y]', [0, 5.2], [h * 0.28, h * 0.28]),
+      num('legR.position[y]', [0, 5.2], [h * 0.28, h * 0.28]),
+      num('legL.rotation[x]', [0, 2.6, 5.2], [-1.36, -1.3, -1.36]),
+      num('legR.rotation[x]', [0, 2.6, 5.2], [-1.18, -1.24, -1.18]),
+      num('legR.rotation[z]', [0, 5.2], [-0.22, -0.22]),
+      // Arms back behind the hips, taking the weight.
+      num('armL.rotation[x]', [0, 5.2], [1.05, 1.05]),
+      num('armR.rotation[x]', [0, 5.2], [1.05, 1.05]),
+      num('armL.rotation[z]', [0, 5.2], [-0.24, -0.24]),
+      num('armR.rotation[z]', [0, 5.2], [0.24, 0.24]),
+      num('head.rotation[y]', [0, 1.7, 3.4, 5.2], [-0.4, 0.3, -0.15, -0.4]),
+    ]),
+
+    /**
+     * Flat on a towel.
+     *
+     * The body lies along Z with the head at +Z and the feet at −Z, which is
+     * why the torso goes past vertical and the legs almost to the horizontal.
+     * Anchored low enough that the back is on the sand rather than hovering
+     * over it.
+     */
+    new THREE.AnimationClip('sunbathe', 6.4, [
+      num('torso.position[y]', [0, 6.4], [h * 0.14, h * 0.14]),
+      num('torso.rotation[x]', [0, 3.2, 6.4], [1.44, 1.47, 1.44]),
+      num('legL.position[y]', [0, 6.4], [h * 0.14, h * 0.14]),
+      num('legR.position[y]', [0, 6.4], [h * 0.14, h * 0.14]),
+      num('legL.rotation[x]', [0, 6.4], [-1.56, -1.56]),
+      // One knee up, which is the difference between asleep and dead.
+      num('legR.rotation[x]', [0, 3.2, 6.4], [-1.5, -1.1, -1.5]),
+      num('armL.rotation[z]', [0, 6.4], [-0.72, -0.72]),
+      num('armR.rotation[z]', [0, 6.4], [0.72, 0.72]),
+      num('armL.rotation[x]', [0, 3.2, 6.4], [0.1, 0.2, 0.1]),
+      num('head.rotation[x]', [0, 6.4], [-0.35, -0.35]),
+    ]),
+
+    /** Drink in hand, weight on one hip, talking over the music. */
+    new THREE.AnimationClip('party', 3.6, [
+      num('torso.rotation[z]', [0, 0.9, 1.8, 2.7, 3.6], [0.07, -0.05, 0.07, -0.05, 0.07]),
+      num('torso.position[y]', [0, 0.9, 1.8, 2.7, 3.6], [hipY, hipY + h * 0.014, hipY, hipY + h * 0.014, hipY]),
+      num('armR.rotation[x]', [0, 1.8, 3.6], [-1.25, -1.4, -1.25]),
+      num('armR.rotation[z]', [0, 3.6], [0.34, 0.34]),
+      num('armL.rotation[x]', [0, 1.2, 2.4, 3.6], [0.15, -0.3, 0.25, 0.15]),
+      num('head.rotation[y]', [0, 1.2, 2.4, 3.6], [0.35, -0.25, 0.45, 0.35]),
+      num('legL.rotation[x]', [0, 3.6], [0.08, 0.08]),
+      num('legR.rotation[x]', [0, 3.6], [-0.12, -0.12]),
     ]),
   ]
 

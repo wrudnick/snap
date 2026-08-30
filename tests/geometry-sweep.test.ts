@@ -132,7 +132,7 @@ describe('route sweep', () => {
     // into each other on purpose, and a support passing through the thing it
     // supports is what a support is.
     const bulky = [...buildings, ...clutter]
-      .map((p) => ({
+      .map((p, index) => ({
         cx: p.position[0],
         cy: p.position[1],
         cz: p.position[2],
@@ -140,6 +140,10 @@ describe('route sweep', () => {
         hy: p.scale[1] / 2,
         hz: p.scale[2] / 2,
         rotationY: p.rotationY,
+        // Parts of one composite object — a bin's band inside its body — are
+        // meant to intersect. Everything unmarked gets a unique id so it can
+        // never accidentally match another prop.
+        composite: p.composite ?? -(index + 1),
       }))
       .filter((b) => Math.min(b.hx, b.hz) > 0.15)
 
@@ -148,6 +152,7 @@ describe('route sweep', () => {
       for (let j = i + 1; j < bulky.length; j++) {
         const a = bulky[i]!
         const b = bulky[j]!
+        if (a.composite === b.composite) continue
         if (Math.abs(a.cy - b.cy) > (a.hy + b.hy) * 0.8) continue
         const inscribed = Math.min(a.hx, a.hz) + Math.min(b.hx, b.hz)
         if (Math.hypot(a.cx - b.cx, a.cz - b.cz) < inscribed * 0.6) {

@@ -17,7 +17,7 @@ import { expect, test, type Page } from '@playwright/test'
 const OUT = 'test-results/shots'
 
 test('every section renders without a shader or runtime error', async ({ page }: { page: Page }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(600_000)
   const errors: string[] = []
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -30,23 +30,26 @@ test('every section renders without a shader or runtime error', async ({ page }:
 
   const seen = new Map<string, number>()
 
-  for (let i = 0; i < 26; i++) {
-    const t = 0.02 + (i / 25) * 0.96
+  // Dense enough for five to ten frames in every section, which is what it
+  // takes to spot a model floating or a wall through the path — one frame per
+  // section only tells you the section exists.
+  const STEPS = 90
+  for (let i = 0; i < STEPS; i++) {
+    const t = 0.01 + (i / (STEPS - 1)) * 0.98
     const label = await page.evaluate(async (seekTo) => {
       const h = (window as any).__snap
       h.seek(seekTo)
       h.runtime.paused = true
       h.aim(0, -0.26)
-      await new Promise((r) => setTimeout(r, 800))
+      await new Promise((r) => setTimeout(r, 450))
       const el = document.querySelector('.hud__section, .hud h2, .hud [class*="section"]')
       return (el?.textContent ?? 'unknown').trim().toLowerCase().replace(/[^a-z]+/g, '-')
     }, t)
 
     const n = (seen.get(label) ?? 0) + 1
     seen.set(label, n)
-    // Two per section is enough to judge; more is just more files to open.
-    if (n <= 2) {
-      await page.screenshot({ path: `${OUT}/${label}-${n}.png` })
+    if (n <= 10) {
+      await page.screenshot({ path: `${OUT}/${label}-${String(n).padStart(2, '0')}.png` })
     }
   }
 

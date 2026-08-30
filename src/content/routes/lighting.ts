@@ -198,27 +198,35 @@ export const DINING_DUSK: LightingProfile = {
   sky: 0x2b2740,
   fogNear: 60,
   fogFar: 320,
-  key: 0xff8a52,
-  keyIntensity: 0.55,
-  skyFill: 0x4a4468,
-  groundFill: 0x6b4a38,
-  fillIntensity: 1.9,
+  key: 0xff9a62,
+  keyIntensity: 0.75,
+  skyFill: 0x6a6294,
+  groundFill: 0x8f6a4c,
+  fillIntensity: 2.7,
   shadowTint: 0x3a3560,
   shadowTintStrength: 0.55,
   castShadows: false,
   blendIn: 0.5,
 }
 
-/** Mariano Park, same evening. */
+/**
+ * Mariano Park, same evening.
+ *
+ * Lifted hard from the first pass. A night that is *accurate* is a night you
+ * cannot photograph anything in: the Triangle came out as a black plane with
+ * some lit windows above it, and this is a game about taking pictures. The
+ * reference art keeps its night scenes saturated and readable rather than dim,
+ * so the fill carries the street and the key stays warm.
+ */
 export const PARK_DUSK: LightingProfile = {
-  sky: 0x272441,
+  sky: 0x2e2a4c,
   fogNear: 60,
   fogFar: 300,
-  key: 0xffa070,
-  keyIntensity: 0.5,
-  skyFill: 0x494365,
-  groundFill: 0x4a4a42,
-  fillIntensity: 1.7,
+  key: 0xffb488,
+  keyIntensity: 0.7,
+  skyFill: 0x6d6698,
+  groundFill: 0x7f6a54,
+  fillIntensity: 2.6,
   shadowTint: 0x38345c,
   shadowTintStrength: 0.55,
   castShadows: false,

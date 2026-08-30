@@ -593,6 +593,80 @@ const HOMELESS: SubjectDef = {
   ],
 }
 
+/**
+ * Someone on the beach.
+ *
+ * Rarer than a pedestrian and worth more, because a sunbather is a genuinely
+ * harder photograph than a person standing up: they are low, they are small in
+ * frame, and the good poses are the ones that only come round every few
+ * seconds. `lounge` and `sunbathe` are their own clips — see buildHumanoid.
+ */
+const BEACHGOER: SubjectDef = {
+  species: 'beachgoer',
+  displayName: 'Beachgoer',
+  rarity: 1,
+  model: 'humanoid',
+  palette: { body: 0xe0a13c, accent: 0x3f8fa8 },
+  scale: 1,
+  fallbackPose: 0.45,
+  idealSize: 0.05,
+  human: {
+    height: 1.74,
+    build: 1.0,
+    skin: SKIN,
+    hair: HAIR,
+    top: [0xe86a4a, 0x3f8fa8, 0xe8b23a, 0xd8556a, 0x4a9c7a],
+    bottom: [0x2f6f8f, 0xd8556a, 0xe0a13c, 0x3f5470],
+    accessories: ['sunhat', 'cap', 'tote'],
+  },
+  poses: {
+    lounge: { label: 'Sitting on the sand', value: 0.6 },
+    sunbathe: { label: 'Sunbathing', value: 0.7 },
+    idle: { label: 'Standing about', value: 0.4 },
+    walk: { label: 'Walking the shore', value: 0.55 },
+    gawk: { label: 'Watching the lake', value: 0.9, peak: [0.3, 0.7], peakBonus: 0.05 },
+  },
+  behaviors: [
+    { clip: 'lounge', minSeconds: 5.0, maxSeconds: 9.0, weight: 4 },
+    { clip: 'sunbathe', minSeconds: 6.0, maxSeconds: 11.0, weight: 3 },
+    { clip: 'idle', minSeconds: 2.5, maxSeconds: 4.5, weight: 1 },
+    { clip: 'gawk', minSeconds: 2.0, maxSeconds: 3.5, weight: 1 },
+  ],
+}
+
+/** The crowd at the beach club, drink in hand. */
+const PARTYGOER: SubjectDef = {
+  species: 'partygoer',
+  displayName: 'Beach Club',
+  rarity: 2,
+  model: 'humanoid',
+  palette: { body: 0xd8556a, accent: 0xe8d45a },
+  scale: 1,
+  fallbackPose: 0.5,
+  idealSize: 0.05,
+  human: {
+    height: 1.76,
+    build: 1.0,
+    skin: SKIN,
+    hair: HAIR,
+    top: [0xd8556a, 0xe8d45a, 0x4a9c7a, 0xe8e4da, 0x6b4f9c],
+    bottom: [0x2f3540, 0xe8e4da, 0x3f5470, 0x6b5a44],
+    accessories: ['sunhat', 'cap', 'tote'],
+  },
+  poses: {
+    party: { label: 'Drink in hand', value: 0.75, peak: [0.35, 0.65], peakBonus: 0.05 },
+    talk: { label: 'Shouting over the music', value: 0.85 },
+    idle: { label: 'At the rail', value: 0.45 },
+    gawk: { label: 'Cheering', value: 0.95, peak: [0.3, 0.7], peakBonus: 0.08 },
+  },
+  behaviors: [
+    { clip: 'party', minSeconds: 3.0, maxSeconds: 6.0, weight: 4 },
+    { clip: 'talk', minSeconds: 2.5, maxSeconds: 4.5, weight: 3 },
+    { clip: 'gawk', minSeconds: 1.8, maxSeconds: 3.0, weight: 2 },
+    { clip: 'idle', minSeconds: 2.0, maxSeconds: 3.5, weight: 1 },
+  ],
+}
+
 const BUSINESS_MAN: SubjectDef = {
   species: 'business-man',
   displayName: 'Businessman',
@@ -722,6 +796,8 @@ export const SUBJECTS: Record<string, SubjectDef> = {
   rat: RAT,
   'business-man': BUSINESS_MAN,
   'business-woman': BUSINESS_WOMAN,
+  beachgoer: BEACHGOER,
+  partygoer: PARTYGOER,
 }
 
 /** The scoring core only needs the SpeciesDef half of each entry. */

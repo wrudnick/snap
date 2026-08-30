@@ -6,6 +6,7 @@ import type { ResolvedSection } from '@/game/sections'
 import { makeRng, pick, range, rangeInt } from '@/lib/rng'
 
 import { buildingAt, inCarriageway, lateralClearance, nearestStreet } from './footprints'
+import { groundHeightAt } from './groundHeight'
 
 /**
  * Props alongside the route.
@@ -27,6 +28,16 @@ export interface Prop {
   rotationY: number
   color: number
   segment: number
+  /**
+   * Which composite object this box is a part of, if any.
+   *
+   * A bin is a body, a lid, a band and a base; a planter is a tub with a rim
+   * and soil inside it. Those parts are *supposed* to intersect — that is what
+   * makes them one object rather than four things standing near each other. The
+   * overlap sweep needs to tell that apart from a bin planted inside a planter,
+   * and a shared id is the only honest way to say which is which.
+   */
+  composite?: number
 }
 
 export interface EnvironmentData {
@@ -47,10 +58,10 @@ export interface EnvironmentData {
   skyline: Prop[]
 }
 
-/** Surface colours shared with the city ground. */
-export const SAND = 0xd8c9a4
-export const ASPHALT = 0x44484f
-export const SIDEWALK = 0x9a9184
+// Surface colours live in `surfaces.ts` so `cityGround` can have them without
+// importing this module; re-exported here because callers already ask for them
+// from the environment.
+export { ASPHALT, SAND, SIDEWALK } from './surfaces'
 
 const BUILDING_COLORS: Record<string, number[]> = {
   // Michigan Avenue: limestone, terracotta, dark granite.
@@ -151,13 +162,51 @@ function buildProps(
   const clashes = (x: number, z: number, radius: number) =>
     placed.some(([px, pz, pr]) => Math.hypot(x - px, z - pz) < (radius + pr) * 0.75)
 
+  /**
+   * A point beside the route, standing on the ground that is actually there.
+   *
+   * The height used to be `point.y - 1.7` — the rail's own height, whatever the
+   * lateral offset. That is right only where the street is level with the path,
+   * and Rush Street's frontages ended up hanging a metre above their pavement
+   * with daylight under them, because the route runs along a kerb that is not
+   * the level the buildings stand at.
+   *
+   * The rail's height stays as the *hint* that says which surface is meant, so
+   * a tunnel wall still lands on the tunnel floor rather than on Lake Shore
+   * Drive's deck four metres above it.
+   */
   const at = (t: number, offset: number): [number, number, number] => {
     rail.positionAt(t, point)
     rail.rightAt(t, right)
-    return [point.x + right.x * offset, point.y - 1.7, point.z + right.z * offset]
+    const x = point.x + right.x * offset
+    const z = point.z + right.z * offset
+    return [x, groundHeightAt(x, z, point.y - 1.7), z]
   }
 
   const headingAt = (t: number) => rail.headingAt(t)
+
+  /**
+   * A spot on the pavement, measured from the kerb of whatever street is here.
+   *
+   * The furniture pass already does this for lampposts; street furniture proper
+   * needs the same answer, and for the same reason: offsetting from the rail
+   * ties a bin's position to where the *camera* goes, which puts it in the road
+   * on one side and in your face on the other.
+   */
+  const sidewalkAt = (
+    t: number,
+    side: -1 | 1,
+    inset: number,
+  ): [number, number, number] | null => {
+    const [rx, ry, rz] = at(t, 0)
+    const street = nearestStreet(rx, rz)
+    if (!street) return null
+    const lateral = street.half + inset
+    const x = street.x + street.rx * lateral * side
+    const z = street.z + street.rz * lateral * side
+    if (inCarriageway(x, z) || buildingAt(x, z)) return null
+    return [x, groundHeightAt(x, z, ry), z]
+  }
 
   for (const section of sections) {
     const palette = BUILDING_COLORS[section.kind] ?? BUILDING_COLORS.avenue!
@@ -300,30 +349,200 @@ function buildProps(
       }
     }
 
-    // Loose clutter — bins, planters, patio tables. Also gives the occlusion
-    // term something to work with, which is what makes hiding subjects possible.
-    const clutterCount = rangeInt(rng, 2, Math.max(3, Math.round(spanMetres / 12)))
-    const clutterSpec = clutterOffsets(section.kind)
-    for (let i = 0; i < clutterCount; i++) {
-      const t = range(rng, section.tStart, section.tEnd)
-      const side = rng() < 0.5 ? -1 : 1
-      const [x, y, z] = at(t, side * range(rng, clutterSpec[0], clutterSpec[1]))
-      const size = range(rng, 0.6, 1.2)
-      if (inCarriageway(x, z) || buildingAt(x, z)) continue
-      if (nearRail(x, z, size / 2 + 1.2) || clashes(x, z, size)) continue
-      placed.push([x, z, size])
-      clutter.push({
-        position: [x, y + size / 2, z],
-        scale: [size, size * range(rng, 0.8, 1.5), size],
-        rotationY: range(rng, 0, Math.PI),
-        color: pick(rng, [0x2f4f3a, 0x384b52, 0x4a3f38, 0x6b5a44]),
-        segment: Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount)),
-      })
+    /**
+     * Street furniture: bins, planters and bus stops.
+     *
+     * This used to be `clutterCount` random boxes in four muted colours, offset
+     * from the rail, rotated at random and scaled between 0.6 and 1.2 — which
+     * is what a street looks like if you describe it as "objects". Real kerbside
+     * furniture is a small vocabulary of recognisable things at regular
+     * spacing, so that is what goes down: a bin on the corner, planters outside
+     * the shops, a shelter where the bus actually stops.
+     *
+     * Alleys and the restaurant interior keep the anonymous boxes, because
+     * there the point genuinely is unidentifiable junk.
+     */
+    const segmentFor = (t: number) =>
+      Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount))
+
+    const furnished =
+      section.kind === 'avenue' ||
+      section.kind === 'boutique' ||
+      section.kind === 'dining' ||
+      section.kind === 'park'
+
+    if (furnished) {
+      /** Distinct per composite object placed, in this section. */
+      let composite = 0
+
+      /** A litter bin: body, lid, and the band round its middle. */
+      const addBin = (x: number, y: number, z: number, heading: number, segment: number) => {
+        const body = 0x36423a
+        const id = ++composite
+        clutter.push(
+          { position: [x, y + 0.44, z], scale: [0.62, 0.88, 0.62], rotationY: heading, color: body, segment, composite: id },
+          { position: [x, y + 0.92, z], scale: [0.72, 0.09, 0.72], rotationY: heading, color: 0x232b26, segment, composite: id },
+          { position: [x, y + 0.62, z], scale: [0.65, 0.07, 0.65], rotationY: heading, color: 0x232b26, segment, composite: id },
+          // The slot in the lid, which is the one feature that says bin.
+          { position: [x, y + 0.98, z], scale: [0.3, 0.05, 0.14], rotationY: heading, color: 0x141815, segment, composite: id },
+          { position: [x, y + 0.06, z], scale: [0.7, 0.12, 0.7], rotationY: heading, color: 0x232b26, segment, composite: id },
+        )
+      }
+
+      /**
+       * A planter: a stone tub, dark soil, and blobs of foliage and flowers.
+       *
+       * The flowers are spheres, so they ride along in the same instanced mesh
+       * as the tree canopies and cost nothing extra.
+       */
+      const addPlanter = (
+        x: number, y: number, z: number, heading: number, segment: number, r: () => number,
+      ) => {
+        const id = ++composite
+        clutter.push(
+          { position: [x, y + 0.3, z], scale: [1.15, 0.6, 1.15], rotationY: heading, color: 0xa89e8c, segment, composite: id },
+          { position: [x, y + 0.62, z], scale: [1.22, 0.09, 1.22], rotationY: heading, color: 0x8d8474, segment, composite: id },
+          { position: [x, y + 0.64, z], scale: [1.0, 0.06, 1.0], rotationY: heading, color: 0x3d3226, segment, composite: id },
+        )
+        const petals = [0xd8556a, 0xe0a13c, 0xd8d0e0, 0xc4568f, 0xe8d45a]
+        for (let k = 0; k < 7; k++) {
+          const a = r() * Math.PI * 2
+          const reach = 0.16 + r() * 0.26
+          const leaf = k % 3 !== 0
+          const size = leaf ? 0.3 + r() * 0.18 : 0.16 + r() * 0.1
+          blobs.push({
+            position: [
+              x + Math.cos(a) * reach,
+              y + 0.72 + (leaf ? 0.1 : 0.24) + r() * 0.1,
+              z + Math.sin(a) * reach,
+            ],
+            scale: [size, size * 0.8, size],
+            rotationY: 0,
+            color: leaf ? (r() < 0.5 ? 0x4a7a3f : 0x3f6b38) : petals[Math.floor(r() * petals.length)]!,
+            segment,
+          })
+        }
+      }
+
+      /**
+       * A bus shelter: a glass-backed box with a cantilevered roof, a bench,
+       * and the flag on a pole at the kerb.
+       *
+       * Built to the street's own direction so the back panel is against the
+       * buildings and the open side faces the road, which is the difference
+       * between a shelter and a shed dropped on the pavement.
+       */
+      const addBusStop = (
+        x: number, y: number, z: number, heading: number, side: -1 | 1, segment: number,
+      ) => {
+        const cos = Math.cos(heading)
+        const sin = Math.sin(heading)
+        // Local axes: `f` runs along the street, `n` across it toward the road.
+        const f = (d: number): [number, number] => [x - sin * d, z + cos * d]
+        const n = (d: number): [number, number] => [x + cos * d * -side, z + sin * d * -side]
+        const both = (along: number, across: number): [number, number] => {
+          const [ax, az] = f(along)
+          const [nx, nz] = n(across)
+          return [ax + (nx - x), az + (nz - z)]
+        }
+
+        const post = 0x3a3f45
+        const glass = 0x6d8494
+        const id = ++composite
+        for (const along of [-1.9, 1.9]) {
+          const [px, pz] = both(along, 0.7)
+          clutter.push({
+            position: [px, y + 1.2, pz], scale: [0.12, 2.4, 0.12],
+            rotationY: heading, color: post, segment, composite: id,
+          })
+        }
+        const [bx, bz] = both(0, 0.72)
+        const [gx, gz] = both(0, 0.7)
+        const [rx2, rz2] = both(0, 0.35)
+        clutter.push(
+          // Back panel and roof.
+          { position: [gx, y + 1.3, gz], scale: [0.08, 1.9, 4.0], rotationY: heading, color: glass, segment, composite: id },
+          { position: [rx2, y + 2.48, rz2], scale: [1.9, 0.12, 4.3], rotationY: heading, color: post, segment, composite: id },
+          { position: [bx, y + 0.5, bz], scale: [0.4, 0.09, 3.2], rotationY: heading, color: 0x7a6a52, segment, composite: id },
+          { position: [bx, y + 0.26, bz], scale: [0.3, 0.4, 0.14], rotationY: heading, color: post, segment, composite: id },
+        )
+        // Route flag on a pole at the kerb.
+        const [fx, fz] = both(2.6, -0.4)
+        clutter.push(
+          { position: [fx, y + 1.5, fz], scale: [0.1, 3.0, 0.1], rotationY: heading, color: post, segment, composite: id },
+          { position: [fx, y + 2.85, fz], scale: [0.5, 0.62, 0.1], rotationY: heading, color: 0x1d4f8f, segment, composite: id },
+          { position: [fx, y + 2.95, fz], scale: [0.34, 0.2, 0.12], rotationY: heading, color: 0xe8e4da, segment, composite: id },
+        )
+      }
+
+      const plan: Array<{ every: number; radius: number; kind: 'bin' | 'planter' | 'stop' }> = [
+        { every: 34, radius: 0.9, kind: 'bin' },
+        { every: 26, radius: 1.4, kind: 'planter' },
+      ]
+      // Shelters only where a bus actually runs.
+      if (section.kind === 'avenue') plan.push({ every: 130, radius: 3.6, kind: 'stop' })
+
+      for (const { every, radius, kind } of plan) {
+        const count = Math.max(1, Math.round(spanMetres / every))
+        for (const side of [-1, 1] as const) {
+          for (let i = 0; i < count; i++) {
+            const t =
+              section.tStart +
+              ((i + (kind === 'bin' ? 0.2 : kind === 'planter' ? 0.62 : 0.5)) / count) *
+                (section.tEnd - section.tStart)
+            const place = sidewalkAt(t, side, kind === 'stop' ? 2.6 : 1.1)
+            if (!place) continue
+            const [x, y, z] = place
+            if (nearRail(x, z, radius + 1.1) || clashes(x, z, radius)) continue
+            placed.push([x, z, radius])
+            const heading = headingAt(t)
+            const segment = segmentFor(t)
+            if (kind === 'bin') addBin(x, y, z, heading, segment)
+            else if (kind === 'planter') addPlanter(x, y, z, heading, segment, rngFor(section.id, i, side))
+            else addBusStop(x, y, z, heading, side, segment)
+          }
+        }
+      }
+    } else if (section.kind !== 'beach') {
+      /**
+       * Alleys, the tunnel and the restaurant interior: anonymous junk is the
+       * point, and it gives the occlusion term something to work with.
+       *
+       * Not the beach. Its furniture is the club, the parasols and the towels,
+       * and because this loop runs first a random 1 m box was landing on the
+       * club's deck before the deck existed to be claimed.
+       */
+      const clutterCount = rangeInt(rng, 2, Math.max(3, Math.round(spanMetres / 12)))
+      const clutterSpec = clutterOffsets(section.kind)
+      for (let i = 0; i < clutterCount; i++) {
+        const t = range(rng, section.tStart, section.tEnd)
+        const side = rng() < 0.5 ? -1 : 1
+        const [x, y, z] = at(t, side * range(rng, clutterSpec[0], clutterSpec[1]))
+        const size = range(rng, 0.6, 1.2)
+        if (inCarriageway(x, z) || buildingAt(x, z)) continue
+        if (nearRail(x, z, size / 2 + 1.2) || clashes(x, z, size)) continue
+        placed.push([x, z, size])
+        clutter.push({
+          position: [x, y + size / 2, z],
+          scale: [size, size * range(rng, 0.8, 1.5), size],
+          rotationY: range(rng, 0, Math.PI),
+          color: pick(rng, [0x2f4f3a, 0x384b52, 0x4a3f38, 0x6b5a44]),
+          segment: segmentFor(t),
+        })
+      }
     }
 
     if (section.kind === 'dining') {
       addStringLights(section, route, rail.length, at, poles, blobs)
       addPatios(section, route, rail.length, rng, at, poles, heads, clutter, {
+        nearRail,
+        clashes,
+        claim: (x, z, r) => placed.push([x, z, r]),
+      })
+    }
+
+    if (section.kind === 'beach') {
+      addBeachClub(section, route, rail.length, rng, at, headingAt, poles, heads, clutter, blobs, {
         nearRail,
         clashes,
         claim: (x, z, r) => placed.push([x, z, r]),
@@ -348,6 +567,189 @@ function buildProps(
   }
 
   return { buildings, poles, heads, clutter, blobs }
+}
+
+/**
+ * The beach club, and the sunshades scattered along the sand.
+ *
+ * Oak Street Beach has a bar on the sand at the south end — the last thing you
+ * pass before the route turns down into the underpass — and without it the
+ * beach is a large empty plane with three pigeons on it. A deck, a counter,
+ * parasols over high tables, a run of lights and a pair of speakers give the
+ * crowd somewhere to be, which is what makes placing twenty people there read
+ * as a party rather than as twenty people standing in sand.
+ *
+ * Built to the route's heading rather than to the world axes, so the deck faces
+ * the way the player is walking rather than sitting at an angle to everything.
+ */
+function addBeachClub(
+  section: ResolvedSection,
+  route: RouteDef,
+  railLength: number,
+  rng: () => number,
+  at: (t: number, offset: number) => [number, number, number],
+  headingAt: (t: number) => number,
+  poles: Prop[],
+  heads: Prop[],
+  clutter: Prop[],
+  blobs: Prop[],
+  guards: {
+    nearRail: (x: number, z: number, radius: number) => boolean
+    clashes: (x: number, z: number, radius: number) => boolean
+    claim: (x: number, z: number, radius: number) => void
+  },
+): void {
+  const { nearRail, clashes, claim } = guards
+  const span = section.tEnd - section.tStart
+  const segmentFor = (t: number) =>
+    Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount))
+
+  /**
+   * The club sits near the end of the beach, on the inland side.
+   *
+   * `u` 0.84 rather than 0.5: the point is that you walk past it on the way
+   * into the underpass, so it wants to be the last thing on the sand.
+   */
+  const clubT = section.tStart + span * 0.84
+  const heading = headingAt(clubT)
+  const cos = Math.cos(heading)
+  const sin = Math.sin(heading)
+  const [cx, cy, cz] = at(clubT, 15)
+  const segment = segmentFor(clubT)
+
+  /** A point in the club's own frame: `along` the route, `out` away from it. */
+  const local = (along: number, out: number): [number, number] => [
+    cx - sin * along + cos * out,
+    cz + cos * along + sin * out,
+  ]
+
+  const DECK = 0xb08a5e
+  const POST = 0x8a6a44
+  const CANVAS = 0xe8e4da
+
+  // Deck, one board colour with a darker fascia so it has an edge.
+  const [dx, dz] = local(0, 0)
+  clutter.push(
+    { position: [dx, cy + 0.16, dz], scale: [11, 0.32, 15], rotationY: heading, color: DECK, segment, composite: 900 },
+    { position: [dx, cy + 0.36, dz], scale: [11.3, 0.12, 15.3], rotationY: heading, color: 0x8f6c46, segment, composite: 900 },
+  )
+  claim(dx, dz, 8)
+
+  // Bar counter along the inland edge, with a back gantry of bottles.
+  const [bx, bz] = local(0, 3.6)
+  const [gx, gz] = local(0, 5.0)
+  clutter.push(
+    { position: [bx, cy + 0.86, bz], scale: [1.1, 1.0, 9], rotationY: heading, color: 0x6b4a30, segment, composite: 901 },
+    { position: [bx, cy + 1.4, bz], scale: [1.35, 0.12, 9.2], rotationY: heading, color: 0x8f6c46, segment, composite: 901 },
+    { position: [gx, cy + 1.3, gz], scale: [0.5, 2.6, 9], rotationY: heading, color: 0x4a3524, segment, composite: 901 },
+  )
+  for (let i = 0; i < 12; i++) {
+    const [ox, oz] = local(-3.8 + i * 0.7, 4.8)
+    blobs.push({
+      position: [ox, cy + 1.9 + (i % 3) * 0.12, oz],
+      scale: [0.16, 0.34, 0.16],
+      rotationY: heading,
+      color: [0x3f6b52, 0x8a5a2e, 0x6b4f9c, 0xd8a13c][i % 4]!,
+      segment,
+    })
+  }
+
+  // Stools along the counter.
+  for (let i = 0; i < 7; i++) {
+    const [sx, sz] = local(-3.6 + i * 1.2, 2.4)
+    clutter.push(
+      { position: [sx, cy + 0.42, sz], scale: [0.16, 0.84, 0.16], rotationY: heading, color: 0x4a4f57, segment, composite: 910 + i },
+      { position: [sx, cy + 0.9, sz], scale: [0.5, 0.1, 0.5], rotationY: heading, color: 0x6b4a30, segment, composite: 910 + i },
+    )
+  }
+
+  // Parasols over high tables, out on the deck.
+  for (let i = 0; i < 5; i++) {
+    const [px, pz] = local(-5 + i * 2.6, -1.6 - (i % 2) * 2.2)
+    poles.push({
+      position: [px, cy + 1.3, pz], scale: [0.11, 2.6, 0.11],
+      rotationY: heading, color: POST, segment,
+    })
+    heads.push({
+      position: [px, cy + 2.62, pz], scale: [3.0, 0.2, 3.0],
+      rotationY: heading + i * 0.3, color: i % 2 === 0 ? CANVAS : 0xe0a06a, segment,
+    })
+    clutter.push(
+      { position: [px, cy + 0.86, pz], scale: [1.1, 0.1, 1.1], rotationY: heading, color: 0x8f6c46, segment, composite: 930 + i },
+    )
+  }
+
+  // Speaker stacks either end, and a run of lights over the deck.
+  for (const along of [-5.6, 5.6]) {
+    const [sx, sz] = local(along, 1.2)
+    clutter.push(
+      { position: [sx, cy + 0.9, sz], scale: [0.7, 1.5, 0.6], rotationY: heading, color: 0x24262b, segment, composite: 940 },
+      { position: [sx, cy + 1.3, sz], scale: [0.5, 0.5, 0.66], rotationY: heading, color: 0x14161a, segment, composite: 940 },
+    )
+  }
+  for (let i = 0; i <= 16; i++) {
+    const u = i / 16
+    const [lx, lz] = local(-6 + u * 12, -0.4)
+    // A sag between the two masts, the same shape the Rush Street strings use.
+    const sag = Math.sin(u * Math.PI) * 0.55
+    blobs.push({
+      position: [lx, cy + 3.2 - sag, lz],
+      scale: [0.2, 0.2, 0.2],
+      rotationY: 0,
+      color: 0xffd98a,
+      segment,
+    })
+  }
+  for (const along of [-6.2, 6.2]) {
+    const [mx, mz] = local(along, -0.4)
+    poles.push({
+      position: [mx, cy + 1.7, mz], scale: [0.13, 3.4, 0.13],
+      rotationY: heading, color: POST, segment,
+    })
+  }
+
+  /**
+   * Parasols out on the open sand, away from the club.
+   *
+   * Cheap, and they do most of the work of making the beach look occupied from
+   * a distance — a plain sand plane reads as unfinished however many people are
+   * lying on it.
+   */
+  const shades = Math.max(5, Math.round((span * railLength) / 26))
+  for (let i = 0; i < shades; i++) {
+    const t = section.tStart + ((i + 0.4) / shades) * span
+    const out = 9 + rng() * 22
+    const side = rng() < 0.62 ? -1 : 1
+    const [x, y, z] = at(t, side * out)
+    if (nearRail(x, z, 3.2) || clashes(x, z, 2.4)) continue
+    claim(x, z, 2.4)
+    const seg = segmentFor(t)
+    const lean = (rng() - 0.5) * 0.24
+    poles.push({
+      position: [x, y + 1.05, z], scale: [0.09, 2.1, 0.09],
+      rotationY: headingAt(t), color: POST, segment: seg,
+    })
+    heads.push({
+      position: [x, y + 2.12, z], scale: [2.6, 0.18, 2.6],
+      rotationY: headingAt(t) + lean,
+      color: pick(rng, [0xe86a4a, 0xe8b23a, 0x3f8fa8, 0xe8e4da, 0xd8556a]),
+      segment: seg,
+    })
+    // A towel under it, and a cooler beside it.
+    clutter.push(
+      {
+        position: [x + Math.cos(lean * 4) * 1.2, y + 0.04, z + Math.sin(lean * 4) * 1.2],
+        scale: [1.5, 0.08, 2.2], rotationY: headingAt(t) + lean * 3,
+        color: pick(rng, [0xe8e4da, 0xd8556a, 0x3f8fa8, 0xe8b23a]),
+        segment: seg, composite: 960 + i,
+      },
+      {
+        position: [x - Math.cos(lean * 4) * 1.1, y + 0.2, z - Math.sin(lean * 4) * 1.1],
+        scale: [0.6, 0.4, 0.42], rotationY: headingAt(t),
+        color: 0x3f8fa8, segment: seg, composite: 960 + i,
+      },
+    )
+  }
 }
 
 /**
@@ -910,10 +1312,17 @@ function frontageSpec(kind: SectionKind): FrontageSpec | null {
     case 'park':
       return null
     case 'tunnel':
-      // The tunnel's "buildings" are its walls. Short segments, because an
-      // eight-metre box cannot follow a curve — the ends swing inward and clip
-      // the camera, and consecutive boxes pile into each other on the inside.
-      return { frontage: 3.5, setback: 4.4, depth: [1.2, 1.6], height: [4, 4.4], gapChance: 0 }
+      /**
+       * Nothing. The cut's retaining walls are part of the ground now —
+       * `addCutWalls` builds them as one continuous surface following the same
+       * samples the tunnel floor is built from.
+       *
+       * This used to place a run of 3.5 m boxes along both sides *as well*, and
+       * a box cannot follow a curve: each one met the next at an angle, so the
+       * ends swung out, gaps opened between them and daylight showed through.
+       * That jumble of leaning panels was the whole of what read as "janky".
+       */
+      return null
     case 'alley':
       return { frontage: 10, setback: 2.8, depth: [10, 16], height: [16, 30], gapChance: 0 }
     case 'interior':

@@ -97,10 +97,12 @@ function City() {
 
   useEffect(() => {
     return () => {
-      built.geometry.dispose()
+      // Not the geometry: `buildCityGround` memoises it, and the height sampler
+      // holds the same object. Disposing it here would leave a remount drawing
+      // from a freed buffer.
       material.dispose()
     }
-  }, [built, material])
+  }, [material])
 
   return (
     <mesh geometry={built.geometry} castShadow receiveShadow frustumCulled={false}>
@@ -137,10 +139,12 @@ function CityGround() {
 
   useEffect(() => {
     return () => {
-      built.geometry.dispose()
+      // Not the geometry: `buildCityGround` memoises it, and the height sampler
+      // holds the same object. Disposing it here would leave a remount drawing
+      // from a freed buffer.
       material.dispose()
     }
-  }, [built, material])
+  }, [material])
 
   return (
     <mesh geometry={built.geometry} receiveShadow frustumCulled={false}>

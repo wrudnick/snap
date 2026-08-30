@@ -98,6 +98,28 @@ export const OUTFITS: OutfitDef[] = [
     headwear: ['cap'],
   },
   {
+    id: 'swimwear',
+    top: 2, legs: 5, sleeve: 0,
+    bareArms: true, cropped: true, shorts: true,
+    palette: 'bright',
+    headwear: ['sunhat', 'cap'],
+  },
+  {
+    id: 'trunks',
+    top: 2, legs: 5, sleeve: 0,
+    bareArms: true, shorts: true,
+    palette: 'bright',
+    headwear: ['cap'],
+  },
+  {
+    id: 'beach-cover',
+    top: 0, legs: 7, sleeve: 0,
+    bareArms: true, skirt: true,
+    palette: 'bright',
+    headwear: ['sunhat'],
+    bag: ['tote'],
+  },
+  {
     id: 'police-uniform',
     top: 5, legs: 4, sleeve: 2,
     palette: 'uniform',
@@ -228,6 +250,10 @@ export const CLASS_OUTFITS: Record<string, string[]> = {
   'business-man': ['suit', 'overcoat', 'shirt-sleeves', 'blouse-and-slacks'],
   'business-woman': ['skirt-suit', 'blouse-and-slacks', 'suit', 'overcoat'],
   police: ['police-uniform'],
+  // Beach: the point is bare arms and legs, so the class is limited to looks
+  // that have them. A sunbather in an overcoat reads as a mistake.
+  beachgoer: ['swimwear', 'trunks', 'beach-cover', 'tank-and-shorts'],
+  partygoer: ['crop-and-wide-leg', 'summer-dress', 'graphic-tee', 'tank-and-shorts', 'beach-cover'],
   homeless: ['overcoat', 'puffer', 'patchwork'],
 }
 

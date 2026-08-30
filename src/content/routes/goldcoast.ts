@@ -205,6 +205,51 @@ export const GOLD_COAST: RouteDef = {
     { id: 'gull-2', species: 'pigeon', at: { section: 'beach', u: 0.45, offset: -9, y: 0.2 }, rotationY: 1.8, seed: 102 },
     { id: 'dog-beach', species: 'dog', at: { section: 'beach', u: 0.75, offset: 11 }, rotationY: 1.1, seed: 103 },
 
+    /**
+     * The beach, occupied.
+     *
+     * Sunbathers spread down the sand on both sides, then the crowd packed in
+     * around the club at u 0.84 — the last thing you pass before the route
+     * turns down into the underpass. Negative offsets are lakeward, so the
+     * loungers sit between the path and the water and the club sits inland of
+     * it, which is where the real one is.
+     */
+    { id: 'sun-1', species: 'beachgoer', at: { section: 'beach', u: 0.08, offset: -12 }, rotationY: 2.6, seed: 610 },
+    { id: 'sun-2', species: 'beachgoer', at: { section: 'beach', u: 0.11, offset: -17 }, rotationY: 2.2, seed: 611 },
+    { id: 'sun-3', species: 'beachgoer', at: { section: 'beach', u: 0.16, offset: -24 }, rotationY: 3.0, seed: 612 },
+    { id: 'sun-4', species: 'beachgoer', at: { section: 'beach', u: 0.19, offset: 9 }, rotationY: -0.6, seed: 613 },
+    { id: 'sun-5', species: 'beachgoer', at: { section: 'beach', u: 0.24, offset: -14 }, rotationY: 2.4, seed: 614 },
+    { id: 'sun-6', species: 'beachgoer', at: { section: 'beach', u: 0.28, offset: -20 }, rotationY: 1.9, seed: 615 },
+    { id: 'sun-7', species: 'beachgoer', at: { section: 'beach', u: 0.33, offset: 13 }, rotationY: -1.1, seed: 616 },
+    { id: 'sun-8', species: 'beachgoer', at: { section: 'beach', u: 0.37, offset: -10 }, rotationY: 2.8, seed: 617 },
+    { id: 'sun-9', species: 'beachgoer', at: { section: 'beach', u: 0.42, offset: -26 }, rotationY: 2.1, seed: 618 },
+    { id: 'sun-10', species: 'beachgoer', at: { section: 'beach', u: 0.47, offset: -16 }, rotationY: 3.1, seed: 619 },
+    { id: 'sun-11', species: 'beachgoer', at: { section: 'beach', u: 0.52, offset: 11 }, rotationY: -0.9, seed: 620 },
+    { id: 'sun-12', species: 'beachgoer', at: { section: 'beach', u: 0.56, offset: -21 }, rotationY: 2.5, seed: 621 },
+    { id: 'sun-13', species: 'beachgoer', at: { section: 'beach', u: 0.63, offset: -13 }, rotationY: 1.7, seed: 622 },
+    { id: 'sun-14', species: 'beachgoer', at: { section: 'beach', u: 0.68, offset: -29 }, rotationY: 2.9, seed: 623 },
+    { id: 'sun-15', species: 'beachgoer', at: { section: 'beach', u: 0.72, offset: 14 }, rotationY: -1.4, seed: 624 },
+    { id: 'sun-16', species: 'beachgoer', at: { section: 'beach', u: 0.79, offset: -18 }, rotationY: 2.3, seed: 625 },
+    { id: 'sun-17', species: 'beachgoer', at: { section: 'beach', u: 0.90, offset: -22 }, rotationY: 2.7, seed: 626 },
+    { id: 'sun-18', species: 'beachgoer', at: { section: 'beach', u: 0.95, offset: -12 }, rotationY: 2.0, seed: 627 },
+
+    // The club. `offset` 15 is its deck; the crowd rings the counter and spills
+    // out toward the path.
+    { id: 'club-1', species: 'partygoer', at: { section: 'beach', u: 0.82, offset: 12.5, y: 0.32 }, rotationY: 0.6, seed: 640 },
+    { id: 'club-2', species: 'partygoer', at: { section: 'beach', u: 0.83, offset: 15.5, y: 0.32 }, rotationY: -2.1, seed: 641 },
+    { id: 'club-3', species: 'partygoer', at: { section: 'beach', u: 0.845, offset: 13.5, y: 0.32 }, rotationY: 1.8, seed: 642 },
+    { id: 'club-4', species: 'partygoer', at: { section: 'beach', u: 0.855, offset: 17.0, y: 0.32 }, rotationY: -1.2, seed: 643 },
+    { id: 'club-5', species: 'partygoer', at: { section: 'beach', u: 0.865, offset: 12.0, y: 0.32 }, rotationY: 2.4, seed: 644 },
+    { id: 'club-6', species: 'partygoer', at: { section: 'beach', u: 0.875, offset: 16.0, y: 0.32 }, rotationY: -0.4, seed: 645 },
+    { id: 'club-7', species: 'partygoer', at: { section: 'beach', u: 0.815, offset: 18.0, y: 0.32 }, rotationY: 1.1, seed: 646 },
+    { id: 'club-8', species: 'partygoer', at: { section: 'beach', u: 0.885, offset: 14.5, y: 0.32 }, rotationY: -2.6, seed: 647 },
+    { id: 'club-9', species: 'partygoer', at: { section: 'beach', u: 0.80, offset: 9.5 }, rotationY: 0.9, seed: 648 },
+    { id: 'club-10', species: 'partygoer', at: { section: 'beach', u: 0.87, offset: 8.5 }, rotationY: -1.7, seed: 649 },
+    { id: 'club-11', species: 'partygoer', at: { section: 'beach', u: 0.89, offset: 10.5 }, rotationY: 2.2, seed: 650 },
+    { id: 'club-12', species: 'partygoer', at: { section: 'beach', u: 0.835, offset: 20.5, y: 0.32 }, rotationY: -0.8, seed: 651 },
+    { id: 'gull-3', species: 'pigeon', at: { section: 'beach', u: 0.86, offset: 7.0 }, rotationY: -0.7, seed: 652 },
+    { id: 'gull-4', species: 'pigeon', at: { section: 'beach', u: 0.30, offset: -18, y: 0.2 }, rotationY: 1.2, seed: 653 },
+
     // — Underpass —
     { id: 'pig-tunnel', species: 'pigeon', at: { section: 'underpass', u: 0.35, offset: 2.6, y: 0.15 }, rotationY: -1.6, seed: 111 },
     { id: 'cat-tunnel', species: 'cat', at: { section: 'underpass', u: 0.75, offset: -2.4 }, rotationY: 1.4, seed: 112 },

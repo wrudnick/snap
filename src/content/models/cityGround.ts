@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { SURFACE, type SurfaceKind } from '@/render/ground'
 
 import { CITY, type CityStreet } from './city'
-import { ASPHALT, SIDEWALK } from './environment'
+import { ASPHALT, SIDEWALK } from './surfaces'
 import { buildingAt, dominantStreet, inCarriageway, lateralClearance } from './footprints'
 import { applyLimits, curveLimits } from './ribbon'
 import {
@@ -345,7 +345,19 @@ function underPatch(x: number, z: number): boolean {
   return GROUND_PATCHES.some((p) => p.cullsAbove !== false && inRing(p.ring, x, z))
 }
 
+let cached: CityGroundResult | null = null
+
+/**
+ * Memoised: deterministic input, and the height sampler needs the same
+ * geometry the scene is drawing rather than a second 56,000-triangle copy of
+ * it built alongside.
+ */
 export function buildCityGround(): CityGroundResult {
+  cached ??= buildCityGroundUncached()
+  return cached
+}
+
+function buildCityGroundUncached(): CityGroundResult {
   const positions: number[] = []
   const colors: number[] = []
   const grounds: number[] = []
@@ -767,38 +779,78 @@ function addCutWalls(
 ): void {
   const WALL_COLOR = 0x6f6a61
   const TOP = 0.06
-  let along = 0
 
+  /**
+   * Wall lines offset from the path with mitred corners.
+   *
+   * Built per segment, each quad used its own segment's normal, so at every
+   * bend segment i's far edge and segment i+1's near edge sat at different
+   * lateral positions — the wall came apart into leaning panels with daylight
+   * between them, which is most of what read as a janky underpass.
+   *
+   * Averaging the two adjacent segment normals at each vertex makes consecutive
+   * quads share their endpoints exactly, so the wall is continuous by
+   * construction rather than by luck.
+   */
+  const normals: Array<[number, number]> = []
+  for (let i = 0; i < UNDERPASS_PATH.length; i++) {
+    const prev = UNDERPASS_PATH[Math.max(0, i - 1)]!
+    const next = UNDERPASS_PATH[Math.min(UNDERPASS_PATH.length - 1, i + 1)]!
+    const dx = next[0] - prev[0]
+    const dz = next[2] - prev[2]
+    const length = Math.hypot(dx, dz) || 1
+    normals.push([-dz / length, dx / length])
+  }
+
+  let along = 0
   for (let i = 1; i < UNDERPASS_PATH.length; i++) {
     const [ax, ay, az] = UNDERPASS_PATH[i - 1]!
     const [bx, by, bz] = UNDERPASS_PATH[i]!
-    const dx = bx - ax
-    const dz = bz - az
-    const length = Math.hypot(dx, dz) || 1
-    const rx = -dz / length
-    const rz = dx / length
+    const [arx, arz] = normals[i - 1]!
+    const [brx, brz] = normals[i]!
+    const length = Math.hypot(bx - ax, bz - az) || 1
 
-    // Nothing to retain where the ramp has climbed back to the street.
-    if (ay > -0.25 && by > -0.25) {
+    // Nothing to retain where the ramp has climbed back to street level. Tested
+    // per end rather than per segment, so the wall tapers out instead of
+    // stopping dead one segment early.
+    const aHeight = TOP - ay
+    const bHeight = TOP - by
+    if (aHeight < 0.08 && bHeight < 0.08) {
       along += length
       continue
     }
 
     for (const side of [-1, 1] as const) {
-      const x0 = ax + rx * UNDERPASS_HALF * side
-      const z0 = az + rz * UNDERPASS_HALF * side
-      const x1 = bx + rx * UNDERPASS_HALF * side
-      const z1 = bz + rz * UNDERPASS_HALF * side
+      const x0 = ax + arx * UNDERPASS_HALF * side
+      const z0 = az + arz * UNDERPASS_HALF * side
+      const x1 = bx + brx * UNDERPASS_HALF * side
+      const z1 = bz + brz * UNDERPASS_HALF * side
 
       const base = vertexCount()
       pushVertex(x0, ay, z0, along, 0, WALL_COLOR, SURFACE.concrete)
       pushVertex(x1, by, z1, along + length, 0, WALL_COLOR, SURFACE.concrete)
-      pushVertex(x1, TOP, z1, along + length, Math.abs(TOP - by), WALL_COLOR, SURFACE.concrete)
-      pushVertex(x0, TOP, z0, along, Math.abs(TOP - ay), WALL_COLOR, SURFACE.concrete)
+      pushVertex(x1, TOP, z1, along + length, Math.abs(bHeight), WALL_COLOR, SURFACE.concrete)
+      pushVertex(x0, TOP, z0, along, Math.abs(aHeight), WALL_COLOR, SURFACE.concrete)
 
       // Wound to face into the cut, which is the only side anyone sees.
       if (side < 0) indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
       else indices.push(base, base + 2, base + 1, base, base + 3, base + 2)
+
+      /**
+       * A parapet standing above the wall.
+       *
+       * An upstand, not a flat coping laid over the pavement: a horizontal band
+       * at street level is coplanar with the street it sits on, and the ground
+       * sweep caught it z-fighting along the whole length of the cut.
+       */
+      const PARAPET = 0.42
+      const cap = vertexCount()
+      pushVertex(x0, TOP, z0, along, 0, 0x8a857b, SURFACE.concrete)
+      pushVertex(x1, TOP, z1, along + length, 0, 0x8a857b, SURFACE.concrete)
+      pushVertex(x1, TOP + PARAPET, z1, along + length, PARAPET, 0x8a857b, SURFACE.concrete)
+      pushVertex(x0, TOP + PARAPET, z0, along, PARAPET, 0x8a857b, SURFACE.concrete)
+      if (side < 0) indices.push(cap, cap + 1, cap + 2, cap, cap + 2, cap + 3)
+      else indices.push(cap, cap + 2, cap + 1, cap, cap + 3, cap + 2)
     }
 
     along += length

@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 
+import { groundHeightAt } from '@/content/models/groundHeight'
+
 import type { RouteDef, SubjectPlacement } from '@/content/routes/types'
 import { type Rail, segmentActive } from '@/game/rail'
 import type { ResolvedSection } from '@/game/sections'
@@ -77,23 +79,29 @@ function resolvePlacements(
     rail.positionAt(t, point)
     rail.rightAt(t, right)
 
-    // Ground follows the rail, which dips 2.8 m below grade in the underpass and
-    // climbs back. Defaulting `y` to 0 leaves subjects floating there — so the
-    // default is the ground *under this point of the route*, and an explicit `y`
-    // is a lift above it rather than an absolute height.
-    const ground = point.y - EYE_HEIGHT
-
     // `offset` is metres left of travel, so subtract the right-hand normal.
+    const x = point.x - right.x * p.at.offset
+    const z = point.z - right.z * p.at.offset
+
+    /**
+     * The ground under the subject, not under the route.
+     *
+     * This used to be `point.y - EYE_HEIGHT` — the rail's own height at the
+     * anchor — which is right only where the street is level with the path. A
+     * car parked out in Michigan Avenue while the route was still climbing out
+     * of the underpass took the route's height and hung a metre above the road.
+     * The rail's height is now only the hint that says which surface is meant,
+     * so a subject in the tunnel still lands on the tunnel floor rather than on
+     * the deck overhead.
+     */
+    const ground = groundHeightAt(x, z, point.y - EYE_HEIGHT)
+
     return {
       ...p,
       rotationY: p.alignToRoute
         ? (p.rotationY ?? 0) + rail.headingAt(t)
         : p.rotationY,
-      position: [
-        point.x - right.x * p.at.offset,
-        ground + (p.at.y ?? 0),
-        point.z - right.z * p.at.offset,
-      ] as [number, number, number],
+      position: [x, ground + (p.at.y ?? 0), z] as [number, number, number],
     }
   })
 }
