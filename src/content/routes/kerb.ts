@@ -31,11 +31,19 @@ const STAND_OFF = 2.6
 /** How far a single waypoint may be moved before we assume we have it wrong. */
 const MAX_SHIFT = 14
 
-/** Offsets sampled around a curve point, for the camera's own width. */
+/**
+ * Offsets sampled around a curve point, for the camera's own width.
+ *
+ * 0.9 m, not 1.7. The geometry sweep asks for 0.45 m of clearance from a wall;
+ * demanding nearly four times that meant no position on Michigan Avenue's
+ * pavement qualified — the towers stand close to the kerb — so every correction
+ * there backed off to zero and the player stayed in the middle of the road. Two
+ * pavement slabs of margin is comfortable and achievable.
+ */
 const CLEARANCE: Array<[number, number]> = [
   [0, 0],
-  [1.7, 0], [-1.7, 0], [0, 1.7], [0, -1.7],
-  [1.2, 1.2], [1.2, -1.2], [-1.2, 1.2], [-1.2, -1.2],
+  [0.9, 0], [-0.9, 0], [0, 0.9], [0, -0.9],
+  [0.64, 0.64], [0.64, -0.64], [-0.64, 0.64], [-0.64, -0.64],
 ]
 
 export function walkTheKerb(
@@ -49,11 +57,12 @@ export function walkTheKerb(
     for (let i = section.waypoints[0]; i <= section.waypoints[1]; i++) inScope.add(i)
   }
 
-  const corrected = waypoints.map((point, index) => {
-    if (!inScope.has(index)) return point
-    const [x, y, z] = point
+  /** The full correction for each waypoint, as a world-space offset. */
+  const shifts = waypoints.map((point, index): [number, number] => {
+    if (!inScope.has(index)) return [0, 0]
+    const [x, , z] = point
     const street = nearestStreet(x, z)
-    if (!street) return point
+    if (!street) return [0, 0]
 
     const lateral = (x - street.x) * street.rx + (z - street.z) * street.rz
 
@@ -67,56 +76,59 @@ export function walkTheKerb(
      * whatever the buildings leave is right on both, and it is self-limiting.
      */
     const room = lateralClearance(street.x, street.z, street.rx, street.rz, 26)
-    const target = Math.min(street.half + STAND_OFF, (street.half + room) / 2)
-    if (target < street.half + 0.8) return point
+    /**
+     * `lateralClearance` walks outward from the street centre and stops at the
+     * first footprint on *either* side, so on Michigan Avenue — towers close on
+     * one side, plaza on the other — it comes back smaller than the
+     * carriageway's own half-width. Halfway between the kerb and that is then
+     * inside the road, the guard below rejected it, and not one Michigan
+     * waypoint was corrected at all.
+     *
+     * When the measurement is not informative, take the standard stand-off and
+     * let the curve check back it off if the geometry cannot take it. That
+     * check is the real safety net; this is only a first guess.
+     */
+    const informative = room > street.half + 1
+    const target = informative
+      ? Math.min(street.half + STAND_OFF, (street.half + room) / 2)
+      : street.half + STAND_OFF
     // Already on the pavement or beyond it: leave it alone. Only a waypoint
     // inside the carriageway is wrong.
-    if (Math.abs(lateral) >= target) return point
+    if (Math.abs(lateral) >= target) return [0, 0]
 
     // Keep the side. A waypoint exactly on the centreline has no side of its
-    // own, so it takes the side the previous corrected point took — resolved by
-    // the caller's ordering, and +1 at the very start.
+    // own, so it takes the outward one.
     const side = lateral === 0 ? 1 : Math.sign(lateral)
-
-    /**
-     * As far out as the pavement actually goes.
-     *
-     * A flat 2.6 m past the kerb is right on a wide avenue and inside the
-     * shopfronts on Delaware, where the pavement is barely two metres. Stepping
-     * inward until the point is clear of every footprint finds the real width;
-     * if nothing on this side is walkable the waypoint is left as drawn rather
-     * than moved somewhere worse.
-     */
-    for (let stand = target; stand >= street.half + 0.8; stand -= 0.3) {
-      const shift = stand * side - lateral
-      if (Math.abs(shift) > MAX_SHIFT) continue
-      const nx = x + street.rx * shift
-      const nz = z + street.rz * shift
-      // Checked with a margin, because the camera has width even if a point
-      // does not: a waypoint that merely fails to be inside a wall still
-      // scrapes along it.
-      if (buildingAt(nx, nz)) continue
-      if (buildingAt(nx + street.rx * 1.4 * side, nz + street.rz * 1.4 * side)) continue
-      return [nx, y, nz] as [number, number, number]
-    }
-    return point
+    const shift = target * side - lateral
+    if (Math.abs(shift) > MAX_SHIFT) return [0, 0]
+    return [street.rx * shift, street.rz * shift]
   })
 
   /**
-   * Now check the curve, not just the points.
+   * Apply as much of each correction as the curve can take.
    *
    * Moving a waypoint sideways moves the spline through it, and a Catmull-Rom
    * through corrected points either side of an uncorrected corner swings wide:
    * pushing Michigan Avenue onto its pavement sent the curve straight through
-   * One Magnificent Mile, even though every individual waypoint was clear.
+   * One Magnificent Mile even though every individual waypoint was clear.
    *
    * So the corrected line is evaluated the way the Rail will build it, and any
-   * waypoint whose stretch passes through a footprint is put back where it was
-   * drawn. Repeated until the curve is clean or there is nothing left to
-   * revert — reverting one point changes the two spans either side of it.
+   * waypoint whose stretch fouls a footprint has its correction halved — not
+   * thrown away. All-or-nothing reverting was the first attempt and it undid
+   * four of Michigan's five waypoints over a single bad sample near the corner,
+   * which left the player back in the middle of the road. Backing off converges
+   * on the largest correction the geometry actually allows.
    */
-  const reverted = new Set<number>()
-  for (let pass = 0; pass < 6; pass++) {
+  const factors = waypoints.map(() => 1)
+  const build = () =>
+    waypoints.map(([x, y, z], i): [number, number, number] => [
+      x + shifts[i]![0] * factors[i]!,
+      y,
+      z + shifts[i]![1] * factors[i]!,
+    ])
+
+  for (let pass = 0; pass < 8; pass++) {
+    const corrected = build()
     const curve = new THREE.CatmullRomCurve3(
       corrected.map(([x, y, z]) => new THREE.Vector3(x, y, z)),
       false,
@@ -131,29 +143,22 @@ export function walkTheKerb(
       const t = i / steps
       curve.getPointAt(t, point)
       /**
-       * With the near plane's margin, not as a bare point.
-       *
-       * A camera that merely fails to be inside a wall still scrapes along it:
-       * the geometry sweep asks for clearance, so the correction has to check
-       * for clearance too, or it hands back a line that passes every
-       * waypoint-level test and fails the one that matters.
+       * With the near plane's margin, not as a bare point: a camera that merely
+       * fails to be inside a wall still scrapes along it.
        */
       if (!CLEARANCE.some(([dx, dz]) => buildingAt(point.x + dx, point.z + dz))) continue
-      // Blame the nearest corrected waypoint on either side of this sample.
+      // Blame the nearest corrected waypoints on either side of this sample.
       const near = Math.round(t * (corrected.length - 1))
       for (const j of [near - 1, near, near + 1]) {
         if (j < 0 || j >= corrected.length) continue
-        if (!inScope.has(j) || reverted.has(j)) continue
+        if (factors[j]! <= 0) continue
         guilty.add(j)
       }
     }
 
     if (guilty.size === 0) break
-    for (const j of guilty) {
-      corrected[j] = waypoints[j]!
-      reverted.add(j)
-    }
+    for (const j of guilty) factors[j] = factors[j]! < 0.2 ? 0 : factors[j]! * 0.5
   }
 
-  return corrected
+  return build()
 }
