@@ -503,14 +503,16 @@ function buildProps(
           }
         }
       }
-    } else if (section.kind !== 'beach') {
+    } else if (section.kind !== 'beach' && section.kind !== 'alley') {
       /**
        * Alleys, the tunnel and the restaurant interior: anonymous junk is the
        * point, and it gives the occlusion term something to work with.
        *
-       * Not the beach. Its furniture is the club, the parasols and the towels,
-       * and because this loop runs first a random 1 m box was landing on the
-       * club's deck before the deck existed to be claimed.
+       * Not the beach and not the alley. Both have their own furniture now —
+       * the club and its parasols, the dumpsters and fire escapes — and because
+       * this loop runs first, a random 1 m box was landing on the club's deck
+       * and inside the alley's pallet stacks before either existed to be
+       * claimed.
        */
       const clutterCount = rangeInt(rng, 2, Math.max(3, Math.round(spanMetres / 12)))
       const clutterSpec = clutterOffsets(section.kind)
@@ -549,12 +551,16 @@ function buildProps(
       })
     }
 
+    if (section.kind === 'alley') {
+      addAlleyDressing(section, route, rail.length, rng, at, headingAt, heads, clutter, blobs, nearRail)
+    }
+
     if (section.kind === 'tunnel') {
       addTunnelRoof(section, route, rail.length, at, buildings)
     }
 
     if (section.kind === 'boutique') {
-      addShopfronts(section, route, rail.length, rng, at, headingAt, poles, heads, clutter)
+      addShopfronts(section, route, rail.length, rng, at, headingAt, poles, heads, nearRail)
     }
 
     if (section.kind === 'interior') {
@@ -567,6 +573,248 @@ function buildProps(
   }
 
   return { buildings, poles, heads, clutter, blobs }
+}
+
+/**
+ * What is actually in a Chicago alley.
+ *
+ * The alley was two blank walls, a floor and a rat. Everything here is bolted
+ * to the wall line or standing against it rather than scattered, because the
+ * alley is three metres wide and anything placed at random in it ends up in the
+ * camera. The wall is at the frontage setback, so props sit between 1.9 and 2.8
+ * metres off the centreline — clear of the near plane, close enough to read as
+ * attached to the building.
+ *
+ * Fire escapes are the point. They are the single most recognisable thing about
+ * the space, they break up an otherwise blank thirty-metre wall, and they give
+ * the light something to cut through.
+ */
+function addAlleyDressing(
+  section: ResolvedSection,
+  route: RouteDef,
+  railLength: number,
+  rng: () => number,
+  at: (t: number, offset: number) => [number, number, number],
+  headingAt: (t: number) => number,
+  heads: Prop[],
+  clutter: Prop[],
+  blobs: Prop[],
+  nearRail: (x: number, z: number, radius: number) => boolean,
+): void {
+  const span = section.tEnd - section.tStart
+  const spanMetres = span * railLength
+  const segmentFor = (t: number) =>
+    Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount))
+
+  /**
+   * How far off the centreline the wall is, measured rather than assumed.
+   *
+   * A fixed 2.55 m put the dressing inside the buildings on the wide stretches
+   * and inside the camera on the narrow ones — the alley is not a constant
+   * width, and the frontage massing is not where the real buildings are. Asking
+   * for the lateral clearance at each bay gets the actual face.
+   */
+  const MIN_WALL = 2.1
+  /** Matches `frontageSpec('alley').setback`, which is where the walls stand. */
+  const ALLEY_SETBACK = 2.8
+  const BRICK = 0x5c554b
+  const STEEL = 0x3a3f45
+  const RUST = 0x7a4f38
+
+  let id = 2000
+  const bays = Math.max(4, Math.round(spanMetres / 9))
+
+  for (const side of [-1, 1] as const) {
+    for (let i = 0; i < bays; i++) {
+      const t = section.tStart + ((i + 0.5) / bays) * span
+      const heading = headingAt(t)
+      const [rx0, , rz0] = at(t, 0)
+      const [ax0, , az0] = at(t, side)
+      /**
+       * Capped at the frontage setback.
+       *
+       * `lateralClearance` only sees real OSM footprints, and the alley's walls
+       * are procedural massing standing at the setback — so where OSM has
+       * nothing it answers 9 m, and the fire escapes went out nine metres and
+       * hung in mid-air well past the wall the player can actually see. The
+       * setback is where the visible wall is; a nearer real building wins.
+       */
+      const room = lateralClearance(rx0, rz0, ax0 - rx0, az0 - rz0, 9)
+      if (room < MIN_WALL) continue
+      const WALL = Math.min(ALLEY_SETBACK - 0.1, Math.max(MIN_WALL, room - 0.15))
+      const [x, y, z] = at(t, side * WALL)
+      const segment = segmentFor(t)
+      const wallIn = -0.25 * side
+      const cos = Math.cos(heading)
+      const sin = Math.sin(heading)
+      /** Offset from the wall point: `along` down the alley, `out` toward it. */
+      const spot = (along: number, out: number): [number, number] => [
+        x - sin * along + cos * out * side,
+        z + cos * along + sin * out * side,
+      ]
+
+      /**
+       * The same, refusing a spot that is inside a building or in the camera.
+       *
+       * Checking only the bay's anchor is not enough: the dumpster sits 1.6 m
+       * along it and the crate 3.4 m, and the alley walls are not straight, so
+       * an anchor that clears can still have a prop three metres away inside
+       * the brickwork.
+       */
+      const floorSpot = (along: number, out: number): [number, number] | null => {
+        const [sx, sz] = spot(along, out)
+        if (buildingAt(sx, sz) || nearRail(sx, sz, 1.9)) return null
+        return [sx, sz]
+      }
+      if (nearRail(x, z, 1.9) || buildingAt(x, z)) continue
+      const group = ++id
+
+      // Downpipe, full height, and the hoppers on it.
+      const pipe = floorSpot(-3.4, wallIn)
+      // Reaches the ground, so this one is genuinely floor clutter.
+      if (pipe) {
+        clutter.push({
+          position: [pipe[0], y + 5, pipe[1]], scale: [0.22, 10, 0.22],
+          rotationY: heading, color: RUST, segment, composite: group,
+        })
+      }
+
+      /**
+       * Fire escape: two platforms and the ladder between them.
+       *
+       * Platforms in `heads` rather than `clutter` — they are meant to be four
+       * metres up, and the ground sweep asks everything in clutter to be
+       * standing on the floor.
+       */
+      if (i % 2 === 0) {
+        for (const [level, lift] of [[0, 3.6], [1, 7.0]] as const) {
+          const [ax, az] = spot(0, 0.55)
+          heads.push(
+            { position: [ax, y + lift, az], scale: [1.5, 0.1, 3.0], rotationY: heading, color: STEEL, segment },
+            { position: [ax, y + lift + 0.5, az], scale: [0.06, 1.0, 3.0], rotationY: heading, color: STEEL, segment },
+          )
+          for (const end of [-1.45, 1.45]) {
+            const [bx2, bz2] = spot(end, 0.55)
+            heads.push({
+              position: [bx2, y + lift + 0.5, bz2], scale: [1.4, 1.0, 0.06],
+              rotationY: heading, color: STEEL, segment,
+            })
+          }
+          // Ladder up to the next level, leaning along the wall.
+          if (level === 0) {
+            const [lx, lz] = spot(1.1, 0.5)
+            heads.push({
+              position: [lx, y + lift + 1.7, lz], scale: [0.5, 3.6, 0.1],
+              rotationY: heading, color: STEEL, segment,
+            })
+          }
+        }
+      }
+
+      // Air-conditioning unit and its bracket.
+      if (i % 3 === 1) {
+        const [ax, az] = spot(2.2, 0.42)
+        // Bolted to the wall three metres up: `heads`, not `clutter`.
+        heads.push(
+          { position: [ax, y + 2.9, az], scale: [0.9, 0.8, 0.7], rotationY: heading, color: 0x9aa0a8, segment },
+          { position: [ax, y + 2.4, az], scale: [1.0, 0.12, 0.6], rotationY: heading, color: STEEL, segment },
+        )
+      }
+
+      // A caged wall light, and the conduit feeding it.
+      const [wx, wz] = spot(-1.2, 0.3)
+      heads.push(
+        { position: [wx, y + 3.4, wz], scale: [0.3, 0.34, 0.34], rotationY: heading, color: STEEL, segment },
+        { position: [wx, y + 1.9, wz], scale: [0.08, 2.6, 0.08], rotationY: heading, color: STEEL, segment },
+      )
+      blobs.push({
+        position: [wx, y + 3.3, wz], scale: [0.26, 0.22, 0.26],
+        rotationY: 0, color: 0xffe0a0, segment,
+      })
+
+      /**
+       * Graffiti.
+       *
+       * Flat panels of saturated colour on a brown wall. It is the cheapest
+       * thing on this list and it does more for the alley than any of the
+       * geometry, because it is the only colour in the section.
+       */
+      if (i % 2 === 1) {
+        const tags = [0xd8453f, 0x3f8fa8, 0xe8b23a, 0x6b4f9c, 0x4a9c7a]
+        for (let k = 0; k < 3; k++) {
+          const [tx, tz] = spot(-2 + k * 1.5 + rng() * 0.4, 0.06)
+          heads.push({
+            position: [tx, y + 1.5 + rng() * 1.1, tz],
+            scale: [0.06, 0.5 + rng() * 0.5, 0.9 + rng() * 0.8],
+            rotationY: heading,
+            color: tags[Math.floor(rng() * tags.length)]!,
+            segment,
+          })
+        }
+      }
+
+      // Ground clutter against the wall: a dumpster, or pallets and crates.
+      const bin = i % 2 === 0 ? floorSpot(1.6, 0.62) : null
+      if (bin) {
+        const [dx, dz] = bin
+        const lid = ++id
+        clutter.push(
+          { position: [dx, y + 0.6, dz], scale: [1.0, 1.2, 2.1], rotationY: heading, color: 0x2f4f3a, segment, composite: lid },
+          { position: [dx, y + 1.24, dz], scale: [1.1, 0.12, 2.2], rotationY: heading, color: 0x24402e, segment, composite: lid },
+          { position: [dx, y + 0.12, dz], scale: [1.05, 0.24, 0.2], rotationY: heading, color: 0x1d1f24, segment, composite: lid },
+        )
+      } else if (i % 2 === 1) {
+        const pallets = floorSpot(2.4, 0.62)
+        if (!pallets) continue
+        const [cx2, cz2] = pallets
+        const stack = ++id
+        for (let k = 0; k < 3; k++) {
+          clutter.push({
+            position: [cx2, y + 0.09 + k * 0.16, cz2], scale: [0.9, 0.14, 1.1],
+            rotationY: heading + k * 0.08, color: 0x8a6a44, segment, composite: stack,
+          })
+        }
+        const crate = floorSpot(3.4, 0.6)
+        if (crate) {
+          clutter.push({
+            position: [crate[0], y + 0.22, crate[1]], scale: [0.5, 0.44, 0.5],
+            rotationY: heading + 0.3, color: 0x3f6b8f, segment, composite: stack,
+          })
+        }
+      }
+
+      // A back door with a step: somewhere the kitchen the route ends in could
+      // plausibly be behind.
+      const back = i % 3 === 2 ? floorSpot(-2.6, 0.08) : null
+      if (back) {
+        const [gx, gz] = back
+        const door = ++id
+        clutter.push(
+          { position: [gx, y + 1.05, gz], scale: [0.1, 2.1, 1.0], rotationY: heading, color: 0x4a4034, segment, composite: door },
+          { position: [gx, y + 0.09, gz], scale: [0.5, 0.18, 1.2], rotationY: heading, color: BRICK, segment, composite: door },
+        )
+      }
+    }
+  }
+
+  // Cables strung across the alley, and a light or two hanging off them.
+  const runs = Math.max(3, Math.round(spanMetres / 14))
+  for (let i = 0; i < runs; i++) {
+    const t = section.tStart + ((i + 0.6) / runs) * span
+    const [x, y, z] = at(t, 0)
+    const segment = segmentFor(t)
+    const [ax0, , az0] = at(t, 1)
+    // Long enough to reach both walls wherever they happen to be here.
+    const reach = Math.min(ALLEY_SETBACK, Math.max(MIN_WALL, lateralClearance(x, z, ax0 - x, az0 - z, 9))) * 2.2
+    heads.push({
+      position: [x, y + 6.4, z], scale: [reach, 0.07, 0.07],
+      rotationY: headingAt(t), color: 0x1d1f24, segment,
+    })
+    blobs.push({
+      position: [x, y + 6.2, z], scale: [0.22, 0.26, 0.22],
+      rotationY: 0, color: 0xffd98a, segment,
+    })
+  }
 }
 
 /** A darker shade of a prop colour, for the alternate panels of a parasol. */
@@ -1079,7 +1327,7 @@ function addShopfronts(
   headingAt: (t: number) => number,
   poles: Prop[],
   heads: Prop[],
-  clutter: Prop[],
+  nearRail: (x: number, z: number, radius: number) => boolean,
 ): void {
   const span = section.tEnd - section.tStart
   const spanMetres = span * railLength
@@ -1111,6 +1359,15 @@ function addShopfronts(
 
     const [fx, fz] = place(frontage - 0.5)
     if (inCarriageway(fx, fz)) continue
+    /**
+     * No shopfront where there is no room for one.
+     *
+     * The fascia, awning and lit window are mounted a little proud of the
+     * building face, and on a two-metre pavement that is exactly where the
+     * player walks. Skipping the unit is the honest answer: a shop with its
+     * window inside your head is worse than a plain wall.
+     */
+    if (nearRail(fx, fz, 1.9)) continue
 
     // Fascia board above the window, with the shop's colour.
     heads.push({
@@ -1136,7 +1393,12 @@ function addShopfronts(
       // clear the wall the rest of the shopfront is mounted on.
       const poleX = sx - Math.sin(heading) * end
       const poleZ = sz - Math.cos(heading) * end
+      // Also out of the path. The awning stands where the pavement is, and so
+      // does the player now that the route has been moved off the carriageway
+      // — a support pole through the camera is the result of two separately
+      // reasonable placements meeting.
       if (buildingAt(poleX, poleZ) || inCarriageway(poleX, poleZ)) continue
+      if (nearRail(poleX, poleZ, 1.6)) continue
       poles.push({
         position: [poleX, railY + 1.42, poleZ],
         scale: [0.06, 2.85, 0.06],
@@ -1156,19 +1418,14 @@ function addShopfronts(
       segment,
     })
 
-    // A planter or a bollard on the kerb side.
-    if (rng() < 0.6) {
-      const [cx, cz] = place(street.half + 1.4)
-      if (!inCarriageway(cx, cz) && !buildingAt(cx, cz)) {
-        clutter.push({
-          position: [cx, railY + 0.45, cz],
-          scale: [0.7, 0.9, 0.7],
-          rotationY: heading,
-          color: pick(rng, [0x2b2f2a, 0x3a3630, 0x24282c]),
-          segment,
-        })
-      }
-    }
+    /**
+     * No generic kerbside box here any more.
+     *
+     * This placed one 0.7 m dark cube per shopfront and called it "a planter or
+     * a bollard". Boutique streets now get real bins and real flower planters
+     * from the street-furniture pass, which runs first and claims its ground —
+     * this one did not check, so it stood its cube inside them.
+     */
   }
 }
 

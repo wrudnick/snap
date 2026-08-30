@@ -9,6 +9,7 @@ import {
   PARK_DUSK,
   TUNNEL,
 } from './lighting'
+import { walkTheKerb } from './kerb'
 import type { RouteDef } from './types'
 
 /**
@@ -540,6 +541,35 @@ export const GOLD_COAST: RouteDef = {
 }
 
 
-export const ROUTES: Record<string, RouteDef> = {
-  goldcoast: GOLD_COAST,
+/**
+ * The route as walked.
+ *
+ * `GOLD_COAST.waypoints` is the line exactly as it was drawn in the map editor.
+ * The editor snaps to streets, and street data is centrelines, so on every
+ * surface-street section the drawn line runs down the middle of the road —
+ * measured against the kerbs, Michigan Avenue was between 4.5 and 10 metres
+ * inside its own carriageway. `walkTheKerb` moves those waypoints onto the
+ * pavement, keeping the side of the street each one was drawn on.
+ *
+ * Left off the beach, the underpass and the restaurant interior: none of them
+ * has a kerb to stand on, and the underpass runs *beneath* Lake Shore Drive, so
+ * measuring it against that street's centreline would push it sideways out of
+ * the cut.
+ */
+const WALKED: RouteDef = {
+  ...GOLD_COAST,
+  waypoints: walkTheKerb(GOLD_COAST.waypoints, GOLD_COAST.sections, [
+    'lakeshore',
+    'michigan',
+    'delaware',
+    'rush',
+    'triangle',
+  ]),
 }
+
+export const ROUTES: Record<string, RouteDef> = {
+  goldcoast: WALKED,
+}
+
+/** The line as authored, for the map editor to show and edit. */
+export const AUTHORED = GOLD_COAST

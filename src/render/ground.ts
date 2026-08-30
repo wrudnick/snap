@@ -40,6 +40,16 @@ export const SURFACE = {
   park: 4,
   interior: 5,
   concrete: 6,
+  /**
+   * One carriageway of a divided road.
+   *
+   * Asphalt in every respect except that it carries no centre line. Michigan
+   * Avenue and Lake Shore Drive are mapped as two parallel ways, and each of
+   * them was drawing a double yellow down its own middle — so the player walked
+   * a pavement with a centre line painted right against the kerb, and the road
+   * read as two streets with a median rather than one divided one.
+   */
+  oneWay: 7,
 } as const
 
 export type SurfaceKind = (typeof SURFACE)[keyof typeof SURFACE]
@@ -146,7 +156,7 @@ export const GROUND_FRAGMENT = /* glsl */ `
     float speck = step(0.955, h) * (1.0 - smoothstep(0.10, 0.16, length(g)));
     c = mix(c, c * 0.70, speck);
 
-  } else if (kind < 1.5) {
+  } else if (kind < 1.5 || kind > 6.5) {
     // --- asphalt ---
     // Patches, posterized hard. Real road surface is a quilt of repairs, and
     // two flat tones of it break up a large area far better than noise.
@@ -156,8 +166,12 @@ export const GROUND_FRAGMENT = /* glsl */ `
 
     // Double yellow: ONE band, mirrored by abs(u), which is two lines. Two
     // bands mirrored is four lines, which is not a marking that exists.
+    //
+    // Suppressed on one carriageway of a divided road: both its lanes run the
+    // same way, so there is nothing for a centre line to divide.
+    float divided = step(6.5, kind);
     float centre = gband(abs(u), 0.07, 0.20, soft);
-    c = mix(c, uRoadCentre, centre * uMarkings);
+    c = mix(c, uRoadCentre, centre * uMarkings * (1.0 - divided));
 
     // Dashed lane lines: about 3 m of paint every 7 m.
     float dash = step(0.56, fract(s / 7.0));

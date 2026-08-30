@@ -1,3 +1,13 @@
+/**
+ * Catmull-Rom tension for every route curve.
+ *
+ * Shared so the kerb correction can evaluate the exact curve the Rail will
+ * build. Low tension keeps street corners crisp: at the default 0.5 the spline
+ * sweeps a 90-degree turn like a racetrack, which reads nothing like walking a
+ * city grid.
+ */
+export const CURVE_TENSION = 0.16
+
 import type { LandmarkDef } from '@/content/models/landmarks'
 /**
  * Route and subject placement data.

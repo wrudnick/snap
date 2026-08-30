@@ -133,7 +133,9 @@ function laneProfileFor(half: number, twin = 0): GroundLane[] {
     offset,
     y: ROAD_Y,
     color: ASPHALT,
-    kind: SURFACE.asphalt,
+    // One carriageway of a divided road takes the surface that draws no centre
+    // line; see SURFACE.oneWay.
+    kind: twin === 0 ? SURFACE.asphalt : SURFACE.oneWay,
   })
   const walk = (offset: number): GroundLane => ({
     offset,
@@ -186,31 +188,54 @@ function laneProfileFor(half: number, twin = 0): GroundLane[] {
  * Returns +1 or −1 for the side the twin lies on, or 0 for an ordinary street.
  */
 function twinSide(street: CityStreet, points: Array<[number, number]>): number {
-  const mid = points[Math.floor(points.length / 2)]
-  const next = points[Math.floor(points.length / 2) + 1] ?? points[Math.floor(points.length / 2) - 1]
-  if (!mid || !next) return 0
+  /**
+   * Sampled at five points along the way, not just the middle.
+   *
+   * After `mergeWays` a street is one long chain, and two chains of the same
+   * street rarely cover the same stretch — so the midpoint of Michigan Avenue's
+   * northern chain can sit a long way from any point of its southern one, the
+   * single-point test answers "no twin", and both halves get paved as whole
+   * streets with their own centre line and their own pavements on both sides.
+   * That is what put the player on a strip of pavement in the middle of the
+   * avenue with a double yellow painted against the kerb.
+   *
+   * The votes are counted rather than taken first-past-the-post so one stray
+   * side street running alongside cannot flip the answer.
+   */
+  let left = 0
+  let right = 0
 
-  const dx = next[0] - mid[0]
-  const dz = next[1] - mid[1]
-  const length = Math.hypot(dx, dz) || 1
-  const rx = -dz / length
-  const rz = dx / length
+  for (const frac of [0.15, 0.3, 0.5, 0.7, 0.85]) {
+    const i = Math.floor((points.length - 1) * frac)
+    const mid = points[i]
+    const next = points[i + 1] ?? points[i - 1]
+    if (!mid || !next) continue
 
-  for (const other of CITY.streets) {
-    if (other === street || other.n !== street.n) continue
-    for (const [x, z] of other.p) {
-      const ox = x - mid[0]
-      const oz = z - mid[1]
-      const lateral = ox * rx + oz * rz
-      const along = ox * -rz + oz * rx
-      // Beside us rather than ahead: a twin runs alongside, a continuation
-      // carries on in front.
-      if (Math.abs(along) < 12 && Math.abs(lateral) > 6 && Math.abs(lateral) < 26) {
-        return lateral > 0 ? 1 : -1
+    const dx = next[0] - mid[0]
+    const dz = next[1] - mid[1]
+    const length = Math.hypot(dx, dz) || 1
+    const rx = -dz / length
+    const rz = dx / length
+
+    for (const other of CITY.streets) {
+      if (other === street || other.n !== street.n) continue
+      for (const [x, z] of other.p) {
+        const ox = x - mid[0]
+        const oz = z - mid[1]
+        const lateral = ox * rx + oz * rz
+        const along = ox * -rz + oz * rx
+        // Beside us rather than ahead: a twin runs alongside, a continuation
+        // carries on in front.
+        if (Math.abs(along) < 12 && Math.abs(lateral) > 6 && Math.abs(lateral) < 26) {
+          if (lateral > 0) right++
+          else left++
+        }
       }
     }
   }
-  return 0
+
+  if (right === 0 && left === 0) return 0
+  return right >= left ? 1 : -1
 }
 
 /**

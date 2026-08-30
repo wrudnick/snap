@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-import type { RouteDef } from '@/content/routes/types'
+import { CURVE_TENSION, type RouteDef } from '@/content/routes/types'
 
 /**
  * The on-rails camera path.
@@ -24,11 +24,9 @@ export class Rail {
       route.waypoints.map(([x, y, z]) => new THREE.Vector3(x, y, z)),
       false,
       'catmullrom',
-      // Low tension keeps street corners crisp. At the default 0.5 the spline
-      // sweeps through a 90-degree turn like a racetrack, which reads nothing
-      // like walking a city grid; near zero it approaches straight runs between
-      // waypoints with a tight radius at the corner.
-      0.16,
+      // See CURVE_TENSION: shared with the kerb correction, which has to
+      // evaluate exactly the curve this builds.
+      CURVE_TENSION,
     )
     this.segmentCount = route.segmentCount
   }
