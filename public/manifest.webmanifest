@@ -1,0 +1,12 @@
+{
+  "name": "snap",
+  "short_name": "snap",
+  "description": "One street, one pass, eighty shots.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10"
+}

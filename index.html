@@ -15,6 +15,15 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0b0d10" />
+    <!--
+      Relative, so it resolves under the Pages base path (/snap/) rather than
+      at the domain root, where it would 404.
+
+      `display: fullscreen` is what makes Add to Home Screen launch without any
+      browser chrome, which on iPhone is the only way to get fullscreen at all —
+      Safari has no Fullscreen API.
+    -->
+    <link rel="manifest" href="manifest.webmanifest" />
     <title>snap</title>
     <style>
       html,

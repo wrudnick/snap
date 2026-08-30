@@ -374,25 +374,6 @@ export function isPortrait(): boolean {
 }
 
 /**
- * Ask the browser to hold the screen in landscape.
- *
- * Only Android Chrome honours this, and only while fullscreen; iOS Safari has
- * no orientation lock at all. So it is best-effort, and the rotate prompt is
- * what actually gets the phone turned round. Failing is normal, not an error.
- */
-export async function lockLandscape(): Promise<void> {
-  const orientation = window.screen?.orientation as
-    | (ScreenOrientation & { lock?: (o: string) => Promise<void> })
-    | undefined
-  if (!orientation?.lock) return
-  try {
-    await orientation.lock('landscape')
-  } catch {
-    // Refused — the prompt handles it.
-  }
-}
-
-/**
  * Ask iOS for the motion sensors.
  *
  * iOS 13 and later will not deliver `deviceorientation` at all until this is

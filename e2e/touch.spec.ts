@@ -86,6 +86,29 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
   const yawAfter = await page.evaluate(() => (window as any).__snap.runtime.yaw)
   expect(yawAfter, 'turning the phone right looks right').toBeLessThan(yawBefore)
 
+  /**
+   * Zoom is held, and — the part worth pinning down — released.
+   *
+   * `input.zoom` is a level rather than an edge, so a missing release leaves
+   * the camera zoomed for the rest of the run. Pointer capture is what makes
+   * that survive a finger sliding off the button, and neither the hold nor the
+   * release is visible from reading the markup.
+   */
+  const wide = await page.evaluate(() => (window as any).__snap.runtime.targetFov)
+  await page.getByRole('button', { name: 'Zoom' }).dispatchEvent('pointerdown', {
+    pointerId: 7, pointerType: 'touch', isPrimary: true,
+  })
+  await page.waitForTimeout(300)
+  const zoomed = await page.evaluate(() => (window as any).__snap.runtime.targetFov)
+  expect(zoomed, 'holding zoom narrows the lens').toBeLessThan(wide)
+
+  await page.getByRole('button', { name: 'Zoom' }).dispatchEvent('pointerup', {
+    pointerId: 7, pointerType: 'touch', isPrimary: true,
+  })
+  await page.waitForTimeout(300)
+  const released = await page.evaluate(() => (window as any).__snap.runtime.targetFov)
+  expect(released, 'letting go returns to the wide lens').toBe(wide)
+
   expect(errors, 'console errors on a phone').toEqual([])
 })
 

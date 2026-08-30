@@ -748,14 +748,42 @@ h2 {
    ------------------------------------------------------------------------- */
 .touch {
   position: absolute;
-  left: 0;
-  right: 0;
   bottom: max(2.5%, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.6rem;
   pointer-events: none;
+}
+
+/* Portrait: the shutter cluster spans the width and centres; the zoom button
+   tucks into the bottom-left corner beside it. */
+.touch--right {
+  left: 0;
+  right: 0;
+}
+.touch--left {
+  left: max(4%, env(safe-area-inset-left));
+}
+
+.touch__zoom {
+  pointer-events: auto;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(12, 14, 18, 0.45);
+  backdrop-filter: blur(2px);
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.touch__zoom:active {
+  background: rgba(255, 255, 255, 0.32);
+  border-color: rgba(255, 255, 255, 0.8);
 }
 
 .touch__row {
@@ -848,14 +876,27 @@ h2 {
    ------------------------------------------------------------------------- */
 @media (hover: none) and (pointer: coarse) and (orientation: landscape) {
   .touch {
-    left: auto;
-    right: max(2%, env(safe-area-inset-right));
     top: 0;
     bottom: 0;
     flex-direction: row;
-    justify-content: flex-end;
     align-items: center;
     gap: 0.9rem;
+  }
+
+  /* One cluster per thumb: zoom under the left, shutter under the right. */
+  .touch--right {
+    left: auto;
+    right: max(2%, env(safe-area-inset-right));
+    justify-content: flex-end;
+  }
+  .touch--left {
+    left: max(2%, env(safe-area-inset-left));
+    right: auto;
+    justify-content: flex-start;
+  }
+  .touch__zoom {
+    width: 4.2rem;
+    height: 4.2rem;
   }
 
   .touch__row {
@@ -925,4 +966,18 @@ h2 {
 @keyframes rotate-hint {
   0%, 40% { transform: rotate(90deg); }
   60%, 100% { transform: rotate(0deg); }
+}
+
+/* Shown only on iOS outside standalone — see Menu. */
+.homescreen {
+  max-width: 30rem;
+  margin: 0 auto 1.6rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--dim);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
 }

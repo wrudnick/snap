@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 
 import { runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
@@ -61,27 +61,83 @@ function TouchControls() {
     [],
   )
 
+  /**
+   * Zoom is held, not tapped.
+   *
+   * `input.zoom` is a level the rig lerps the FOV toward for as long as it is
+   * true — the same thing the Shift key does — so it needs a matching release,
+   * which the edge-triggered helper above cannot express.
+   *
+   * Pointer capture on the way down is what makes it survive a finger that
+   * slides off the button while framing: without it the pointerup lands on the
+   * canvas instead, the release never fires, and the camera stays zoomed for
+   * the rest of the run.
+   */
+  const holdZoom = useMemo(
+    () => ({
+      onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
+        // State first, capture second. `setPointerCapture` throws if the
+        // pointer is not active — and it threw before the zoom was ever set,
+        // so the button did nothing at all. Nothing the player can see should
+        // depend on an optional browser API succeeding.
+        input.zoom = true
+        try {
+          e.currentTarget.setPointerCapture?.(e.pointerId)
+        } catch {
+          // Without capture a finger sliding off the button will not release
+          // it; `onPointerCancel` and the adapter's own pointerup still do.
+        }
+      },
+      onPointerUp: (e: ReactPointerEvent<HTMLButtonElement>) => {
+        input.zoom = false
+        try {
+          e.currentTarget.releasePointerCapture?.(e.pointerId)
+        } catch {
+          // Never captured; nothing to release.
+        }
+      },
+      onPointerCancel: () => {
+        input.zoom = false
+      },
+    }),
+    [],
+  )
+
   return (
-    <div className="touch">
-      <div className="touch__row">
-        <button type="button" className="touch__btn" onPointerDown={press('prevCheckpoint')}>
-          ‹
-        </button>
-        <button type="button" className="touch__btn" onPointerDown={press('togglePause')}>
-          ‖
-        </button>
-        <button type="button" className="touch__btn" onPointerDown={press('nextCheckpoint')}>
-          ›
+    <>
+      {/* Left cluster: the hand that is not on the shutter. */}
+      <div className="touch touch--left">
+        <button
+          type="button"
+          className="touch__zoom"
+          aria-label="Zoom"
+          {...holdZoom}
+        >
+          <span aria-hidden="true">⌖</span>
         </button>
       </div>
-      <button
-        type="button"
-        className="touch__shutter"
-        aria-label="Shutter"
-        onPointerDown={press('shutter')}
-      />
-      <div className="touch__hint">Drag to look · pinch to zoom</div>
-    </div>
+
+      <div className="touch touch--right">
+        <div className="touch__row">
+          <button type="button" className="touch__btn" onPointerDown={press('prevCheckpoint')}>
+            ‹
+          </button>
+          <button type="button" className="touch__btn" onPointerDown={press('togglePause')}>
+            ‖
+          </button>
+          <button type="button" className="touch__btn" onPointerDown={press('nextCheckpoint')}>
+            ›
+          </button>
+        </div>
+        <button
+          type="button"
+          className="touch__shutter"
+          aria-label="Shutter"
+          onPointerDown={press('shutter')}
+        />
+        <div className="touch__hint">Drag to look · hold ⌖ to zoom</div>
+      </div>
+    </>
   )
 }
 
