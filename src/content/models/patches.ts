@@ -1,6 +1,61 @@
+import * as THREE from 'three'
+
+import { ROUTES } from '@/content/routes/goldcoast'
+import { CURVE_TENSION, EYE_HEIGHT } from '@/content/routes/types'
 import { SURFACE, type SurfaceKind } from '@/render/ground'
 
 import { CITY } from './city'
+import { applyLimits, curveLimits, type Frame } from './ribbon'
+
+/**
+ * The route's own floor height at a point, or null if the route is not near it.
+ *
+ * The underpass is the one piece of ground that exists *because* of the route —
+ * it is the cut the player walks down — and its height was authored separately
+ * from the route's waypoints. The two disagreed: descending the ramp the floor
+ * sat 20 to 30 cm above the camera's feet, and under Lake Shore Drive there was
+ * no surface below the camera at all. You walked the whole underpass sunk into
+ * the tarmac.
+ *
+ * So the plan stays authored — where the cut runs is a design decision — and
+ * the profile is derived. They cannot drift apart again, because there is only
+ * one of them.
+ *
+ * Imports the route, which is safe: nothing in the route's own import graph
+ * reaches the ground. It is not the ribbon-follows-rail coupling that was
+ * removed earlier, because only this one patch is route-shaped; the streets
+ * still pave themselves from OSM and know nothing about where the player goes.
+ */
+const routeFloor = (() => {
+  let samples: THREE.Vector3[] | null = null
+
+  return (x: number, z: number): number | null => {
+    if (!samples) {
+      const curve = new THREE.CatmullRomCurve3(
+        ROUTES.goldcoast!.waypoints.map(([wx, wy, wz]) => new THREE.Vector3(wx, wy, wz)),
+        false,
+        'catmullrom',
+        CURVE_TENSION,
+      )
+      const steps = Math.ceil(curve.getLength() / 0.5)
+      samples = curve.getSpacedPoints(steps)
+    }
+
+    let best: THREE.Vector3 | null = null
+    let bestDistance = Infinity
+    for (const point of samples) {
+      const d = (point.x - x) ** 2 + (point.z - z) ** 2
+      if (d < bestDistance) {
+        bestDistance = d
+        best = point
+      }
+    }
+    // Beyond the width of the cut the plan runs on past where the route goes;
+    // those ends keep the height they were drawn with.
+    if (!best || bestDistance > 30 * 30) return null
+    return best.y - EYE_HEIGHT
+  }
+})()
 
 /**
  * Ground that isn't a street, defined in world space.
@@ -32,6 +87,21 @@ export interface GroundPatch {
    */
   heights?: number[]
   /**
+   * Points per side, when this ring is a ribbon rather than a blob.
+   *
+   * Ear clipping triangulates a *polygon*, and it is free to join any two
+   * vertices it likes — down a long thin ribbon that means triangles spanning
+   * from one end to the other, interpolating between heights fifty metres
+   * apart. The underpass floor read half a metre high in the middle of the
+   * tunnel for exactly this reason, with the camera below it, while the rails
+   * either side of that point had the correct height.
+   *
+   * Set, the ring is triangulated as a strip instead: each quad spans one
+   * segment and nothing else, so a vertex height can only ever influence the
+   * ground beside it.
+   */
+  ribbon?: number
+  /**
    * Whether streets and fill stop where this patch covers them.
    *
    * True for everything at grade. False for the underpass, which is *below*
@@ -39,6 +109,19 @@ export interface GroundPatch {
    * put a hole in the carriageway that runs over the top.
    */
   cullsAbove?: boolean
+  /**
+   * Whether the generic paving between streets stops over this patch, even
+   * when the streets themselves do not.
+   *
+   * The underpass needs exactly this split. It must not cull streets — Lake
+   * Shore Drive runs *over* it, and removing the carriageway there would put a
+   * hole in the road. But it must cull the fill, or the trench is roofed over
+   * by paving along its whole length and the ramp mouth is capped: you walk
+   * down and straight through the ground, which is what it looked like.
+   *
+   * Defaults to whatever `cullsAbove` says.
+   */
+  cullsFill?: boolean
   /**
    * Rotation of the pattern frame, radians. Sand ripples run along the shore
    * and floorboards along the room, so the shader's coordinates are turned to
@@ -200,31 +283,93 @@ function strip(path: Array<[number, number]>, halfWidth: number): Array<[number,
 function ramp(
   path: Array<[number, number, number]>,
   halfWidth: number,
-): { ring: Array<[number, number]>; heights: number[] } {
-  UNDERPASS_PATH.push(...path)
+): { ring: Array<[number, number]>; heights: number[]; ribbon: number } {
+  // Reassigned below once densified.
+  /**
+   * Densified before the heights are taken.
+   *
+   * The plan is drawn with samples about eight metres apart, which is plenty
+   * for the shape of the cut in plan view and far too coarse for its profile:
+   * the route drops nearly a metre over one of those spans as it enters, and a
+   * straight line between two derived heights sits well above the curve it is
+   * meant to follow. The camera went under the ramp surface at exactly the
+   * points where the descent was steepest.
+   *
+   * Four metres, not two. Shorter rows track the spline more closely and also
+   * make the fold limit bite harder — the derivation in `ribbon.ts` bounds the
+   * offset by |f|²/|k|, so halving the row length quarters the width a corner
+   * can carry, and at two metres the ramp pinched shut at the turn off Lake
+   * Shore Drive. Four keeps the height error to a couple of centimetres and
+   * leaves the corner four times the slack.
+   */
+  const SPACING = 4
+  const dense: Array<[number, number, number]> = []
+  for (let i = 0; i < path.length - 1; i++) {
+    const [ax, , az] = path[i]!
+    const [bx, , bz] = path[i + 1]!
+    const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / SPACING))
+    for (let k = 0; k < steps; k++) {
+      const f = k / steps
+      dense.push([ax + (bx - ax) * f, 0, az + (bz - az) * f])
+    }
+  }
+  dense.push(path[path.length - 1]!)
+  path = dense
+
   const left: Array<[number, number]> = []
   const right: Array<[number, number]> = []
   const leftY: number[] = []
   const rightY: number[] = []
 
+  /**
+   * Frames first, so the width can be limited before it is used.
+   *
+   * The cut turns back on itself where it drops off Lake Shore Drive, and a
+   * ribbon offset blindly at a corner that tight folds into a flap lying across
+   * its own floor — the same failure `ribbon.ts` exists for, and the reason the
+   * camera spent the descent inside a brown wall. Densifying the plan made it
+   * far worse rather than better: more rows through the turn means more of them
+   * folded.
+   */
+  const frames: Frame[] = []
   for (let i = 0; i < path.length; i++) {
-    const [x, y, z] = path[i]!
+    const [x, authoredY, z] = path[i]!
+    // Height from the route where the route is near, authored height at the
+    // ends where it is not. See routeFloor.
+    const derived = routeFloor(x, z)
+    const y = derived ?? authoredY
+    path[i] = [x, y, z]
     const previous = path[i - 1] ?? path[i]!
     const next = path[i + 1] ?? path[i]!
     const dx = next[0] - previous[0]
     const dz = next[2] - previous[2]
     const length = Math.hypot(dx, dz) || 1
-    const rx = -dz / length
-    const rz = dx / length
-    left.push([x - rx * halfWidth, z - rz * halfWidth])
-    right.push([x + rx * halfWidth, z + rz * halfWidth])
+    frames.push({ x, z, rx: -dz / length, rz: dx / length })
+  }
+
+  const limits = curveLimits(frames)
+  for (let i = 0; i < frames.length; i++) {
+    const { x, z, rx, rz } = frames[i]!
+    const y = path[i]![1]
+    // Negative is the left rail, positive the right; `applyLimits` picks the
+    // bound for whichever side is inside the turn.
+    const l = applyLimits(-halfWidth, limits, i)
+    const r = applyLimits(halfWidth, limits, i)
+    left.push([x + rx * l, z + rz * l])
+    right.push([x + rx * r, z + rz * r])
     leftY.push(y)
     rightY.push(y)
   }
 
+  // Published *after* the derivation, so `addCutWalls` builds the retaining
+  // walls from the same heights the floor uses. Pushed before it, the walls
+  // kept the authored profile and stood in the wrong place against the ramp.
+  UNDERPASS_PATH.push(...path)
+
   return {
     ring: [...left, ...right.reverse()],
     heights: [...leftY, ...rightY.reverse()],
+    ribbon: left.length,
   }
 }
 
@@ -335,6 +480,8 @@ export const GROUND_PATCHES: GroundPatch[] = [
     y: 0,
     ring: UNDERPASS.ring,
     heights: UNDERPASS.heights,
+    ribbon: UNDERPASS.ribbon,
+    cullsFill: true,
     patternAngle: 0.9,
     layer: 6,
     // Lake Shore Drive runs over the top of this, not instead of it.

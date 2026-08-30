@@ -71,20 +71,44 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
    * in the hand. The signs are the part worth pinning down: they are the thing
    * most likely to be backwards, and the least obvious from reading the code.
    */
-  const yawBefore = await page.evaluate(() => (window as any).__snap.runtime.yaw)
-  await page.evaluate(() => {
-    // alpha decreasing is a turn to the right.
-    for (const alpha of [180, 176, 172, 168]) {
-      window.dispatchEvent(
-        new (window as any).DeviceOrientationEvent('deviceorientation', {
-          alpha, beta: 90, gamma: 0,
-        }),
-      )
-    }
-  })
-  await page.waitForTimeout(400)
-  const yawAfter = await page.evaluate(() => (window as any).__snap.runtime.yaw)
-  expect(yawAfter, 'turning the phone right looks right').toBeLessThan(yawBefore)
+  const point = async (alpha: number, beta: number) => {
+    await page.evaluate(
+      ([a, b]) => {
+        // `absolute: true` is what makes the adapter treat alpha as a true
+        // heading rather than integrating changes in it.
+        window.dispatchEvent(
+          new (window as any).DeviceOrientationEvent('deviceorientationabsolute', {
+            alpha: a, beta: b, gamma: 0, absolute: true,
+          }),
+        )
+      },
+      [alpha, beta],
+    )
+    await page.waitForTimeout(250)
+  }
+
+  /**
+   * Absolute, not relative: the same reading always gives the same view.
+   *
+   * The relative version integrated changes, so where the camera ended up
+   * depended on how the phone happened to be held when the run started. Holding
+   * a pose, moving away and coming back is the test that tells the two apart —
+   * under integration the second reading would land somewhere else.
+   */
+  await point(0, 90)
+  const first = await page.evaluate(() => (window as any).__snap.runtime.yaw)
+  await point(-40, 90)
+  const turned = await page.evaluate(() => (window as any).__snap.runtime.yaw)
+  expect(turned, 'turning the phone right looks right').toBeLessThan(first)
+
+  await point(0, 90)
+  const returned = await page.evaluate(() => (window as any).__snap.runtime.yaw)
+  expect(returned, 'the same attitude gives the same view').toBeCloseTo(first, 3)
+
+  /** Tilting the phone up looks up, by the angle it was tilted. */
+  await point(0, 110)
+  const raised = await page.evaluate(() => (window as any).__snap.runtime.pitch)
+  expect(raised, 'tilting the phone up looks up').toBeGreaterThan(0.25)
 
   /**
    * Zoom is held, and — the part worth pinning down — released.

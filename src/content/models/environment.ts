@@ -566,7 +566,7 @@ function buildProps(
     }
 
     if (section.kind === 'tunnel') {
-      addTunnelRoof(section, route, rail.length, at, buildings)
+      addTunnelRoof(section, route, rail.length, at, headingAt, buildings)
     }
 
     if (section.kind === 'boutique') {
@@ -1220,6 +1220,7 @@ function addTunnelRoof(
   route: RouteDef,
   railLength: number,
   at: (t: number, offset: number) => [number, number, number],
+  headingAt: (t: number) => number,
   buildings: Prop[],
 ): void {
   const span = section.tEnd - section.tStart
@@ -1246,7 +1247,15 @@ function addTunnelRoof(
     buildings.push({
       position: [x, DECK_Y + THICKNESS / 2, z],
       scale: [13, THICKNESS, 6],
-      rotationY: 0,
+      /**
+       * Turned to follow the cut, not left axis-aligned.
+       *
+       * These are 13 by 6 metre slabs stepped along a curve. Unrotated, every
+       * one of them sat square to the world while the cut turned underneath, so
+       * their corners stuck out past each other and the underside of Lake Shore
+       * Drive read as a row of triangular teeth.
+       */
+      rotationY: headingAt(t),
       color: 0x2e2822,
       segment: Math.min(route.segmentCount - 1, Math.floor(t * route.segmentCount)),
     })

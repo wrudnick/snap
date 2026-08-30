@@ -18,11 +18,16 @@ import { makeRng, range } from '@/lib/rng'
  * to make a good pose something the player waits for and times rather than
  * something they merely find.
  */
+/** Shared origin for subjects with no authored position. */
+const ZERO: [number, number, number] = [0, 0, 0]
+
 export function SubjectView({ placement }: { placement: SubjectPlacement }) {
   const def = getSubject(placement.species)
   if (!def) throw new Error(`Unknown species "${placement.species}" in route data`)
 
   const groupRef = useRef<THREE.Group>(null)
+  /** Metres travelled since the last wrap. See the drive block in useFrame. */
+  const driven = useRef(0)
 
   // A fresh model per subject — they animate independently, so they can't share
   // an Object3D. Geometry and materials are shared inside buildModel.
@@ -62,7 +67,12 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
 
   /** Weighted pick over the subject's behaviours, excluding trigger-only ones. */
   const chooseBehavior = useMemo(() => {
-    const available = def.behaviors.filter((b) => !b.trigger)
+    // A car that is driving must not play `parked`: the clip is what spins the
+    // wheels, and a vehicle sliding down the street on still wheels reads as
+    // more broken than one that never moves.
+    const available = def.behaviors.filter(
+      (b) => !b.trigger && !(placement.driveSpeed && b.clip === 'parked'),
+    )
     const total = available.reduce((sum, b) => sum + b.weight, 0)
     return (): BehaviorDef => {
       let r = rng() * total
@@ -72,7 +82,7 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
       }
       return available[available.length - 1]!
     }
-  }, [def.behaviors, rng])
+  }, [def.behaviors, rng, placement.driveSpeed])
 
   const playNext = useMemo(
     () => () => {
@@ -137,6 +147,30 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
 
     const group = groupRef.current
     if (!group) return
+
+    /**
+     * Driving.
+     *
+     * Advanced along the subject's own facing, so a car pointed back down the
+     * street drives back down it and nothing has to be kept in step by hand.
+     * Models face local −Z, which is why forward is `(−sin, 0, −cos)`.
+     *
+     * Wrapped around the midpoint rather than from zero, so a car spends half
+     * its span behind its authored position and half in front: authored where
+     * you want it seen, and the loop point falls a long way either side.
+     */
+    if (placement.driveSpeed) {
+      const span = placement.driveSpan ?? 160
+      driven.current = (driven.current + dt * placement.driveSpeed) % span
+      const along = driven.current - span / 2
+      const angle = placement.rotationY ?? 0
+      const home = placement.position ?? ZERO
+      group.position.set(
+        home[0] - Math.sin(angle) * along,
+        home[1],
+        home[2] - Math.cos(angle) * along,
+      )
+    }
 
     if (patrol && placement.patrolSeconds) {
       patrolT.current = (patrolT.current + dt / placement.patrolSeconds) % 1

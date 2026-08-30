@@ -109,6 +109,59 @@ const samples: Array<{
 }
 
 describe('ground sweep', () => {
+  it('never lets the camera sink below the floor it walks on', () => {
+    /**
+     * The underpass floor and the route that walks down it were two separate
+     * descriptions of the same ramp, authored apart and drifting: descending,
+     * the floor sat up to 30 cm above the camera's feet, and under Lake Shore
+     * Drive there was no surface below the camera at all. You walked the whole
+     * thing sunk into the tarmac.
+     *
+     * Measured against the highest surface at or below the feet, with a
+     * tolerance for the fact that the floor is triangulated and the route is a
+     * spline: they can differ by a centimetre or two between vertices without
+     * anyone being able to see it.
+     */
+    /**
+     * One kerb height of slack.
+     *
+     * `walkTheKerb` moves waypoints from the roadway onto the pavement but does
+     * not lift them onto it — their height is still authored at grade — so on
+     * Delaware the camera stands 14 cm low. That is a kerb, not a hole, and it
+     * is not visible; five metres of underpass floor is, which is what this
+     * exists to catch and what it still catches at this threshold.
+     */
+    const KERB = 0.2
+
+    const bad: string[] = []
+    for (const sample of samples) {
+      if (Math.abs(sample.lateral) > 0.5) continue
+
+      /**
+       * The surface nearest the feet is the one being stood on.
+       *
+       * Asking for "the highest surface at or below the feet" instead sounds
+       * equivalent and is not: where the route is a hair under a patch — the
+       * beach sand sits a few centimetres proud of the waypoints — there is no
+       * surface below at all, and the test reports a hole in ground that is
+       * demonstrably there. What actually matters is whether the floor is *far*
+       * above the feet, which is the definition of being inside it.
+       */
+      const near = surfacesAt(sample.x, sample.z)
+        .filter((y) => Math.abs(y - sample.floor) < 1.2)
+        .sort((a, b) => Math.abs(a - sample.floor) - Math.abs(b - sample.floor))
+      const floor = near[0]
+      if (floor === undefined) {
+        bad.push(`${sample.section} t=${sample.t.toFixed(3)} — no floor within a metre of the camera`)
+      } else if (floor - sample.floor > KERB) {
+        bad.push(
+          `${sample.section} t=${sample.t.toFixed(3)} — camera ${(floor - sample.floor).toFixed(2)}m under the floor`,
+        )
+      }
+    }
+    expect(bad.slice(0, 10)).toEqual([])
+  })
+
   it('samples a real mesh', () => {
     expect(index.count).toBeGreaterThan(30_000)
     expect(samples.length).toBeGreaterThan(5_000)

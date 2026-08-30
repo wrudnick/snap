@@ -30,6 +30,14 @@ function stepSpeed(current: number, direction: 1 | -1): number {
   return SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, next))]!
 }
 
+/** Bring an angle difference into −π…π, so a turn past north is not a full circle. */
+function wrapPi(angle: number): number {
+  let a = angle
+  while (a > Math.PI) a -= Math.PI * 2
+  while (a < -Math.PI) a += Math.PI * 2
+  return a
+}
+
 export function Rig({
   route,
   rail,
@@ -109,17 +117,46 @@ export function Rig({
       runtime.t = Math.min(1, runtime.elapsed / route.durationSeconds)
     }
 
-    // Look. Inverted so dragging right looks right.
-    runtime.yaw = clamp(
-      runtime.yaw - input.aimX * route.look.sensitivity,
-      -route.look.yawLimit,
-      route.look.yawLimit,
-    )
-    runtime.pitch = clamp(
-      runtime.pitch - input.aimY * route.look.sensitivity,
-      -route.look.pitchLimit,
-      route.look.pitchLimit,
-    )
+    runtime.railHeading = rail.headingAt(runtime.t)
+
+    if (input.absoluteYaw !== null && input.absolutePitch !== null) {
+      /**
+       * The phone's attitude is the camera's attitude.
+       *
+       * `absoluteYaw` is a world heading, so the offset the cone clamps is the
+       * difference between it and the way the route is currently facing —
+       * which means holding the phone still keeps the camera pointed at the
+       * same place in the world while the route turns underneath, exactly as a
+       * camera in your hand behaves. The clamp is what stops you looking behind
+       * you; on a corner it will hold at the edge until you turn your body,
+       * which is the intended feel rather than a limitation to work around.
+       *
+       * Pitch needs no such correction: the rig applies it as the camera's own
+       * pitch, already in world terms.
+       */
+      runtime.yaw = clamp(
+        wrapPi(input.absoluteYaw - runtime.railHeading),
+        -route.look.yawLimit,
+        route.look.yawLimit,
+      )
+      runtime.pitch = clamp(
+        input.absolutePitch,
+        -route.look.pitchLimit,
+        route.look.pitchLimit,
+      )
+    } else {
+      // Look. Inverted so dragging right looks right.
+      runtime.yaw = clamp(
+        runtime.yaw - input.aimX * route.look.sensitivity,
+        -route.look.yawLimit,
+        route.look.yawLimit,
+      )
+      runtime.pitch = clamp(
+        runtime.pitch - input.aimY * route.look.sensitivity,
+        -route.look.pitchLimit,
+        route.look.pitchLimit,
+      )
+    }
     consumeAim()
 
     // Zoom, eased rather than snapped — a hard FOV cut reads as a glitch.
@@ -127,7 +164,6 @@ export function Rig({
     runtime.fov += (runtime.targetFov - runtime.fov) * Math.min(1, dt * 12)
 
     rail.positionAt(runtime.t, camera.position)
-    runtime.railHeading = rail.headingAt(runtime.t)
     camera.rotation.set(runtime.pitch, runtime.railHeading + runtime.yaw, 0, 'YXZ')
 
     if (Math.abs(camera.fov - runtime.fov) > 0.01) {

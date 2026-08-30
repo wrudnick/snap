@@ -43,6 +43,60 @@ const PERF_ENABLED = (() => {
   return !prefersTouch()
 })()
 
+/**
+ * The frame rate the game runs at.
+ *
+ * Capped rather than uncapped. An uncapped loop on a phone runs as fast as the
+ * GPU will go, which on a 120 Hz panel means drawing this scene four times for
+ * every one the player can distinguish, and the whole budget goes into heat and
+ * battery instead of into what is on screen. A steady 30 also *looks* better
+ * than a rate that swings between 45 and 60 — an on-rails camera makes any
+ * variation read as stutter, because nothing else in frame is moving to
+ * disguise it.
+ *
+ * Override with `?fps=60` when comparing.
+ */
+const TARGET_FPS = (() => {
+  if (typeof window === 'undefined') return 30
+  const flag = Number(new URLSearchParams(window.location.search).get('fps'))
+  return Number.isFinite(flag) && flag > 0 ? flag : 30
+})()
+
+/**
+ * Drives the render loop at a fixed rate.
+ *
+ * The Canvas is `frameloop="never"`, so nothing draws until `advance` is
+ * called — throttling inside `useFrame` would not have worked, because R3F
+ * renders after the frame callbacks whatever they do, so the work would have
+ * been skipped and the draw would not.
+ *
+ * Timed off requestAnimationFrame rather than an interval so frames stay
+ * aligned to the display's own refresh: at 60 Hz this fires on every second
+ * one, at 120 Hz every fourth. A one-millisecond tolerance keeps it from
+ * missing its slot and halving to 20.
+ */
+function FrameLimiter({ fps }: { fps: number }) {
+  const advance = useThree((s) => s.advance)
+
+  useEffect(() => {
+    let raf = 0
+    let last = 0
+    const interval = 1000 / fps
+
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick)
+      if (now - last < interval - 1) return
+      last = now
+      advance(now)
+    }
+
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [advance, fps])
+
+  return null
+}
+
 /** Binds the input adapter to the canvas element. Swap the adapter for gamepad. */
 function InputBinding({ sensitivity }: { sensitivity: number }) {
   const gl = useThree((s) => s.gl)
@@ -91,6 +145,8 @@ export function Game() {
   return (
     <Canvas
       shadows
+      // Nothing draws until FrameLimiter says so.
+      frameloop="never" 
       // Retina at 2x is 4x the pixels for barely visible gain. This single line
       // is the largest performance win available.
       dpr={degraded ? 1 : [1, 1.5]}
@@ -135,7 +191,18 @@ export function Game() {
         </EffectComposer>
       )}
 
-      <PerformanceMonitor onDecline={() => setDegraded(true)} onIncline={() => setDegraded(false)} />
+      <FrameLimiter fps={TARGET_FPS} />
+      {/*
+        Bounds moved to bracket the cap. The default range is built for an
+        uncapped loop and treats anything under about 50 fps as failing — with a
+        30 fps cap that fires immediately and permanently, dropping the
+        resolution to 1x on hardware that was never struggling.
+      */}
+      <PerformanceMonitor
+        bounds={() => [TARGET_FPS - 8, TARGET_FPS + 4]}
+        onDecline={() => setDegraded(true)}
+        onIncline={() => setDegraded(false)}
+      />
       <AdaptiveDpr pixelated />
 
       {import.meta.env.DEV && PERF_ENABLED && <Perf position="bottom-left" />}

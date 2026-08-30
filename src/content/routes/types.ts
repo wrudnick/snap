@@ -1,4 +1,15 @@
 /**
+ * Route waypoints are authored at eye height; the ground sits this far below.
+ *
+ * Shared, because more than one thing has to agree with it: subjects stand on
+ * it, props stand on it, and the underpass floor is derived from it. When it
+ * was a literal repeated in three files, the underpass ramp and the route that
+ * walks down it disagreed by up to 30 cm and the camera spent the descent
+ * inside the tarmac.
+ */
+export const EYE_HEIGHT = 1.7
+
+/**
  * Catmull-Rom tension for every route curve.
  *
  * Shared so the kerb correction can evaluate the exact curve the Rail will
@@ -48,6 +59,28 @@ export interface SubjectPlacement {
   at?: SubjectAnchor
   /** Absolute world position. Only for things genuinely fixed in the world. */
   position?: [number, number, number]
+  /**
+   * Metres per second along the way this subject faces, if it drives.
+   *
+   * Traffic was parked. Vehicles have a `cruise` clip and it spins the wheels
+   * and bobs the body without ever moving the car an inch — which reads as a
+   * street full of idling props, and worse, as a mistake, because the wheels
+   * are visibly turning.
+   *
+   * Driving is placement, not animation: the clip says what the car is doing
+   * and this says where it is. Direction comes from the subject's own facing,
+   * so a car pointed back down the street drives back down the street with no
+   * second thing to keep in step.
+   */
+  driveSpeed?: number
+  /**
+   * How far it travels before looping back, in metres.
+   *
+   * A car has to restart somewhere. Long enough that the wrap happens well
+   * outside the segment window that had it on screen — a car that pops back
+   * fifteen metres in front of you is worse than one that never moved.
+   */
+  driveSpan?: number
   /**
    * Initial facing, radians about Y.
    *

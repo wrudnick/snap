@@ -1,3 +1,5 @@
+import { absoluteAlpha, cameraAttitude } from '@/lib/deviceOrientation'
+
 /**
  * Input abstraction.
  *
@@ -18,6 +20,21 @@ export interface InputState {
   /** Edge-triggered speed changes; the loop clears them after handling. */
   speedUp: boolean
   speedDown: boolean
+  /**
+   * Absolute look attitude from a device sensor, or null when there is none.
+   *
+   * `absoluteYaw` is a world heading in three's convention — the same frame as
+   * the camera's own rotation.y — not an offset from the route. The rig
+   * subtracts the rail's heading to get the offset it clamps, so the camera
+   * keeps pointing where the phone points as the route turns beneath it, which
+   * is what a camera in your hand actually does.
+   *
+   * When these are set they replace the accumulated `aim` deltas rather than
+   * adding to them: the whole point of absolute is that the phone's attitude
+   * *is* the answer, so anything else contributing would make it drift again.
+   */
+  absoluteYaw: number | null
+  absolutePitch: number | null
   /** Jump to the next checkpoint. */
   nextCheckpoint: boolean
   /** Jump back to the previous checkpoint. */
@@ -35,6 +52,8 @@ export const input: InputState = {
   shutter: false,
   speedUp: false,
   speedDown: false,
+  absoluteYaw: null,
+  absolutePitch: null,
   nextCheckpoint: false,
   prevCheckpoint: false,
   togglePause: false,
@@ -200,6 +219,10 @@ export class TouchAdapter implements InputAdapter {
     element.addEventListener('pointermove', this.onMove)
     window.addEventListener('pointerup', this.onUp)
     window.addEventListener('pointercancel', this.onUp)
+    // `deviceorientationabsolute` is the north-referenced one where it exists;
+    // both are attached because iOS has only the plain event and puts its
+    // compass reading on that.
+    window.addEventListener('deviceorientationabsolute', this.onOrientation)
     window.addEventListener('deviceorientation', this.onOrientation)
     // Stops the page rubber-banding and the double-tap zoom while framing.
     element.style.touchAction = 'none'
@@ -214,10 +237,13 @@ export class TouchAdapter implements InputAdapter {
     }
     window.removeEventListener('pointerup', this.onUp)
     window.removeEventListener('pointercancel', this.onUp)
+    window.removeEventListener('deviceorientationabsolute', this.onOrientation)
     window.removeEventListener('deviceorientation', this.onOrientation)
     this.points.clear()
     this.last = null
     input.zoom = false
+    input.absoluteYaw = null
+    input.absolutePitch = null
     this.element = null
   }
 
@@ -240,25 +266,39 @@ export class TouchAdapter implements InputAdapter {
     if (e.alpha === null || e.beta === null || e.gamma === null) return
 
     /**
-     * Which axis is pitch depends on how the phone is being held.
+     * Absolute where the device can tell us which way is north, relative
+     * otherwise.
      *
-     * `beta` and `gamma` are defined against the *device*, not the screen, so
-     * the moment the phone is turned on its side they swap roles: front-to-back
-     * tilt stops being beta and becomes gamma, and its sign depends on which
-     * way it was turned. The game is played in landscape, so getting this wrong
-     * means raising the camera rolls the view instead.
+     * Absolute is the one worth having: the phone's attitude *is* the camera's
+     * attitude, so pointing it at a building points the camera at that
+     * building, with nothing to re-zero and no drift. It needs a true heading,
+     * which iOS gives as a compass reading and Android as an absolute alpha.
      *
-     * `alpha` is rotation about the vertical axis either way, so yaw is
-     * unaffected.
+     * Without one, alpha's zero is wherever the device happened to be when it
+     * powered up, and treating that as a world heading would aim the camera
+     * somewhere arbitrary. So that case keeps integrating deltas, which does
+     * not care where zero is.
      */
-    const angle = screenAngle()
+    const referenced = absoluteAlpha(e)
+
+    if (referenced !== null) {
+      const { bearing, elevation } = cameraAttitude(referenced, e.beta, e.gamma)
+      /**
+       * Bearing counts clockwise from north; three's yaw counts anticlockwise
+       * from −Z, and the world is laid out with −Z as north. So the two are the
+       * same angle with opposite signs.
+       */
+      input.absoluteYaw = -bearing
+      input.absolutePitch = elevation
+      this.last = null
+      return
+    }
+
+    input.absoluteYaw = null
+    input.absolutePitch = null
+
     const yaw = (e.alpha * Math.PI) / 180
-    const pitch =
-      angle === 90
-        ? (-e.gamma * Math.PI) / 180
-        : angle === 270
-          ? (e.gamma * Math.PI) / 180
-          : (e.beta * Math.PI) / 180
+    const pitch = (e.beta * Math.PI) / 180
 
     const previous = this.last
     this.last = { yaw, pitch }
@@ -275,15 +315,10 @@ export class TouchAdapter implements InputAdapter {
     // someone spinning on the spot; letting it through snaps the view.
     if (Math.abs(dYaw) > 0.6 || Math.abs(dPitch) > 0.6) return
 
-    /**
-     * Signs. The rig does `yaw − aimX * sensitivity`, so a positive `aimX`
-     * looks right. `alpha` increases anticlockwise, so turning the phone right
-     * decreases it — hence the negation on both axes, pitch included, because
-     * tilting the phone up increases `beta` and should raise the view.
-     */
     input.aimX += -dYaw * this.pixelsPerRadian
     input.aimY += -dPitch * this.pixelsPerRadian
   }
+
 
   private spread(): number {
     const [a, b] = [...this.points.values()]

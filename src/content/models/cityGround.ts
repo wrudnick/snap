@@ -366,8 +366,11 @@ function inRing(ring: Array<[number, number]>, x: number, z: number): boolean {
  * ribbon — which is the whole point of the change: what is paved is now a fact
  * about the world, not about where the camera goes.
  */
-function underPatch(x: number, z: number): boolean {
-  return GROUND_PATCHES.some((p) => p.cullsAbove !== false && inRing(p.ring, x, z))
+function underPatch(x: number, z: number, what: 'street' | 'fill'): boolean {
+  return GROUND_PATCHES.some((p) => {
+    const culls = what === 'fill' ? (p.cullsFill ?? p.cullsAbove !== false) : p.cullsAbove !== false
+    return culls && inRing(p.ring, x, z)
+  })
 }
 
 let cached: CityGroundResult | null = null
@@ -542,7 +545,7 @@ function buildCityGroundUncached(): CityGroundResult {
           for (const o of [inner, mid, outer]) {
             const px = row.x + row.rx * o
             const pz = row.z + row.rz * o
-            if (underPatch(px, pz) || dominated(px, pz) || (isWalk && inCarriageway(px, pz))) {
+            if (underPatch(px, pz, 'street') || dominated(px, pz) || (isWalk && inCarriageway(px, pz))) {
               overlaps = true
               break
             }
@@ -678,7 +681,7 @@ function buildFill(
         [x + FILL_CELL, z + FILL_CELL],
         [cx, cz],
       ]
-      if (corners.every(([px, pz]) => underPatch(px, pz))) continue
+      if (corners.every(([px, pz]) => underPatch(px, pz, 'fill'))) continue
 
       const base = vertexCount()
       // Lateral/along are just world coordinates here: the fill has no
@@ -734,6 +737,30 @@ function addPatch(
     const y = patch.heights?.[i] ?? patch.y
     pushVertex(x, y, z, x * cos - z * sin, x * sin + z * cos, patch.color, patch.kind)
   })
+
+  /**
+   * A ribbon is stitched, not ear-clipped.
+   *
+   * `triangulateShape` may join any two vertices of the polygon, and down a
+   * long thin ribbon it joins ones a long way apart — producing triangles that
+   * span the whole underpass and interpolate between heights fifty metres
+   * apart. Quads between facing pairs keep every triangle inside one segment,
+   * so a vertex height only ever affects the ground beside it.
+   *
+   * Winding is left to `faceUp`, which already exists for exactly this: a ramp
+   * is near enough horizontal that "which way is up" is unambiguous.
+   */
+  if (patch.ribbon !== undefined) {
+    const n = patch.ribbon
+    for (let i = 0; i < n - 1; i++) {
+      const l0 = base + i
+      const l1 = base + i + 1
+      const r0 = base + 2 * n - 1 - i
+      const r1 = base + 2 * n - 2 - i
+      indices.push(l0, r0, l1, l1, r0, r1)
+    }
+    return
+  }
 
   const contour = patch.ring.map(([x, z]) => new THREE.Vector2(x, z))
   for (const face of THREE.ShapeUtils.triangulateShape(contour, [])) {

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 import { groundHeightAt } from '@/content/models/groundHeight'
-import type { SubjectPlacement } from '@/content/routes/types'
+import { EYE_HEIGHT, type SubjectPlacement } from '@/content/routes/types'
 import type { Rail } from '@/game/rail'
 import type { ResolvedSection } from '@/game/sections'
 
@@ -11,8 +11,7 @@ import type { ResolvedSection } from '@/game/sections'
  * Done once at load: `at` is authored against the rail, so a subject sits beside
  * the path no matter how the path is later refitted.
  */
-/** Route waypoints are authored at eye height; ground sits this far below. */
-const EYE_HEIGHT = 1.7
+// Shared with the underpass floor and the prop placer — see EYE_HEIGHT.
 
 /**
  * Section-relative anchors resolved against the route's actual section spans.
