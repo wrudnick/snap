@@ -1,7 +1,7 @@
 import { GOLD_COAST } from '@/content/routes/goldcoast'
 import { SUBJECTS } from '@/content/subjects'
 import { useGame } from '@/game/state'
-import { requestMotionAccess } from '@/input'
+import { lockLandscape, requestMotionAccess } from '@/input'
 
 export function Menu() {
   const album = useGame((s) => s.album)
@@ -33,6 +33,9 @@ export function Menu() {
                * would be a worse trade than a slightly clumsier control.
                */
               void requestMotionAccess()
+              // Best effort: only Android Chrome honours it, and only in
+              // fullscreen. The rotate prompt covers everything else.
+              void lockLandscape()
               startRun(GOLD_COAST.id, GOLD_COAST.film)
             }}
           >

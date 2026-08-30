@@ -237,10 +237,28 @@ export class TouchAdapter implements InputAdapter {
    * not tilt the horizon in a game whose whole subject is framing.
    */
   private onOrientation = (e: DeviceOrientationEvent): void => {
-    if (e.alpha === null || e.beta === null) return
+    if (e.alpha === null || e.beta === null || e.gamma === null) return
 
+    /**
+     * Which axis is pitch depends on how the phone is being held.
+     *
+     * `beta` and `gamma` are defined against the *device*, not the screen, so
+     * the moment the phone is turned on its side they swap roles: front-to-back
+     * tilt stops being beta and becomes gamma, and its sign depends on which
+     * way it was turned. The game is played in landscape, so getting this wrong
+     * means raising the camera rolls the view instead.
+     *
+     * `alpha` is rotation about the vertical axis either way, so yaw is
+     * unaffected.
+     */
+    const angle = screenAngle()
     const yaw = (e.alpha * Math.PI) / 180
-    const pitch = (e.beta * Math.PI) / 180
+    const pitch =
+      angle === 90
+        ? (-e.gamma * Math.PI) / 180
+        : angle === 270
+          ? (e.gamma * Math.PI) / 180
+          : (e.beta * Math.PI) / 180
 
     const previous = this.last
     this.last = { yaw, pitch }
@@ -329,6 +347,49 @@ export class TouchAdapter implements InputAdapter {
 export function prefersTouch(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return false
   return window.matchMedia('(hover: none) and (pointer: coarse)').matches
+}
+
+/**
+ * How far the screen is rotated from its natural orientation, in degrees.
+ *
+ * `screen.orientation` is the modern answer and `window.orientation` the one
+ * older iOS gives; normalised to 0/90/180/270 so callers can switch on it.
+ */
+export function screenAngle(): number {
+  if (typeof window === 'undefined') return 0
+  const modern = window.screen?.orientation?.angle
+  if (typeof modern === 'number') return ((modern % 360) + 360) % 360
+  const legacy = (window as { orientation?: number }).orientation
+  if (typeof legacy === 'number') return ((legacy % 360) + 360) % 360
+  return 0
+}
+
+/** True when the device is being held upright rather than on its side. */
+export function isPortrait(): boolean {
+  if (typeof window === 'undefined') return false
+  const angle = screenAngle()
+  if (angle === 90 || angle === 270) return false
+  // Falls back to the viewport when there is no orientation API at all.
+  return window.innerHeight >= window.innerWidth
+}
+
+/**
+ * Ask the browser to hold the screen in landscape.
+ *
+ * Only Android Chrome honours this, and only while fullscreen; iOS Safari has
+ * no orientation lock at all. So it is best-effort, and the rotate prompt is
+ * what actually gets the phone turned round. Failing is normal, not an error.
+ */
+export async function lockLandscape(): Promise<void> {
+  const orientation = window.screen?.orientation as
+    | (ScreenOrientation & { lock?: (o: string) => Promise<void> })
+    | undefined
+  if (!orientation?.lock) return
+  try {
+    await orientation.lock('landscape')
+  } catch {
+    // Refused — the prompt handles it.
+  }
 }
 
 /**

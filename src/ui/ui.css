@@ -803,5 +803,126 @@ h2 {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
-/* The film counter would sit under the transport row otherwise. */
-.hud--touch .film { bottom: auto; top: 5%; }
+
+
+/* -------------------------------------------------------------------------
+   Phone layout.
+
+   Driven by a media query rather than the HUD's touch class, because the
+   minimap is a sibling of the HUD rather than a child of it — a descendant
+   selector silently matched nothing. This is the same condition `prefersTouch`
+   tests, so the layout and the input scheme can never disagree.
+
+   The minimap is authored at 260x190: a corner of a desktop window, and most
+   of a portrait phone. At 390 CSS pixels wide it covered the middle of the
+   screen and sat on top of the transport buttons. Scaled with a transform
+   rather than by resizing the canvas, so the drawing code keeps one coordinate
+   system and click-to-seek keeps working.
+   ------------------------------------------------------------------------- */
+@media (hover: none) and (pointer: coarse) {
+  .minimap {
+    transform: scale(0.6);
+    transform-origin: bottom right;
+    right: 2%;
+    bottom: 2%;
+  }
+
+  /* The corner marks are a desktop-window flourish; on a phone they collide
+     with the notch and the home indicator. */
+  .corner {
+    display: none;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Landscape, which is how the game is meant to be held.
+
+   Everything moves to an edge and nothing shares one. The controls go to the
+   right edge rather than the bottom: in landscape the bottom of the screen is
+   where the hand holding the phone is, and a shutter there cannot be reached
+   without shifting grip.
+
+   Ordinary `row` with `justify-content: flex-end`, not `row-reverse`: reversed,
+   the transport buttons ended up outboard of the shutter, hard against the
+   bezel, with the shutter stranded in the middle of the viewfinder.
+   ------------------------------------------------------------------------- */
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  .touch {
+    left: auto;
+    right: max(2%, env(safe-area-inset-right));
+    top: 0;
+    bottom: 0;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .touch__row {
+    flex-direction: column;
+  }
+
+  .touch__btn {
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+
+  .touch__shutter {
+    width: 4.2rem;
+    height: 4.2rem;
+  }
+
+  /* No room for it, and by now the player knows. */
+  .touch__hint {
+    display: none;
+  }
+
+  /* Top right, clear of the section title on the left. Stacked in a corner
+     they overlapped: the title is long and the counter is large. */
+  .film {
+    bottom: auto;
+    top: 4%;
+    right: 5%;
+  }
+
+  /* Opposite corner from the controls, so neither covers the other. */
+  .minimap {
+    left: max(2%, env(safe-area-inset-left));
+    right: auto;
+    bottom: 2%;
+    transform: scale(0.5);
+    transform-origin: bottom left;
+  }
+}
+
+/* Portrait on a phone: the game is unplayable letterboxed, so cover it. */
+.rotate {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 13, 16, 0.94);
+  pointer-events: auto;
+  text-align: center;
+}
+.rotate__icon {
+  font-size: 3.5rem;
+  line-height: 1;
+  color: #fff;
+  /* Turning, so the instruction is also demonstrated. */
+  animation: rotate-hint 2.4s ease-in-out infinite;
+}
+.rotate__text {
+  font-size: 0.9rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+@keyframes rotate-hint {
+  0%, 40% { transform: rotate(90deg); }
+  60%, 100% { transform: rotate(0deg); }
+}

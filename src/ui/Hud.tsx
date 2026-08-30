@@ -1,8 +1,44 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
-import { input, prefersTouch } from '@/input'
+import { input, isPortrait, prefersTouch } from '@/input'
+
+/**
+ * "Turn your phone."
+ *
+ * The route's look cone is wide and shallow — you pan across a street far more
+ * than you tilt up a building — so the game wants a landscape viewport, and in
+ * portrait the viewfinder is a letterbox with most of the subject outside it.
+ *
+ * A prompt rather than a lock, because iOS Safari has no orientation lock at
+ * all; `lockLandscape` is tried first for the browsers that do honour it, and
+ * this covers the rest. Subscribed to the orientation change rather than polled
+ * so it disappears the instant the phone is turned.
+ */
+function RotatePrompt() {
+  const [portrait, setPortrait] = useState(() => isPortrait())
+
+  useEffect(() => {
+    const update = () => setPortrait(isPortrait())
+    window.addEventListener('orientationchange', update)
+    window.addEventListener('resize', update)
+    // `orientationchange` fires before the viewport has settled on iOS, so the
+    // resize listener is what actually gets the second reading right.
+    return () => {
+      window.removeEventListener('orientationchange', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [])
+
+  if (!portrait) return null
+  return (
+    <div className="rotate">
+      <div className="rotate__icon">▭</div>
+      <div className="rotate__text">Turn your phone sideways</div>
+    </div>
+  )
+}
 
 /**
  * On-screen controls, for the device that has no keyboard.
@@ -132,6 +168,7 @@ export function Hud() {
         <div className="label">shots left</div>
       </div>
 
+      {touch ? <RotatePrompt /> : null}
       {touch ? <TouchControls /> : (
         <div className="hint">
           Drag to look · Click or Space to shoot · Shift or right-click to zoom

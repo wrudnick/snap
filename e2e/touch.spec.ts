@@ -17,7 +17,7 @@ import { devices, expect, test, type Page } from '@playwright/test'
  * behaviour (no Pointer Lock, unreliable movementX) is what the adapter is
  * written against and is covered by the code, not by this run.
  */
-const iphone = { ...devices['iPhone 13'] }
+const iphone = { ...devices['iPhone 13 landscape'] }
 delete (iphone as { defaultBrowserType?: string }).defaultBrowserType
 test.use(iphone)
 
@@ -87,4 +87,26 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
   expect(yawAfter, 'turning the phone right looks right').toBeLessThan(yawBefore)
 
   expect(errors, 'console errors on a phone').toEqual([])
+})
+
+/**
+ * Portrait is covered rather than supported.
+ *
+ * The look cone is wide and shallow — you pan across a street far more than you
+ * tilt up a building — so held upright the viewfinder is a letterbox with the
+ * subject outside it. iOS has no orientation lock, so the only thing that
+ * actually gets the phone turned round is saying so.
+ */
+test('portrait asks you to turn the phone', async ({ browser }) => {
+  test.setTimeout(120_000)
+  const portrait = { ...devices['iPhone 13'] }
+  delete (portrait as { defaultBrowserType?: string }).defaultBrowserType
+  const context = await browser.newContext(portrait)
+  const page = await context.newPage()
+
+  await page.goto('/')
+  await page.waitForFunction(() => Boolean((window as any).__snap), null, { timeout: 30_000 })
+  await page.getByRole('button', { name: /^ride /i }).tap()
+  await expect(page.locator('.rotate')).toBeVisible()
+  await context.close()
 })
