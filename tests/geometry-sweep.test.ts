@@ -6,6 +6,8 @@ import { generateEnvironment, type Prop } from '../src/content/models/environmen
 import { buildingAt } from '../src/content/models/footprints'
 import { GROUND_PATCHES } from '../src/content/models/patches'
 import { ROUTES } from '../src/content/routes/goldcoast'
+import { SUBJECTS } from '../src/content/subjects'
+import { resolvePlacements } from '../src/game/placement'
 import { Rail } from '../src/game/rail'
 import { resolveRoute } from '../src/game/sections'
 
@@ -73,6 +75,84 @@ const path: Array<{ t: number; x: number; y: number; z: number; section: string 
 }
 
 describe('route sweep', () => {
+  /**
+   * Subjects, resolved the way the scene resolves them.
+   *
+   * Nothing checked these before: the sweep covered props and buildings, so a
+   * parked car sitting on the walking line was invisible to every test and
+   * only ever showed up as a red wing filling the corner of a screenshot.
+   */
+  const subjects = resolvePlacements(rail, sections, route.subjects)
+
+  it('never parks a subject on the walking line', () => {
+    /**
+     * Measured against the subject's own footprint rather than a fixed radius:
+     * a pigeon 80 cm away is fine and a bus 80 cm away is not.
+     *
+     * A person the camera brushes past is normal on a busy pavement, so this
+     * only looks at things big enough that walking through them would read as
+     * a mistake — vehicles and the horse.
+     */
+    const BULKY = new Set([
+      'taxi', 'sedan', 'suv', 'rideshare', 'delivery-car', 'police-car', 'bus',
+      'mounted-police', 'cyclist', 'delivery-rider',
+    ])
+    /**
+     * Measured against the vehicle's oriented footprint, not a circle round it.
+     *
+     * A circle of half the vehicle's *length* is wrong in the direction that
+     * matters: these are aligned to the route, so the path runs alongside them
+     * and what it has to clear is the width. A radius test called every
+     * correctly parked car on the route a collision while missing the one squad
+     * car that is genuinely sitting on the walking line.
+     */
+    const SIZE: Record<string, [number, number]> = {
+      bus: [1.4, 6.2],
+      vehicle: [1.0, 2.2],
+      bicycle: [0.4, 0.9],
+      horse: [0.5, 1.4],
+    }
+    /**
+     * 0.35 m. Walking within half a metre of a parked car is what a pavement
+     * is; the thing worth failing on is a vehicle the path actually passes
+     * through, and at this margin the sweep found three — two buses parked
+     * three metres off a route that had since moved to the kerb, and a squad
+     * car sitting on the walking line at the Triangle.
+     */
+    const MARGIN = 0.35
+    const hits: string[] = []
+
+    for (const s of subjects) {
+      if (!BULKY.has(s.species)) continue
+      const def = SUBJECTS[s.species]
+      const size = def && SIZE[def.model]
+      if (!size) continue
+      const [halfWidth, halfLength] = size
+
+      const angle = s.rotationY ?? 0
+      const cos = Math.cos(angle)
+      const sin = Math.sin(angle)
+      let worst = Infinity
+
+      for (const p of path) {
+        const dx = p.x - s.position![0]
+        const dz = p.z - s.position![2]
+        // Into the vehicle's own frame: forward is −Z, so across is x.
+        const across = Math.abs(dx * cos - dz * -sin)
+        const along = Math.abs(dx * -sin + dz * cos)
+        // Gap to the footprint: zero or less means inside it.
+        const gap = Math.max(across - halfWidth, along - halfLength)
+        worst = Math.min(worst, gap)
+      }
+
+      if (worst < MARGIN) {
+        hits.push(`${s.id} (${s.species}) leaves ${worst.toFixed(1)}m of clearance`)
+      }
+    }
+
+    expect(hits.slice(0, 20)).toEqual([])
+  })
+
   it('never puts the camera inside a prop', () => {
     // Half a metre of margin: the near plane is 0.1 m, but a wall passing
     // within half a metre of your eye reads as clipping even when it misses.

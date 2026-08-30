@@ -385,9 +385,9 @@ export const GOLD_COAST: RouteDef = {
     // — Traffic. Vehicles sit in the carriageway, which with the route on the
     //   centreline means offsets inside about seven metres; anything wider is
     //   parked on the pavement. Lanes are roughly ±2.5 and ±5.5. —
-    { id: 'bus-mich-1', species: 'bus', at: { section: 'michigan', u: 0.22, offset: 3.0 }, rotationY: Math.PI, alignToRoute: true, seed: 401 },
-    { id: 'bus-mich-2', species: 'bus', at: { section: 'michigan', u: 0.78, offset: -3.0 }, rotationY: 0, alignToRoute: true, seed: 402 },
-    { id: 'bus-lsd', species: 'bus', at: { section: 'lakeshore', u: 0.55, offset: 3.2 }, rotationY: Math.PI, alignToRoute: true, seed: 403 },
+    { id: 'bus-mich-1', species: 'bus', at: { section: 'michigan', u: 0.22, offset: 5.4 }, rotationY: Math.PI, alignToRoute: true, seed: 401 },
+    { id: 'bus-mich-2', species: 'bus', at: { section: 'michigan', u: 0.78, offset: -7.6 }, rotationY: 0, alignToRoute: true, seed: 402 },
+    { id: 'bus-lsd', species: 'bus', at: { section: 'lakeshore', u: 0.55, offset: 7.8 }, rotationY: Math.PI, alignToRoute: true, seed: 403 },
 
     { id: 'sedan-mich-1', species: 'sedan', at: { section: 'michigan', u: 0.12, offset: -2.6 }, rotationY: 0, alignToRoute: true, seed: 410 },
     { id: 'sedan-mich-2', species: 'sedan', at: { section: 'michigan', u: 0.44, offset: 5.4 }, rotationY: Math.PI, alignToRoute: true, seed: 411 },
@@ -412,7 +412,7 @@ export const GOLD_COAST: RouteDef = {
     { id: 'dash-car-rush', species: 'delivery-car', at: { section: 'rush', u: 0.28, offset: 6.2 }, rotationY: Math.PI, alignToRoute: true, seed: 434 },
 
     { id: 'squad-mich', species: 'police-car', at: { section: 'michigan', u: 0.50, offset: -6.4 }, rotationY: 0, alignToRoute: true, seed: 440 },
-    { id: 'squad-tri', species: 'police-car', at: { section: 'triangle', u: 0.30, offset: -5.6 }, rotationY: 0, alignToRoute: true, seed: 441 },
+    { id: 'squad-tri', species: 'police-car', at: { section: 'triangle', u: 0.30, offset: -8.2 }, rotationY: 0, alignToRoute: true, seed: 441 },
     { id: 'squad-lsd', species: 'police-car', at: { section: 'lakeshore', u: 0.72, offset: 5.6 }, rotationY: Math.PI, alignToRoute: true, seed: 442 },
 
     // More traffic. A city street is not three cars: these fill the lanes and
