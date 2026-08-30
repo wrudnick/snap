@@ -98,20 +98,16 @@ function FrameLimiter({ fps }: { fps: number }) {
 }
 
 /** Binds the input adapter to the canvas element. Swap the adapter for gamepad. */
-function InputBinding({ sensitivity }: { sensitivity: number }) {
+function InputBinding() {
   const gl = useThree((s) => s.gl)
 
   useEffect(() => {
     // The seam this layer was built for: game code reads `InputState` and never
-    // learns which adapter filled it. The touch adapter needs the route's look
-    // sensitivity to convert the gyro's radians into the pixels the rig
-    // expects — see TouchAdapter.
-    const adapter = prefersTouch()
-      ? new TouchAdapter(1 / sensitivity)
-      : new PointerKeyboardAdapter()
+    // learns which adapter filled it.
+    const adapter = prefersTouch() ? new TouchAdapter() : new PointerKeyboardAdapter()
     adapter.attach(gl.domElement)
     return () => adapter.detach()
-  }, [gl, sensitivity])
+  }, [gl])
 
   return null
 }
@@ -171,7 +167,7 @@ export function Game() {
       />
       <Shutter routeId={route.id} />
       <RunController fov={route.fov.default} duration={route.durationSeconds} />
-      <InputBinding sensitivity={route.look.sensitivity} />
+      <InputBinding />
 
       {/* Compile every material up front. Without this, the first frame a new
           material enters view stalls while the shader compiles — which reads to

@@ -53,24 +53,54 @@ export function cameraAttitude(alpha: number, beta: number, gamma: number): Atti
 }
 
 /**
- * The alpha to feed `cameraAttitude`, referenced to true north where possible.
+ * North-referenced attitude straight from an event, or null if it has no north.
  *
- * A plain `deviceorientation` event has an arbitrary alpha zero — it is
- * whatever the device felt like when it started — which is exactly the
- * "relative to when you open the app" problem. Two sources fix it:
+ * The compass is applied as a *correction to the bearing*, never by
+ * substituting it for alpha in the angle triple. That substitution is what
+ * flipped the view 180° the moment the phone was tilted while held sideways,
+ * and the reason is worth writing down because it is invisible from the code
+ * that does it:
  *
- * - iOS reports `webkitCompassHeading`, a true bearing. Alpha counts the
- *   opposite way round, hence the subtraction from 360.
- * - Android sets `absolute` on `deviceorientationabsolute`, where alpha is
- *   already measured from north.
+ * The three angles are an intrinsic Z-X'-Y'' decomposition, and in landscape
+ * gamma sits at ±90°, which is that decomposition's gimbal singularity. There
+ * alpha and beta stop being independent — only their sum or difference is
+ * determined — so a device reports them *jumping together*, by 180° each, with
+ * the physical orientation completely unchanged. The matrix built from the
+ * reported triple is continuous through that jump. Replace alpha with a compass
+ * reading and keep the jumped beta, and it is not: you have built a rotation
+ * the phone was never in.
  *
- * Returns null when neither is available, which is the caller's signal to fall
- * back to relative look rather than point the camera somewhere arbitrary.
+ * Since alpha is the first rotation of the three, changing it by Δ post-
+ * multiplies nothing and pre-multiplies a rotation about world up — so it
+ * turns the camera's bearing by exactly −Δ and leaves elevation alone. That
+ * makes the correction a scalar on the output, which is safe at any pose.
  */
-export function absoluteAlpha(event: DeviceOrientationEvent): number | null {
+export function attitudeFromEvent(event: DeviceOrientationEvent): Attitude | null {
+  const { alpha, beta, gamma } = event
+  if (alpha === null || beta === null || gamma === null) return null
+
+  // Built from the reported triple, unmodified, so it stays self-consistent.
+  const raw = cameraAttitude(alpha, beta, gamma)
+
   const compass = (event as DeviceOrientationEvent & { webkitCompassHeading?: number })
     .webkitCompassHeading
-  if (typeof compass === 'number' && Number.isFinite(compass)) return 360 - compass
-  if (event.absolute && event.alpha !== null) return event.alpha
+  if (typeof compass === 'number' && Number.isFinite(compass)) {
+    // iOS: the recipe is `trueAlpha = 360 − heading`, applied as a bearing
+    // offset rather than a substitution.
+    const delta = (360 - compass - alpha) * DEG
+    return { bearing: wrapPi(raw.bearing - delta), elevation: raw.elevation }
+  }
+
+  // Android's absolute event already measures alpha from north.
+  if (event.absolute) return raw
+
   return null
+}
+
+/** Bring an angle into −π…π. */
+export function wrapPi(angle: number): number {
+  let a = angle
+  while (a > Math.PI) a -= Math.PI * 2
+  while (a < -Math.PI) a += Math.PI * 2
+  return a
 }

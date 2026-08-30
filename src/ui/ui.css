@@ -783,7 +783,12 @@ h2 {
 }
 .touch__zoom:active {
   background: rgba(255, 255, 255, 0.32);
-  border-color: rgba(255, 255, 255, 0.8);
+}
+/* Latched: zoom is a toggle, so the button has to show which state it is in. */
+.touch__zoom[aria-pressed='true'] {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.95);
+  color: #14171c;
 }
 
 .touch__row {

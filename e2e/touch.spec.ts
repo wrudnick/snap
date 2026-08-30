@@ -110,28 +110,27 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
   const raised = await page.evaluate(() => (window as any).__snap.runtime.pitch)
   expect(raised, 'tilting the phone up looks up').toBeGreaterThan(0.25)
 
-  /**
-   * Zoom is held, and — the part worth pinning down — released.
-   *
-   * `input.zoom` is a level rather than an edge, so a missing release leaves
-   * the camera zoomed for the rest of the run. Pointer capture is what makes
-   * that survive a finger sliding off the button, and neither the hold nor the
-   * release is visible from reading the markup.
-   */
+  /** Zoom latches on and off. */
   const wide = await page.evaluate(() => (window as any).__snap.runtime.targetFov)
-  await page.getByRole('button', { name: 'Zoom' }).dispatchEvent('pointerdown', {
-    pointerId: 7, pointerType: 'touch', isPrimary: true,
-  })
-  await page.waitForTimeout(300)
-  const zoomed = await page.evaluate(() => (window as any).__snap.runtime.targetFov)
-  expect(zoomed, 'holding zoom narrows the lens').toBeLessThan(wide)
+  const zoom = page.getByRole('button', { name: 'Zoom' })
 
-  await page.getByRole('button', { name: 'Zoom' }).dispatchEvent('pointerup', {
-    pointerId: 7, pointerType: 'touch', isPrimary: true,
-  })
+  await zoom.tap()
   await page.waitForTimeout(300)
-  const released = await page.evaluate(() => (window as any).__snap.runtime.targetFov)
-  expect(released, 'letting go returns to the wide lens').toBe(wide)
+  expect(
+    await page.evaluate(() => (window as any).__snap.runtime.targetFov),
+    'tapping zoom narrows the lens',
+  ).toBeLessThan(wide)
+  await expect(zoom).toHaveAttribute('aria-pressed', 'true')
+
+  // A toggle has to toggle back, and has to stay on in between — a held
+  // control that lost its release left the camera zoomed for the whole run.
+  await zoom.tap()
+  await page.waitForTimeout(300)
+  expect(
+    await page.evaluate(() => (window as any).__snap.runtime.targetFov),
+    'tapping again returns to the wide lens',
+  ).toBe(wide)
+  await expect(zoom).toHaveAttribute('aria-pressed', 'false')
 
   expect(errors, 'console errors on a phone').toEqual([])
 })

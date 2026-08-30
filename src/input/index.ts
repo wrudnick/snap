@@ -1,4 +1,4 @@
-import { absoluteAlpha, cameraAttitude } from '@/lib/deviceOrientation'
+import { attitudeFromEvent, wrapPi } from '@/lib/deviceOrientation'
 
 /**
  * Input abstraction.
@@ -195,23 +195,20 @@ export class TouchAdapter implements InputAdapter {
   /** Pointer id → last position, so a second finger doesn't yank the camera. */
   private readonly points = new Map<number, { x: number; y: number }>()
   private pinchDistance = 0
-
   /**
-   * Pixels per radian, the unit `aimX`/`aimY` are in.
+   * Whether the current zoom was set by a pinch.
    *
-   * The rig multiplies those by the route's look sensitivity to get radians, so
-   * the gyro — which produces radians directly — has to divide by the same
-   * number to come out the other end unchanged. Passed in rather than hardcoded
-   * because it belongs to the route, and an adapter that quietly assumed a
-   * sensitivity would drift out of step the moment the route changed one.
+   * Releasing a pinch used to clear `input.zoom` on any pointerup at all, which
+   * was invisible while the zoom button was press-and-hold — the button set it
+   * again on the very next frame. Once the button became a toggle, tapping it
+   * armed the zoom and the tap's own pointerup immediately disarmed it, so the
+   * control did nothing. A pinch may only take back what a pinch gave.
    */
-  private readonly pixelsPerRadian: number
-  /** Previous device orientation, in radians. Null until the first reading. */
-  private last: { yaw: number; pitch: number } | null = null
+  private pinchOwnsZoom = false
 
-  constructor(pixelsPerRadian: number) {
-    this.pixelsPerRadian = pixelsPerRadian
-  }
+  /** Last accepted absolute yaw, and how many readings have been thrown away. */
+  private lastYaw: number | null = null
+  private rejected = 0
 
   attach(element: HTMLElement): void {
     this.element = element
@@ -240,7 +237,9 @@ export class TouchAdapter implements InputAdapter {
     window.removeEventListener('deviceorientationabsolute', this.onOrientation)
     window.removeEventListener('deviceorientation', this.onOrientation)
     this.points.clear()
-    this.last = null
+    this.lastYaw = null
+    this.rejected = 0
+    this.pinchOwnsZoom = false
     input.zoom = false
     input.absoluteYaw = null
     input.absolutePitch = null
@@ -263,60 +262,50 @@ export class TouchAdapter implements InputAdapter {
    * not tilt the horizon in a game whose whole subject is framing.
    */
   private onOrientation = (e: DeviceOrientationEvent): void => {
-    if (e.alpha === null || e.beta === null || e.gamma === null) return
+    const attitude = attitudeFromEvent(e)
 
-    /**
-     * Absolute where the device can tell us which way is north, relative
-     * otherwise.
-     *
-     * Absolute is the one worth having: the phone's attitude *is* the camera's
-     * attitude, so pointing it at a building points the camera at that
-     * building, with nothing to re-zero and no drift. It needs a true heading,
-     * which iOS gives as a compass reading and Android as an absolute alpha.
-     *
-     * Without one, alpha's zero is wherever the device happened to be when it
-     * powered up, and treating that as a world heading would aim the camera
-     * somewhere arbitrary. So that case keeps integrating deltas, which does
-     * not care where zero is.
-     */
-    const referenced = absoluteAlpha(e)
-
-    if (referenced !== null) {
-      const { bearing, elevation } = cameraAttitude(referenced, e.beta, e.gamma)
+    if (attitude === null) {
       /**
-       * Bearing counts clockwise from north; three's yaw counts anticlockwise
-       * from −Z, and the world is laid out with −Z as north. So the two are the
-       * same angle with opposite signs.
+       * No north, no gyro look.
+       *
+       * There used to be a relative fallback here that integrated changes in
+       * the angles. It is deliberately gone: relative look is the thing that
+       * was wrong in the first place, and letting it take over silently on
+       * whichever devices lack a compass means the control behaves differently
+       * in someone's hand for reasons neither of us can see. Drag still works
+       * everywhere.
        */
-      input.absoluteYaw = -bearing
-      input.absolutePitch = elevation
-      this.last = null
+      input.absoluteYaw = null
+      input.absolutePitch = null
       return
     }
 
-    input.absoluteYaw = null
-    input.absolutePitch = null
+    /**
+     * Bearing counts clockwise from north; three's yaw counts anticlockwise
+     * from −Z, and the world is laid out with −Z as north. So the two are the
+     * same angle with opposite signs.
+     */
+    const yaw = -attitude.bearing
 
-    const yaw = (e.alpha * Math.PI) / 180
-    const pitch = (e.beta * Math.PI) / 180
+    /**
+     * Reject a jump no wrist can make.
+     *
+     * Belt and braces on top of the fix in `attitudeFromEvent`: at sixty
+     * readings a second a bearing cannot move a hundred degrees between two of
+     * them, so anything that does is the sensor and not the player. Given up on
+     * after a dozen, because a genuine fast turn has to be able to re-sync —
+     * otherwise one bad reading would lock the view for the rest of the run.
+     */
+    const previous = this.lastYaw
+    if (previous !== null && Math.abs(wrapPi(yaw - previous)) > 1.75) {
+      this.rejected += 1
+      if (this.rejected < 12) return
+    }
+    this.rejected = 0
+    this.lastYaw = yaw
 
-    const previous = this.last
-    this.last = { yaw, pitch }
-    if (!previous) return
-
-    // Alpha wraps at 0/360, so a turn past north reads as a 359-degree jump the
-    // other way unless it is brought back into range.
-    let dYaw = yaw - previous.yaw
-    if (dYaw > Math.PI) dYaw -= Math.PI * 2
-    if (dYaw < -Math.PI) dYaw += Math.PI * 2
-    const dPitch = pitch - previous.pitch
-
-    // A wild reading is a sensor glitch or a permission prompt dismissing, not
-    // someone spinning on the spot; letting it through snaps the view.
-    if (Math.abs(dYaw) > 0.6 || Math.abs(dPitch) > 0.6) return
-
-    input.aimX += -dYaw * this.pixelsPerRadian
-    input.aimY += -dPitch * this.pixelsPerRadian
+    input.absoluteYaw = yaw
+    input.absolutePitch = attitude.elevation
   }
 
 
@@ -347,8 +336,14 @@ export class TouchAdapter implements InputAdapter {
        */
       const now = this.spread()
       if (this.pinchDistance > 0) {
-        if (now - this.pinchDistance > 24) input.zoom = true
-        if (this.pinchDistance - now > 24) input.zoom = false
+        if (now - this.pinchDistance > 24) {
+          input.zoom = true
+          this.pinchOwnsZoom = true
+        }
+        if (this.pinchDistance - now > 24) {
+          input.zoom = false
+          this.pinchOwnsZoom = false
+        }
       }
       return
     }
@@ -366,7 +361,10 @@ export class TouchAdapter implements InputAdapter {
     this.points.delete(e.pointerId)
     if (this.points.size < 2) {
       this.pinchDistance = 0
-      input.zoom = false
+      if (this.pinchOwnsZoom) {
+        input.zoom = false
+        this.pinchOwnsZoom = false
+      }
     }
   }
 }

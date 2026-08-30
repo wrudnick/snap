@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
@@ -62,44 +62,25 @@ function TouchControls() {
   )
 
   /**
-   * Zoom is held, not tapped.
+   * Zoom is a toggle.
    *
-   * `input.zoom` is a level the rig lerps the FOV toward for as long as it is
-   * true — the same thing the Shift key does — so it needs a matching release,
-   * which the edge-triggered helper above cannot express.
+   * It was press-and-hold, mirroring the Shift key it replaces, and holding a
+   * button with one thumb while framing with the other is exactly how you get a
+   * blurry photograph of your own hand. `input.zoom` is a level the rig lerps
+   * the FOV toward, so a toggle is simply a flip of that level and needs no
+   * release — which also disposes of the pointer-capture dance the held version
+   * needed to survive a finger sliding off the button.
    *
-   * Pointer capture on the way down is what makes it survive a finger that
-   * slides off the button while framing: without it the pointerup lands on the
-   * canvas instead, the release never fires, and the camera stays zoomed for
-   * the rest of the run.
+   * The button reflects the state through `aria-pressed`, which the stylesheet
+   * uses for the lit look. Kept in a ref rather than React state: nothing else
+   * re-renders during play, and this must not either.
    */
-  const holdZoom = useMemo(
-    () => ({
-      onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
-        // State first, capture second. `setPointerCapture` throws if the
-        // pointer is not active — and it threw before the zoom was ever set,
-        // so the button did nothing at all. Nothing the player can see should
-        // depend on an optional browser API succeeding.
-        input.zoom = true
-        try {
-          e.currentTarget.setPointerCapture?.(e.pointerId)
-        } catch {
-          // Without capture a finger sliding off the button will not release
-          // it; `onPointerCancel` and the adapter's own pointerup still do.
-        }
-      },
-      onPointerUp: (e: ReactPointerEvent<HTMLButtonElement>) => {
-        input.zoom = false
-        try {
-          e.currentTarget.releasePointerCapture?.(e.pointerId)
-        } catch {
-          // Never captured; nothing to release.
-        }
-      },
-      onPointerCancel: () => {
-        input.zoom = false
-      },
-    }),
+  const zoomRef = useRef<HTMLButtonElement>(null)
+  const toggleZoom = useMemo(
+    () => () => {
+      input.zoom = !input.zoom
+      zoomRef.current?.setAttribute('aria-pressed', String(input.zoom))
+    },
     [],
   )
 
@@ -108,10 +89,12 @@ function TouchControls() {
       {/* Left cluster: the hand that is not on the shutter. */}
       <div className="touch touch--left">
         <button
+          ref={zoomRef}
           type="button"
           className="touch__zoom"
           aria-label="Zoom"
-          {...holdZoom}
+          aria-pressed="false"
+          onPointerDown={toggleZoom}
         >
           <span aria-hidden="true">⌖</span>
         </button>
@@ -135,7 +118,7 @@ function TouchControls() {
           aria-label="Shutter"
           onPointerDown={press('shutter')}
         />
-        <div className="touch__hint">Drag to look · hold ⌖ to zoom</div>
+        <div className="touch__hint">Point the phone to look · ⌖ to zoom</div>
       </div>
     </>
   )
