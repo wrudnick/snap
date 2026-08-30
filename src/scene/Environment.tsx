@@ -30,6 +30,16 @@ interface GroupProps {
   castShadow?: boolean
   receiveShadow?: boolean
   /**
+   * Drawn flat, ignoring every light in the scene.
+   *
+   * For bulbs and lit signs. A light source shaded like the wall behind it goes
+   * dark exactly when it is supposed to be the brightest thing in frame — Rush
+   * Street's strings came out as rows of black beads at dusk. Unlit also suits
+   * the reference art, where a light is a flat bright shape rather than a
+   * gradient.
+   */
+  unlit?: boolean
+  /**
    * Which primitive the whole group is drawn from.
    *
    * One instanced mesh per shape, not per object — so every tree canopy and
@@ -38,8 +48,23 @@ interface GroupProps {
   shape?: 'box' | 'sphere'
 }
 
-function PropInstances({ props, limit, castShadow, receiveShadow, shape }: GroupProps) {
-  const material = useToonMaterial(0xffffff)
+function PropInstances({ props, limit, castShadow, receiveShadow, shape, unlit }: GroupProps) {
+  const toon = useToonMaterial(0xffffff)
+  /**
+   * One warm colour for the whole group, not per instance.
+   *
+   * `vertexColors: true` on a basic material leaves vColor at zero unless the
+   * per-instance colour actually reaches it, and it does not here — every bulb
+   * rendered as a solid black sphere, which is worse than the shaded version it
+   * was meant to replace. Lights are all the same warm white anyway, so the
+   * colour belongs on the material.
+   */
+  const flat = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: 0xffeccd, toneMapped: false, fog: false }),
+    [],
+  )
+  useEffect(() => () => flat.dispose(), [flat])
+  const material = unlit ? flat : toon
 
   return (
     <Instances
@@ -238,6 +263,7 @@ export function Environment({
       heads: data.heads.filter(keep(w?.furniture ?? route.activeWindow)),
       clutter: data.clutter.filter(keep(w?.clutter ?? route.activeWindow)),
       blobs: data.blobs.filter(keep(w?.furniture ?? route.activeWindow)),
+      lamps: data.lamps.filter(keep(w?.furniture ?? route.activeWindow)),
     }
   }, [data, segment, route.activeWindow, route.activeWindows])
 
@@ -252,6 +278,7 @@ export function Environment({
       <PropInstances props={visible.heads} limit={80} castShadow />
       <PropInstances props={visible.clutter} limit={80} castShadow receiveShadow />
       <PropInstances props={visible.blobs} limit={420} shape="sphere" castShadow />
+      <PropInstances props={visible.lamps} limit={420} shape="sphere" unlit />
     </group>
   )
 }

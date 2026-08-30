@@ -56,6 +56,15 @@ export interface EnvironmentData {
    * one instanced draw call regardless of count.
    */
   skyline: Prop[]
+  /**
+   * Light sources — bulbs, lamp globes, lit signs.
+   *
+   * Drawn unlit, so their colour is exactly what is authored here whatever the
+   * scene lighting is doing. A bulb shaded like everything else goes dark at
+   * dusk, which is precisely when it is supposed to be the brightest thing on
+   * the street: Rush Street's strings of lights read as rows of black beads.
+   */
+  lamps: Prop[]
 }
 
 // Surface colours live in `surfaces.ts` so `cityGround` can have them without
@@ -88,13 +97,14 @@ function buildProps(
   route: RouteDef,
   rail: Rail,
   sections: ResolvedSection[],
-): Pick<EnvironmentData, 'buildings' | 'poles' | 'heads' | 'clutter' | 'blobs'> {
+): Pick<EnvironmentData, 'buildings' | 'poles' | 'heads' | 'clutter' | 'blobs' | 'lamps'> {
   const rng = makeRng(route.seed)
   const buildings: Prop[] = []
   const poles: Prop[] = []
   const heads: Prop[] = []
   const clutter: Prop[] = []
   const blobs: Prop[] = []
+  const lamps: Prop[] = []
 
   const point = new THREE.Vector3()
   const right = new THREE.Vector3()
@@ -535,7 +545,7 @@ function buildProps(
     }
 
     if (section.kind === 'dining') {
-      addStringLights(section, route, rail.length, at, poles, blobs)
+      addStringLights(section, route, rail.length, at, poles, lamps)
       addPatios(section, route, rail.length, rng, at, poles, heads, clutter, {
         nearRail,
         clashes,
@@ -544,7 +554,7 @@ function buildProps(
     }
 
     if (section.kind === 'beach') {
-      addBeachClub(section, route, rail.length, rng, at, headingAt, poles, heads, clutter, blobs, {
+      addBeachClub(section, route, rail.length, rng, at, headingAt, poles, heads, clutter, blobs, lamps, {
         nearRail,
         clashes,
         claim: (x, z, r) => placed.push([x, z, r]),
@@ -552,7 +562,7 @@ function buildProps(
     }
 
     if (section.kind === 'alley') {
-      addAlleyDressing(section, route, rail.length, rng, at, headingAt, heads, clutter, blobs, nearRail)
+      addAlleyDressing(section, route, rail.length, rng, at, headingAt, heads, clutter, lamps, nearRail)
     }
 
     if (section.kind === 'tunnel') {
@@ -572,7 +582,7 @@ function buildProps(
     }
   }
 
-  return { buildings, poles, heads, clutter, blobs }
+  return { buildings, poles, heads, clutter, blobs, lamps }
 }
 
 /**
@@ -598,7 +608,7 @@ function addAlleyDressing(
   headingAt: (t: number) => number,
   heads: Prop[],
   clutter: Prop[],
-  blobs: Prop[],
+  lamps: Prop[],
   nearRail: (x: number, z: number, radius: number) => boolean,
 ): void {
   const span = section.tEnd - section.tStart
@@ -727,9 +737,9 @@ function addAlleyDressing(
         { position: [wx, y + 3.4, wz], scale: [0.3, 0.34, 0.34], rotationY: heading, color: STEEL, segment },
         { position: [wx, y + 1.9, wz], scale: [0.08, 2.6, 0.08], rotationY: heading, color: STEEL, segment },
       )
-      blobs.push({
-        position: [wx, y + 3.3, wz], scale: [0.26, 0.22, 0.26],
-        rotationY: 0, color: 0xffe0a0, segment,
+      lamps.push({
+        position: [wx, y + 3.3, wz], scale: [0.34, 0.3, 0.34],
+        rotationY: 0, color: 0xfff2d0, segment,
       })
 
       /**
@@ -810,9 +820,9 @@ function addAlleyDressing(
       position: [x, y + 6.4, z], scale: [reach, 0.07, 0.07],
       rotationY: headingAt(t), color: 0x1d1f24, segment,
     })
-    blobs.push({
-      position: [x, y + 6.2, z], scale: [0.22, 0.26, 0.22],
-      rotationY: 0, color: 0xffd98a, segment,
+    lamps.push({
+      position: [x, y + 6.2, z], scale: [0.3, 0.34, 0.3],
+      rotationY: 0, color: 0xfff2d0, segment,
     })
   }
 }
@@ -847,6 +857,7 @@ function addBeachClub(
   heads: Prop[],
   clutter: Prop[],
   blobs: Prop[],
+  lamps: Prop[],
   guards: {
     nearRail: (x: number, z: number, radius: number) => boolean
     clashes: (x: number, z: number, radius: number) => boolean
@@ -1038,12 +1049,9 @@ function addBeachClub(
     const [lx, lz] = local(-6 + u * 12, -0.4)
     // A sag between the two masts, the same shape the Rush Street strings use.
     const sag = Math.sin(u * Math.PI) * 0.55
-    blobs.push({
-      position: [lx, cy + 3.2 - sag, lz],
-      scale: [0.2, 0.2, 0.2],
-      rotationY: 0,
-      color: 0xffd98a,
-      segment,
+    lamps.push({
+      position: [lx, cy + 3.2 - sag, lz], scale: [0.3, 0.3, 0.3],
+      rotationY: 0, color: 0xfff2d0, segment,
     })
   }
   for (const along of [-6.2, 6.2]) {
@@ -1260,7 +1268,7 @@ function addStringLights(
   railLength: number,
   at: (t: number, offset: number) => [number, number, number],
   poles: Prop[],
-  blobs: Prop[],
+  lamps: Prop[],
 ): void {
   const span = section.tEnd - section.tStart
   const spanMetres = span * railLength
@@ -1298,11 +1306,20 @@ function addStringLights(
         const bt = t + (along / runs) * span
         const dip = Math.sin(along * Math.PI) * SAG
         const [bx, by, bz] = at(bt, SIDE * side)
-        blobs.push({
+        /**
+         * Deliberately oversized for a festoon bulb.
+         *
+         * A true-to-life 8 cm bulb is under a pixel at the distance these are
+         * photographed from, and the cel outline draws a silhouette edge right
+         * round whatever is left — every string on Rush Street came out as a
+         * row of black beads. At 30 cm the outline is a rim rather than the
+         * whole thing, which is also how the reference art draws a light.
+         */
+        lamps.push({
           position: [bx, by + HEIGHT - dip, bz],
-          scale: [0.17, 0.17, 0.17],
+          scale: [0.3, 0.3, 0.3],
           rotationY: 0,
-          color: 0xffcf8a,
+          color: 0xfff2d0,
           segment: segmentOf(bt),
         })
       }
