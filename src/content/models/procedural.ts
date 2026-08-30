@@ -1661,9 +1661,16 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   g.add(part('hips', BOX, bottomColor, [0, hipY - h * 0.02, 0], [waistHalf * 2, h * 0.075, torsoDepth * 2]))
 
   if (outfit.skirt) {
-    // A skirt block: flares below the hip and hides the tops of the legs.
+    /**
+     * A skirt block: flares below the hip and hides the tops of the legs.
+     *
+     * Top radius 0.5, not 1. Every shared geometry in this file is unit
+     * *diameter* so that a scale reads as a size in metres — a radius of 1 made
+     * this one twice as wide as its scale said, and a summer dress came out as
+     * a lampshade a metre and a quarter across.
+     */
     const skirt = new THREE.Mesh(
-      new THREE.CylinderGeometry(1, waistHalf * 1.9 / (waistHalf * 1.05), 1, 8, 1),
+      new THREE.CylinderGeometry(0.5, 0.5 * (1.9 / 1.05), 1, 8, 1),
       mat(bottomColor),
     )
     skirt.scale.set(waistHalf * 1.05 * 2, h * 0.22, waistHalf * 1.05 * 2)
@@ -1956,6 +1963,27 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     )
   }
 
+  /**
+   * Everything hangs off one `body` group, as it does on the bird and the dog.
+   *
+   * A pose that takes a person off their feet cannot be built joint by joint on
+   * this rig: the skirt, the hip block and the coat panel are parented to the
+   * root and no clip addresses them, so a reclining figure left its skirt
+   * standing upright in the air where the hips used to be. One group that
+   * carries the lot turns lying down into a rigid transform of a standing
+   * figure, which is what it actually is.
+   *
+   * The group sits at the origin and children keep their positions, so every
+   * existing clip — several of which drive `torso.position[y]` to an absolute
+   * hip height — is untouched. Rotation therefore pivots at the feet, and the
+   * clips that use it pair it with a `body.position[y]` that puts the result
+   * back on the ground.
+   */
+  const body = new THREE.Group()
+  body.name = 'body'
+  for (const child of [...g.children]) body.add(child)
+  g.add(body)
+
   if (spec.stoop) g.rotation.x = spec.stoop
 
   const armSwing = 0.55
@@ -2000,51 +2028,43 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     /**
      * Sitting on the sand, propped back on both hands.
      *
-     * Every joint that leaves the standing pose has to be driven, including the
-     * hips: the legs hang from their own pivots on the group rather than from
-     * the torso, so dropping only `torso.position[y]` sits a person's chest on
-     * the ground with their legs still standing underneath.
-     *
-     * Sign convention, as everywhere on these models: negative rotation about X
-     * carries the far end of a part forward (−Z). The torso leans *back*, so it
-     * is positive; the legs extend forward, so they are negative.
+     * The whole figure tips back 36° about its feet and drops, which puts the
+     * hips 10 cm off the sand; the legs then swing forward far enough to put
+     * the heels back down in front, and the arms reach down and back to take
+     * the weight. Every number here is checked against where it lands rather
+     * than chosen by eye — the first attempt drove the joints individually and
+     * left the person's skirt standing up behind them.
      */
     new THREE.AnimationClip('lounge', 5.2, [
-      num('torso.position[y]', [0, 5.2], [h * 0.28, h * 0.28]),
-      num('torso.rotation[x]', [0, 2.6, 5.2], [0.62, 0.56, 0.62]),
-      num('legL.position[y]', [0, 5.2], [h * 0.28, h * 0.28]),
-      num('legR.position[y]', [0, 5.2], [h * 0.28, h * 0.28]),
-      num('legL.rotation[x]', [0, 2.6, 5.2], [-1.36, -1.3, -1.36]),
-      num('legR.rotation[x]', [0, 2.6, 5.2], [-1.18, -1.24, -1.18]),
-      num('legR.rotation[z]', [0, 5.2], [-0.22, -0.22]),
-      // Arms back behind the hips, taking the weight.
-      num('armL.rotation[x]', [0, 5.2], [1.05, 1.05]),
-      num('armR.rotation[x]', [0, 5.2], [1.05, 1.05]),
-      num('armL.rotation[z]', [0, 5.2], [-0.24, -0.24]),
-      num('armR.rotation[z]', [0, 5.2], [0.24, 0.24]),
+      num('body.rotation[x]', [0, 2.6, 5.2], [0.62, 0.58, 0.62]),
+      num('body.position[y]', [0, 5.2], [-0.62 * h * 0.5 * 2, -0.62 * h * 0.5 * 2]),
+      num('legL.rotation[x]', [0, 2.6, 5.2], [0.85, 0.8, 0.85]),
+      num('legR.rotation[x]', [0, 2.6, 5.2], [0.78, 0.84, 0.78]),
+      num('legR.rotation[z]', [0, 5.2], [-0.2, -0.2]),
+      num('armL.rotation[x]', [0, 5.2], [-0.97, -0.97]),
+      num('armR.rotation[x]', [0, 5.2], [-0.97, -0.97]),
+      num('armL.rotation[z]', [0, 5.2], [-0.3, -0.3]),
+      num('armR.rotation[z]', [0, 5.2], [0.3, 0.3]),
       num('head.rotation[y]', [0, 1.7, 3.4, 5.2], [-0.4, 0.3, -0.15, -0.4]),
+      num('head.rotation[x]', [0, 5.2], [-0.3, -0.3]),
     ]),
 
     /**
      * Flat on a towel.
      *
-     * The body lies along Z with the head at +Z and the feet at −Z, which is
-     * why the torso goes past vertical and the legs almost to the horizontal.
-     * Anchored low enough that the back is on the sand rather than hovering
-     * over it.
+     * Tipped 86° — nearly all the way over — and lifted by half a body
+     * thickness so the back rests on the sand rather than in it. The legs need
+     * no rotation of their own at that angle; they are already horizontal, and
+     * one knee comes up because a figure with both legs straight reads as
+     * unconscious rather than asleep.
      */
     new THREE.AnimationClip('sunbathe', 6.4, [
-      num('torso.position[y]', [0, 6.4], [h * 0.14, h * 0.14]),
-      num('torso.rotation[x]', [0, 3.2, 6.4], [1.44, 1.47, 1.44]),
-      num('legL.position[y]', [0, 6.4], [h * 0.14, h * 0.14]),
-      num('legR.position[y]', [0, 6.4], [h * 0.14, h * 0.14]),
-      num('legL.rotation[x]', [0, 6.4], [-1.56, -1.56]),
-      // One knee up, which is the difference between asleep and dead.
-      num('legR.rotation[x]', [0, 3.2, 6.4], [-1.5, -1.1, -1.5]),
-      num('armL.rotation[z]', [0, 6.4], [-0.72, -0.72]),
-      num('armR.rotation[z]', [0, 6.4], [0.72, 0.72]),
-      num('armL.rotation[x]', [0, 3.2, 6.4], [0.1, 0.2, 0.1]),
-      num('head.rotation[x]', [0, 6.4], [-0.35, -0.35]),
+      num('body.rotation[x]', [0, 3.2, 6.4], [1.5, 1.52, 1.5]),
+      num('body.position[y]', [0, 6.4], [h * 0.09, h * 0.09]),
+      num('legR.rotation[x]', [0, 3.2, 6.4], [-0.5, -0.16, -0.5]),
+      num('armL.rotation[z]', [0, 6.4], [-0.62, -0.62]),
+      num('armR.rotation[z]', [0, 3.2, 6.4], [0.62, 0.9, 0.62]),
+      num('head.rotation[x]', [0, 6.4], [-0.42, -0.42]),
     ]),
 
     /** Drink in hand, weight on one hip, talking over the music. */

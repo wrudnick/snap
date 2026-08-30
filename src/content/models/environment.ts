@@ -569,6 +569,12 @@ function buildProps(
   return { buildings, poles, heads, clutter, blobs }
 }
 
+/** A darker shade of a prop colour, for the alternate panels of a parasol. */
+function shadeOfProp(color: number, factor: number): number {
+  const ch = (shift: number) => Math.min(255, Math.round(((color >> shift) & 0xff) * factor))
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0)
+}
+
 /**
  * The beach club, and the sunshades scattered along the sand.
  *
@@ -614,7 +620,45 @@ function addBeachClub(
   const heading = headingAt(clubT)
   const cos = Math.cos(heading)
   const sin = Math.sin(heading)
-  const [cx, cy, cz] = at(clubT, 15)
+
+  /**
+   * Far enough out that the path never crosses the deck.
+   *
+   * A fixed 15 m offset is not enough on its own: the route turns southwest
+   * into the underpass immediately after the club, so a point fifteen metres to
+   * the side at u 0.84 is directly on the path by u 1.0 — and the player walked
+   * straight through the middle of an eleven-by-fifteen-metre deck, which fills
+   * the entire frame with a brown plane.
+   *
+   * Candidates are tested at their corners against the whole rail, near side
+   * first, and the club simply moves until it clears.
+   */
+  const HALF_ACROSS = 6.5
+  const HALF_ALONG = 8
+
+  /**
+   * Always the same side; only the distance moves.
+   *
+   * Props measure their offset as `+right` and subjects as `−right`, so a club
+   * that picked its side at run time would put the crowd across the beach from
+   * the bar half the time. `at(t, −out)` is `+out` in the subjects' sign, which
+   * is the one the route file is written in.
+   */
+  let chosen = at(clubT, -36)
+  for (const out of [17, 21, 25, 30]) {
+    const [px, py, pz] = at(clubT, -out)
+    let clear = true
+    for (const a of [-HALF_ALONG, 0, HALF_ALONG]) {
+      for (const o of [-HALF_ACROSS, 0, HALF_ACROSS]) {
+        if (nearRail(px - sin * a + cos * o, pz + cos * a + sin * o, 7)) clear = false
+      }
+    }
+    if (clear) {
+      chosen = [px, py, pz]
+      break
+    }
+  }
+  const [cx, cy, cz] = chosen
   const segment = segmentFor(clubT)
 
   /** A point in the club's own frame: `along` the route, `out` away from it. */
@@ -623,6 +667,13 @@ function addBeachClub(
     cz + cos * along + sin * out,
   ]
 
+  /**
+   * One id for the club's own structure — deck, counter, gantry, kick panel,
+   * posts. They intersect each other by design, the way a building's walls meet
+   * its floor. Stools and parasols get their own ids because they are separate
+   * objects standing on it.
+   */
+  const CLUB = 900
   const DECK = 0xb08a5e
   const POST = 0x8a6a44
   const CANVAS = 0xe8e4da
@@ -630,19 +681,33 @@ function addBeachClub(
   // Deck, one board colour with a darker fascia so it has an edge.
   const [dx, dz] = local(0, 0)
   clutter.push(
-    { position: [dx, cy + 0.16, dz], scale: [11, 0.32, 15], rotationY: heading, color: DECK, segment, composite: 900 },
-    { position: [dx, cy + 0.36, dz], scale: [11.3, 0.12, 15.3], rotationY: heading, color: 0x8f6c46, segment, composite: 900 },
+    { position: [dx, cy + 0.16, dz], scale: [HALF_ACROSS * 2, 0.32, HALF_ALONG * 2], rotationY: heading, color: DECK, segment, composite: CLUB },
+    { position: [dx, cy + 0.34, dz], scale: [HALF_ACROSS * 2 + 0.3, 0.1, HALF_ALONG * 2 + 0.3], rotationY: heading, color: 0x8f6c46, segment, composite: CLUB },
   )
-  claim(dx, dz, 8)
+  claim(dx, dz, HALF_ALONG)
 
   // Bar counter along the inland edge, with a back gantry of bottles.
   const [bx, bz] = local(0, 3.6)
   const [gx, gz] = local(0, 5.0)
   clutter.push(
-    { position: [bx, cy + 0.86, bz], scale: [1.1, 1.0, 9], rotationY: heading, color: 0x6b4a30, segment, composite: 901 },
-    { position: [bx, cy + 1.4, bz], scale: [1.35, 0.12, 9.2], rotationY: heading, color: 0x8f6c46, segment, composite: 901 },
-    { position: [gx, cy + 1.3, gz], scale: [0.5, 2.6, 9], rotationY: heading, color: 0x4a3524, segment, composite: 901 },
+    { position: [bx, cy + 0.86, bz], scale: [1.1, 1.0, 9], rotationY: heading, color: 0x6b4a30, segment, composite: CLUB },
+    { position: [bx, cy + 1.4, bz], scale: [1.35, 0.12, 9.2], rotationY: heading, color: 0x8f6c46, segment, composite: CLUB },
+    { position: [gx, cy + 1.3, gz], scale: [0.5, 2.6, 9], rotationY: heading, color: 0x4a3524, segment, composite: CLUB },
+    // Thatch over the counter, on four posts. Without it the bar is a shipping
+    // container with bottles in front of it.
+    { position: [bx, cy + 0.34, bz], scale: [1.2, 0.5, 9.1], rotationY: heading, color: 0x54402c, segment, composite: CLUB },
   )
+  heads.push(
+    { position: [bx + (gx - bx) * 0.4, cy + 2.9, bz + (gz - bz) * 0.4], scale: [3.6, 0.26, 10], rotationY: heading, color: 0xb89a62, segment },
+    { position: [bx + (gx - bx) * 0.4, cy + 3.12, bz + (gz - bz) * 0.4], scale: [2.4, 0.22, 9.4], rotationY: heading, color: 0xa88a52, segment },
+  )
+  for (const along of [-4.2, 4.2]) {
+    const [qx, qz] = local(along, 2.6)
+    clutter.push({
+      position: [qx, cy + 1.5, qz], scale: [0.16, 3.0, 0.16],
+      rotationY: heading, color: POST, segment, composite: CLUB,
+    })
+  }
   for (let i = 0; i < 12; i++) {
     const [ox, oz] = local(-3.8 + i * 0.7, 4.8)
     blobs.push({
@@ -663,19 +728,52 @@ function addBeachClub(
     )
   }
 
+  /**
+   * A parasol, as four sloping panels rather than one flat slab.
+   *
+   * A single horizontal box at the top of a pole reads as a table balanced in
+   * the air. Two crossed panels tilted down at the edges give it a ridge and a
+   * silhouette that says canopy from any angle, for three extra boxes.
+   */
+  const parasol = (
+    x: number, y: number, z: number, rot: number, span: number, color: number, seg: number, id: number,
+  ) => {
+    poles.push({
+      position: [x, y + span * 0.42, z], scale: [0.1, span * 0.84, 0.1],
+      rotationY: rot, color: POST, segment: seg,
+    })
+    // Canopy panels go in `heads`, not `clutter`: heads is the group for the
+    // thing on top of a pole, and the ground sweep rightly asks everything in
+    // clutter to be standing on the floor.
+    for (let k = 0; k < 4; k++) {
+      const a = rot + (k / 4) * Math.PI * 2 + Math.PI / 4
+      heads.push({
+        position: [
+          x + Math.cos(a) * span * 0.24,
+          y + span * 0.8 + (k % 2 === 0 ? 0.02 : 0),
+          z + Math.sin(a) * span * 0.24,
+        ],
+        scale: [span * 0.78, 0.08, span * 0.78],
+        rotationY: a,
+        color: k % 2 === 0 ? color : shadeOfProp(color, 0.86),
+        segment: seg,
+        composite: id,
+      })
+    }
+    // Finial, so the panels meet at something.
+    heads.push({
+      position: [x, y + span * 0.9, z], scale: [0.14, 0.22, 0.14],
+      rotationY: rot, color: POST, segment: seg, composite: id,
+    })
+  }
+
   // Parasols over high tables, out on the deck.
   for (let i = 0; i < 5; i++) {
     const [px, pz] = local(-5 + i * 2.6, -1.6 - (i % 2) * 2.2)
-    poles.push({
-      position: [px, cy + 1.3, pz], scale: [0.11, 2.6, 0.11],
-      rotationY: heading, color: POST, segment,
-    })
-    heads.push({
-      position: [px, cy + 2.62, pz], scale: [3.0, 0.2, 3.0],
-      rotationY: heading + i * 0.3, color: i % 2 === 0 ? CANVAS : 0xe0a06a, segment,
-    })
+    parasol(px, cy, pz, heading + i * 0.3, 3.2, i % 2 === 0 ? CANVAS : 0xe0a06a, segment, 930 + i)
     clutter.push(
-      { position: [px, cy + 0.86, pz], scale: [1.1, 0.1, 1.1], rotationY: heading, color: 0x8f6c46, segment, composite: 930 + i },
+      { position: [px, cy + 0.5, pz], scale: [0.12, 1.0, 0.12], rotationY: heading, color: 0x4a4f57, segment, composite: 930 + i },
+      { position: [px, cy + 1.02, pz], scale: [1.0, 0.09, 1.0], rotationY: heading, color: 0x8f6c46, segment, composite: 930 + i },
     )
   }
 
@@ -725,16 +823,11 @@ function addBeachClub(
     claim(x, z, 2.4)
     const seg = segmentFor(t)
     const lean = (rng() - 0.5) * 0.24
-    poles.push({
-      position: [x, y + 1.05, z], scale: [0.09, 2.1, 0.09],
-      rotationY: headingAt(t), color: POST, segment: seg,
-    })
-    heads.push({
-      position: [x, y + 2.12, z], scale: [2.6, 0.18, 2.6],
-      rotationY: headingAt(t) + lean,
-      color: pick(rng, [0xe86a4a, 0xe8b23a, 0x3f8fa8, 0xe8e4da, 0xd8556a]),
-      segment: seg,
-    })
+    parasol(
+      x, y, z, headingAt(t) + lean, 2.5,
+      pick(rng, [0xe86a4a, 0xe8b23a, 0x3f8fa8, 0xe8e4da, 0xd8556a]),
+      seg, 980 + i,
+    )
     // A towel under it, and a cooler beside it.
     clutter.push(
       {
