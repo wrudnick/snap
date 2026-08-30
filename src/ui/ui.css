@@ -733,3 +733,75 @@ h2 {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* -------------------------------------------------------------------------
+   Touch controls
+
+   Only rendered on a coarse-pointer device. Laid out for thumbs: the shutter
+   sits bottom-centre where either hand reaches it, and the transport buttons
+   sit above it rather than in a corner, because a corner on a phone is where
+   the browser chrome and the home indicator are.
+
+   `pointer-events` is off on the container and back on for the buttons, so the
+   gaps between them still drag the camera — otherwise the bottom fifth of the
+   screen becomes a dead zone you cannot look through.
+   ------------------------------------------------------------------------- */
+.touch {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(2.5%, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  pointer-events: none;
+}
+
+.touch__row {
+  display: flex;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+.touch__btn {
+  pointer-events: auto;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(12, 14, 18, 0.45);
+  backdrop-filter: blur(2px);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  /* Stops iOS turning a held button into a text selection or a callout. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.touch__btn:active { background: rgba(255, 255, 255, 0.28); }
+
+.touch__shutter {
+  pointer-events: auto;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.16);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.touch__shutter:active { background: rgba(255, 255, 255, 0.7); }
+
+.touch__hint {
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+/* The film counter would sit under the transport row otherwise. */
+.hud--touch .film { bottom: auto; top: 5%; }

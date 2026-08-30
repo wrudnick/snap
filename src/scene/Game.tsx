@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { resetRuntime, runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
 import { useRouteBundle } from '@/game/useRoute'
-import { PointerKeyboardAdapter } from '@/input'
+import { PointerKeyboardAdapter, TouchAdapter, prefersTouch } from '@/input'
 import { CelOutline } from '@/render/CelOutline'
 
 import { Rig } from './Rig'
@@ -28,19 +28,36 @@ const POST_ENABLED =
  * sitting over the bottom-left corner of every one of them is both a
  * distraction and, at eye level, right where the street is.
  */
-const PERF_ENABLED =
-  typeof window === 'undefined' ||
-  new URLSearchParams(window.location.search).get('perf') !== '0'
+const PERF_ENABLED = (() => {
+  if (typeof window === 'undefined') return true
+  const flag = new URLSearchParams(window.location.search).get('perf')
+  if (flag !== null) return flag !== '0'
+  /**
+   * Off by default on a phone.
+   *
+   * The r3f-perf overlay is anchored bottom-left and sits directly on top of
+   * the touch controls — it swallowed every tap on the shutter, which on a
+   * device with no keyboard means the game cannot be played at all. Opt back in
+   * with `?perf=1` when profiling on a real device.
+   */
+  return !prefersTouch()
+})()
 
 /** Binds the input adapter to the canvas element. Swap the adapter for gamepad. */
-function InputBinding() {
+function InputBinding({ sensitivity }: { sensitivity: number }) {
   const gl = useThree((s) => s.gl)
 
   useEffect(() => {
-    const adapter = new PointerKeyboardAdapter()
+    // The seam this layer was built for: game code reads `InputState` and never
+    // learns which adapter filled it. The touch adapter needs the route's look
+    // sensitivity to convert the gyro's radians into the pixels the rig
+    // expects — see TouchAdapter.
+    const adapter = prefersTouch()
+      ? new TouchAdapter(1 / sensitivity)
+      : new PointerKeyboardAdapter()
     adapter.attach(gl.domElement)
     return () => adapter.detach()
-  }, [gl])
+  }, [gl, sensitivity])
 
   return null
 }
@@ -98,7 +115,7 @@ export function Game() {
       />
       <Shutter routeId={route.id} />
       <RunController fov={route.fov.default} duration={route.durationSeconds} />
-      <InputBinding />
+      <InputBinding sensitivity={route.look.sensitivity} />
 
       {/* Compile every material up front. Without this, the first frame a new
           material enters view stalls while the shader compiles — which reads to

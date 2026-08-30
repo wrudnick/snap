@@ -152,3 +152,208 @@ export class PointerKeyboardAdapter implements InputAdapter {
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.zoom = false
   }
 }
+
+/**
+ * Touch.
+ *
+ * The pointer/keyboard adapter is unusable on a phone and not in an obvious
+ * way: `pointerdown` fires for a finger, so look *almost* works, but the
+ * shutter is gated on `this.locked` and Pointer Lock does not exist on iOS — so
+ * the game runs, pans, and can never take a photograph. Everything else (zoom,
+ * pause, checkpoints) is on keys that no phone has.
+ *
+ * So this is a whole adapter rather than a branch in that one. The split is
+ * along a real seam: one finger dragging anywhere is look, and every discrete
+ * action is a button the HUD draws. Buttons write straight into `input`, which
+ * is why they need no adapter of their own.
+ *
+ * Two-finger pinch is zoom, because on a phone the alternative — holding a
+ * button with one thumb while framing with the other — is how you get a blurry
+ * photograph of your own hand.
+ */
+export class TouchAdapter implements InputAdapter {
+  private element: HTMLElement | null = null
+  /** Pointer id → last position, so a second finger doesn't yank the camera. */
+  private readonly points = new Map<number, { x: number; y: number }>()
+  private pinchDistance = 0
+
+  /**
+   * Pixels per radian, the unit `aimX`/`aimY` are in.
+   *
+   * The rig multiplies those by the route's look sensitivity to get radians, so
+   * the gyro — which produces radians directly — has to divide by the same
+   * number to come out the other end unchanged. Passed in rather than hardcoded
+   * because it belongs to the route, and an adapter that quietly assumed a
+   * sensitivity would drift out of step the moment the route changed one.
+   */
+  private readonly pixelsPerRadian: number
+  /** Previous device orientation, in radians. Null until the first reading. */
+  private last: { yaw: number; pitch: number } | null = null
+
+  constructor(pixelsPerRadian: number) {
+    this.pixelsPerRadian = pixelsPerRadian
+  }
+
+  attach(element: HTMLElement): void {
+    this.element = element
+    element.addEventListener('pointerdown', this.onDown)
+    element.addEventListener('pointermove', this.onMove)
+    window.addEventListener('pointerup', this.onUp)
+    window.addEventListener('pointercancel', this.onUp)
+    window.addEventListener('deviceorientation', this.onOrientation)
+    // Stops the page rubber-banding and the double-tap zoom while framing.
+    element.style.touchAction = 'none'
+  }
+
+  detach(): void {
+    const element = this.element
+    if (element) {
+      element.removeEventListener('pointerdown', this.onDown)
+      element.removeEventListener('pointermove', this.onMove)
+      element.style.touchAction = ''
+    }
+    window.removeEventListener('pointerup', this.onUp)
+    window.removeEventListener('pointercancel', this.onUp)
+    window.removeEventListener('deviceorientation', this.onOrientation)
+    this.points.clear()
+    this.last = null
+    input.zoom = false
+    this.element = null
+  }
+
+  /**
+   * The phone's own orientation, as look input.
+   *
+   * Emitted as *deltas* rather than an absolute heading, for two reasons. It
+   * composes: a thumb drag and a turn of the wrist add up instead of fighting,
+   * so you can point roughly with the phone and trim with a finger. And it
+   * needs no recentring — the look cone is an offset on the rail's frame, and
+   * an absolute mapping would have to be re-zeroed every time the route turned
+   * a corner, or the view would swing away as you walked round it.
+   *
+   * `alpha` is rotation about the vertical axis and `beta` the front-to-back
+   * tilt, which for a phone held up like a camera are exactly yaw and pitch.
+   * Roll (`gamma`) is deliberately ignored: tilting the phone sideways should
+   * not tilt the horizon in a game whose whole subject is framing.
+   */
+  private onOrientation = (e: DeviceOrientationEvent): void => {
+    if (e.alpha === null || e.beta === null) return
+
+    const yaw = (e.alpha * Math.PI) / 180
+    const pitch = (e.beta * Math.PI) / 180
+
+    const previous = this.last
+    this.last = { yaw, pitch }
+    if (!previous) return
+
+    // Alpha wraps at 0/360, so a turn past north reads as a 359-degree jump the
+    // other way unless it is brought back into range.
+    let dYaw = yaw - previous.yaw
+    if (dYaw > Math.PI) dYaw -= Math.PI * 2
+    if (dYaw < -Math.PI) dYaw += Math.PI * 2
+    const dPitch = pitch - previous.pitch
+
+    // A wild reading is a sensor glitch or a permission prompt dismissing, not
+    // someone spinning on the spot; letting it through snaps the view.
+    if (Math.abs(dYaw) > 0.6 || Math.abs(dPitch) > 0.6) return
+
+    /**
+     * Signs. The rig does `yaw − aimX * sensitivity`, so a positive `aimX`
+     * looks right. `alpha` increases anticlockwise, so turning the phone right
+     * decreases it — hence the negation on both axes, pitch included, because
+     * tilting the phone up increases `beta` and should raise the view.
+     */
+    input.aimX += -dYaw * this.pixelsPerRadian
+    input.aimY += -dPitch * this.pixelsPerRadian
+  }
+
+  private spread(): number {
+    const [a, b] = [...this.points.values()]
+    if (!a || !b) return 0
+    return Math.hypot(a.x - b.x, a.y - b.y)
+  }
+
+  private onDown = (e: PointerEvent): void => {
+    this.points.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (this.points.size === 2) this.pinchDistance = this.spread()
+  }
+
+  private onMove = (e: PointerEvent): void => {
+    const last = this.points.get(e.pointerId)
+    if (!last) return
+    const dx = e.clientX - last.x
+    const dy = e.clientY - last.y
+    last.x = e.clientX
+    last.y = e.clientY
+
+    if (this.points.size >= 2) {
+      /**
+       * Pinch. Held rather than proportional, because `input.zoom` is a
+       * boolean the rig lerps toward — matching the Shift key it replaces.
+       * Spreading zooms in and stays there until the fingers come back.
+       */
+      const now = this.spread()
+      if (this.pinchDistance > 0) {
+        if (now - this.pinchDistance > 24) input.zoom = true
+        if (this.pinchDistance - now > 24) input.zoom = false
+      }
+      return
+    }
+
+    /**
+     * `movementX` is unreliable on touch — Safari reports 0 for it — so the
+     * delta is tracked here. Scaled down: a phone screen is small enough that
+     * raw pixels of drag make the look cone unusably twitchy.
+     */
+    input.aimX += dx * 0.9
+    input.aimY += dy * 0.9
+  }
+
+  private onUp = (e: PointerEvent): void => {
+    this.points.delete(e.pointerId)
+    if (this.points.size < 2) {
+      this.pinchDistance = 0
+      input.zoom = false
+    }
+  }
+}
+
+/**
+ * Does this device want the touch adapter?
+ *
+ * Coarse pointer *and* no hover: a laptop with a touchscreen has both a fine
+ * pointer and hover, and should keep the keyboard controls. Checked once at
+ * attach rather than watched, because swapping input schemes mid-run would be
+ * more surprising than being wrong on a hybrid device.
+ */
+export function prefersTouch(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false
+  return window.matchMedia('(hover: none) and (pointer: coarse)').matches
+}
+
+/**
+ * Ask iOS for the motion sensors.
+ *
+ * iOS 13 and later will not deliver `deviceorientation` at all until this is
+ * called, and it must be called from inside a user gesture — so it hangs off
+ * the button that starts the run rather than off page load, where it would be
+ * silently refused.
+ *
+ * It also requires a secure context: over plain http on a LAN address the
+ * prompt never appears and the sensors stay dark, which is why the phone build
+ * has to be served over https.
+ *
+ * Resolves either way. A phone that declines still has drag-to-look, so this is
+ * never worth blocking the game on.
+ */
+export async function requestMotionAccess(): Promise<boolean> {
+  const ctor = (globalThis as { DeviceOrientationEvent?: unknown }).DeviceOrientationEvent as
+    | { requestPermission?: () => Promise<'granted' | 'denied'> }
+    | undefined
+  if (!ctor?.requestPermission) return true
+  try {
+    return (await ctor.requestPermission()) === 'granted'
+  } catch {
+    return false
+  }
+}

@@ -1,6 +1,7 @@
 import { GOLD_COAST } from '@/content/routes/goldcoast'
 import { SUBJECTS } from '@/content/subjects'
 import { useGame } from '@/game/state'
+import { requestMotionAccess } from '@/input'
 
 export function Menu() {
   const album = useGame((s) => s.album)
@@ -19,7 +20,22 @@ export function Menu() {
         </p>
 
         <div className="row" style={{ marginBottom: '3rem' }}>
-          <button className="primary" onClick={() => startRun(GOLD_COAST.id, GOLD_COAST.film)}>
+          <button
+            className="primary"
+            onClick={() => {
+              /**
+               * Ask for the motion sensors here, not on load.
+               *
+               * iOS will only grant them from inside a user gesture, and this
+               * is the only gesture the player makes before the run starts. The
+               * run is not gated on the answer: a phone that declines still has
+               * drag-to-look, and blocking the game on a permission prompt
+               * would be a worse trade than a slightly clumsier control.
+               */
+              void requestMotionAccess()
+              startRun(GOLD_COAST.id, GOLD_COAST.film)
+            }}
+          >
             Ride {GOLD_COAST.displayName}
           </button>
           <span className="sub" style={{ color: 'var(--dim)', fontSize: '0.78rem' }}>

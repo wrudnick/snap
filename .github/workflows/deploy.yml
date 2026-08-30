@@ -1,0 +1,61 @@
+# Build and publish to GitHub Pages.
+#
+# `base` in vite.config.ts is '/snap/' to match the repo path, so the built
+# bundle only works when served from <user>.github.io/snap/. Serving it from a
+# root instead needs BASE_PATH=/ at build time.
+#
+# Note this only runs usefully once Pages is enabled for the repository, which
+# on a free plan requires the repository to be public.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time, and never cancel one halfway: a partially uploaded
+# artifact is a broken site rather than a stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The unit suite guards the geometry invariants this game is held to —
+      # nothing floating, nothing in the camera, nothing paved over a building.
+      # Cheap enough to run on every deploy, and a broken build is worse than a
+      # late one.
+      - run: npm test
+
+      # `npm run build` typechecks first.
+      - run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

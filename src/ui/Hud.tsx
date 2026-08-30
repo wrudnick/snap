@@ -1,7 +1,53 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 
 import { runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
+import { input, prefersTouch } from '@/input'
+
+/**
+ * On-screen controls, for the device that has no keyboard.
+ *
+ * Every discrete action in this game is on a key — Space to shoot, Shift to
+ * zoom, P to pause, brackets for speed, commas for checkpoints — so on a phone
+ * the game runs and can do none of them. These write straight into the shared
+ * `input` object, which is the same thing the adapters do, so the game loop
+ * cannot tell the difference between a thumb and a key.
+ *
+ * Deliberately not React state: a control that re-rendered the HUD would defeat
+ * the point of animating the progress bar through a ref.
+ */
+function TouchControls() {
+  const press = useMemo(
+    () => (key: keyof typeof input) => () => {
+      // Every one of these is edge-triggered and cleared by the game loop.
+      ;(input as unknown as Record<string, boolean>)[key as string] = true
+    },
+    [],
+  )
+
+  return (
+    <div className="touch">
+      <div className="touch__row">
+        <button type="button" className="touch__btn" onPointerDown={press('prevCheckpoint')}>
+          ‹
+        </button>
+        <button type="button" className="touch__btn" onPointerDown={press('togglePause')}>
+          ‖
+        </button>
+        <button type="button" className="touch__btn" onPointerDown={press('nextCheckpoint')}>
+          ›
+        </button>
+      </div>
+      <button
+        type="button"
+        className="touch__shutter"
+        aria-label="Shutter"
+        onPointerDown={press('shutter')}
+      />
+      <div className="touch__hint">Drag to look · pinch to zoom</div>
+    </div>
+  )
+}
 
 /**
  * The viewfinder.
@@ -12,6 +58,9 @@ import { useGame } from '@/game/state'
  * film counter and the shutter flash, both discrete, come from the store.
  */
 export function Hud() {
+  // Read once: swapping control schemes mid-run would be stranger than being
+  // wrong on a hybrid device.
+  const touch = useMemo(() => prefersTouch(), [])
   const filmRemaining = useGame((s) => s.filmRemaining)
   const shutterTick = useGame((s) => s.shutterTick)
 
@@ -63,7 +112,7 @@ export function Hud() {
   }, [shutterTick])
 
   return (
-    <div className="hud">
+    <div className={touch ? 'hud hud--touch' : 'hud'}>
       <div className="progress">
         <div className="bar" ref={barRef} />
       </div>
@@ -83,13 +132,15 @@ export function Hud() {
         <div className="label">shots left</div>
       </div>
 
-      <div className="hint">
-        Drag to look · Click or Space to shoot · Shift or right-click to zoom
-        <br />
-        <span style={{ opacity: 0.65 }}>
-          P pause · [ ] speed · , . checkpoint · click the map to travel there
-        </span>
-      </div>
+      {touch ? <TouchControls /> : (
+        <div className="hint">
+          Drag to look · Click or Space to shoot · Shift or right-click to zoom
+          <br />
+          <span style={{ opacity: 0.65 }}>
+            P pause · [ ] speed · , . checkpoint · click the map to travel there
+          </span>
+        </div>
+      )}
 
       <div className="flash" ref={flashRef} />
     </div>
