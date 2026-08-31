@@ -15,6 +15,7 @@ import { buildCityGeometry, type CityBuilding } from '../src/content/models/city
 const BLOCK: CityBuilding = {
   i: 1,
   h: 30,
+  t: 'generic',
   r: [
     [-10, -6],
     [10, -6],

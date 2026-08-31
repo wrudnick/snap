@@ -146,17 +146,32 @@ function buildProps(
     rotationY: number,
     margin: number,
   ): boolean => {
+    /**
+     * Asks whether the path is inside the box, not whether the box is near the
+     * path.
+     *
+     * Those sound the same and are not. This used to sample a grid of points on
+     * the box's own surface and test each against the route, which misses the
+     * case that matters most: a box big enough to *contain* a stretch of the
+     * route, with all of its sampled points further than the margin from it.
+     * An eighteen-metre alley wall did exactly that at the end of the route and
+     * the camera finished the run inside it.
+     *
+     * Rotating each path point into the box's frame is both correct and
+     * cheaper — one transform per point instead of a grid per box.
+     */
     const cos = Math.cos(rotationY)
     const sin = Math.sin(rotationY)
-    // Sampled along the length rather than at the corners. A six-metre wall
-    // tested only at its ends has four metres of face between the samples, and
-    // the restaurant's walls slipped through exactly there.
-    const steps = Math.max(2, Math.ceil(width))
-    for (let i = 0; i <= steps; i++) {
-      const dz = -width / 2 + (width * i) / steps
-      for (const dx of [-depth / 2, 0, depth / 2]) {
-        if (nearRail(x + dx * cos - dz * sin, z + dx * sin + dz * cos, margin)) return true
-      }
+    const halfDepth = depth / 2 + margin
+    const halfWidth = width / 2 + margin
+
+    for (const [px, pz] of railPoints) {
+      const dx = px - x
+      const dz = pz - z
+      // Inverse of the box's rotation: transpose, since it is orthonormal.
+      const along = dx * cos + dz * sin
+      const across = -dx * sin + dz * cos
+      if (Math.abs(along) <= halfDepth && Math.abs(across) <= halfWidth) return true
     }
     return false
   }

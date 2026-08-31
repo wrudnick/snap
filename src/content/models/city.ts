@@ -17,10 +17,33 @@ import cityData from '@/content/geo/goldcoast.json'
  * blob, which is exactly what the cel look needs.
  */
 
+/** What a building kind can be. See `kindOf` in scripts/convert-osm.mjs. */
+export type BuildingKind =
+  | 'apartments'
+  | 'hotel'
+  | 'office'
+  | 'retail'
+  | 'church'
+  | 'house'
+  | 'institution'
+  | 'utility'
+  | 'generic'
+
 export interface CityBuilding {
   i: number
   n?: string
   h: number
+  /**
+   * Storeys, where OSM has them — 74% of the district.
+   *
+   * The single most useful facade fact available: it puts every window row on a
+   * real floor instead of on one guessed by dividing height by an assumed
+   * storey height. Absent for the rest, which fall back to that guess.
+   */
+  l?: number
+  t: BuildingKind
+  /** 1 when the building has a Wikipedia or Wikidata entry. */
+  k?: 1
   r: Array<[number, number]>
 }
 

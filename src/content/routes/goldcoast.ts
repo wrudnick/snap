@@ -275,7 +275,7 @@ export const GOLD_COAST: RouteDef = {
     { id: 'lsd-7', species: 'delivery-car', at: { section: 'beach', u: 0.36, offset: -63 }, rotationY: Math.PI, alignToRoute: true, seed: 706, driveSpeed: 19, driveSpan: 320 },
     { id: 'lsd-8', species: 'sedan', at: { section: 'beach', u: 0.50, offset: -67 }, rotationY: Math.PI, alignToRoute: true, seed: 707, driveSpeed: 24, driveSpan: 320 },
     { id: 'lsd-9', species: 'suv', at: { section: 'beach', u: 0.64, offset: -63 }, rotationY: Math.PI, alignToRoute: true, seed: 708, driveSpeed: 21, driveSpan: 320 },
-    { id: 'lsd-10', species: 'bus', at: { section: 'beach', u: 0.75, offset: -66 }, rotationY: Math.PI, alignToRoute: true, seed: 709, driveSpeed: 16, driveSpan: 320 },
+    { id: 'lsd-10', species: 'bus', at: { section: 'beach', u: 0.50, offset: -66 }, rotationY: Math.PI, alignToRoute: true, seed: 709, driveSpeed: 16, driveSpan: 320 },
     { id: 'lsd-11', species: 'taxi', at: { section: 'beach', u: 0.90, offset: -64 }, rotationY: Math.PI, alignToRoute: true, seed: 710, driveSpeed: 23, driveSpan: 320 },
     { id: 'lsd-12', species: 'sedan', at: { section: 'beach', u: 0.12, offset: -58 }, rotationY: 0, alignToRoute: true, seed: 711, driveSpeed: 22, driveSpan: 320 },
 
@@ -468,7 +468,7 @@ export const GOLD_COAST: RouteDef = {
     { id: 'sedan-rush-3', species: 'sedan', at: { section: 'rush', u: 0.08, offset: 6.4 }, rotationY: Math.PI, alignToRoute: true, seed: 520, driveSpeed: 12 },
     { id: 'sedan-rush-4', species: 'sedan', at: { section: 'rush', u: 0.22, offset: -6.4 }, rotationY: 0, alignToRoute: true, seed: 521, driveSpeed: 12 },
     { id: 'sedan-rush-5', species: 'sedan', at: { section: 'rush', u: 0.33, offset: 2.6 }, rotationY: Math.PI, alignToRoute: true, seed: 522 },
-    { id: 'sedan-rush-6', species: 'sedan', at: { section: 'rush', u: 0.44, offset: -2.6 }, rotationY: 0, alignToRoute: true, seed: 523 },
+    { id: 'sedan-rush-6', species: 'sedan', at: { section: 'rush', u: 0.44, offset: -3.3 }, rotationY: 0, alignToRoute: true, seed: 523 },
     { id: 'sedan-rush-7', species: 'sedan', at: { section: 'rush', u: 0.53, offset: 6.4 }, rotationY: Math.PI, alignToRoute: true, seed: 524, driveSpeed: 12 },
     { id: 'sedan-rush-8', species: 'sedan', at: { section: 'rush', u: 0.62, offset: -6.4 }, rotationY: 0, alignToRoute: true, seed: 525, driveSpeed: 12 },
     { id: 'sedan-rush-9', species: 'sedan', at: { section: 'rush', u: 0.74, offset: 2.6 }, rotationY: Math.PI, alignToRoute: true, seed: 526 },

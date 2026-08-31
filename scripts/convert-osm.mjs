@@ -8,7 +8,10 @@
  * accurate to well under a metre — far below the scale anything here is
  * modelled at.
  *
- * Run: node scripts/convert-osm.mjs <buildings.json> <streets.json> <out.json>
+ * Run: node scripts/convert-osm.mjs <overpass.json> <out.json>
+ *
+ * Takes one Overpass export containing both buildings and highways, queried
+ * with `out body geom` so ways carry their coordinates inline.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 
@@ -68,10 +71,51 @@ function signedArea(ring) {
   return a / 2
 }
 
-const [, , buildingsPath, streetsPath, outPath] = process.argv
+const [, , rawPath, outPath] = process.argv
 
-const buildings = JSON.parse(readFileSync(buildingsPath, 'utf8')).elements ?? []
-const streets = JSON.parse(readFileSync(streetsPath, 'utf8')).elements ?? []
+const elements = JSON.parse(readFileSync(rawPath, 'utf8')).elements ?? []
+const buildings = elements.filter((e) => e.tags?.building)
+const streets = elements.filter((e) => e.tags?.highway)
+
+/**
+ * A relation's outline.
+ *
+ * Multipolygon buildings carry their geometry on their members rather than on
+ * themselves; the outer way is the outline. Courtyards are ignored — the
+ * extruder takes a single ring, and a hole in a footprint is invisible from the
+ * street anyway.
+ */
+function outline(el) {
+  if (el.geometry) return el.geometry
+  const outer = (el.members ?? []).find((m) => m.role === 'outer' && m.geometry)
+  return outer?.geometry ?? null
+}
+
+/**
+ * The building's kind, reduced to the handful the facade archetypes care about.
+ *
+ * OSM's `building` key is open-ended and its long tail is noise for our
+ * purposes: `yes` is half of everything and means only "a building is here".
+ * Mapping to a closed set keeps the archetype table honest, and anything
+ * unrecognised falls through to the generic filler on purpose.
+ */
+function kindOf(tags) {
+  const b = tags.building
+  if (b === 'apartments' || b === 'residential' || b === 'terrace') return 'apartments'
+  if (b === 'hotel') return 'hotel'
+  if (b === 'office' || b === 'commercial') return 'office'
+  if (b === 'retail') return 'retail'
+  if (b === 'church' || b === 'cathedral' || b === 'chapel') return 'church'
+  if (b === 'house' || b === 'detached') return 'house'
+  if (b === 'university' || b === 'college' || b === 'school') return 'institution'
+  if (b === 'parking' || b === 'garage' || b === 'service') return 'utility'
+  return 'generic'
+}
+
+function levelsOf(tags) {
+  const n = parseFloat(tags['building:levels'])
+  return Number.isFinite(n) && n > 0 && n < 150 ? Math.round(n) : undefined
+}
 
 // Keep what the route can actually see. Generous east/west, and far enough
 // south to include the river towers the Michigan corridor looks toward.
@@ -79,9 +123,14 @@ const BOUNDS = { minX: -700, maxX: 700, minZ: -400, maxZ: 1600 }
 
 const outBuildings = []
 for (const el of buildings) {
-  if (!el.geometry || el.geometry.length < 4) continue
+  // A roof-only structure — a canopy, a bus shelter, a petrol station awning.
+  // Extruding it from the ground makes a solid box where there is open air.
+  if (el.tags.building === 'roof') continue
 
-  const ring = simplify(el.geometry.map((p) => toLocal(p.lat, p.lon)))
+  const geometry = outline(el)
+  if (!geometry || geometry.length < 4) continue
+
+  const ring = simplify(geometry.map((p) => toLocal(p.lat, p.lon)))
   if (ring.length < 3) continue
 
   let cx = 0
@@ -104,6 +153,15 @@ for (const el of buildings) {
     i: el.id,
     n: tags.name ?? undefined,
     h: Math.round(heightOf(tags) * 10) / 10,
+    // Storeys as tagged, where they are. The single most useful facade fact in
+    // OSM: it puts every window row on a real floor instead of on a guess made
+    // by dividing height by an assumed storey.
+    l: levelsOf(tags),
+    // What kind of building it is, for picking an archetype.
+    t: kindOf(tags),
+    // Notable enough to have an encyclopaedia entry — a cheap, honest signal
+    // for which buildings are worth hand-authoring a likeness of.
+    k: tags.wikidata || tags.wikipedia ? 1 : undefined,
     // Winding normalised so the extruder always sees the same orientation.
     r: (signedArea(ring) < 0 ? [...ring].reverse() : ring).map(([x, z]) => [
       Math.round(x * 10) / 10,
