@@ -19,7 +19,6 @@ export const EYE_HEIGHT = 1.7
  */
 export const CURVE_TENSION = 0.16
 
-import type { LandmarkDef } from '@/content/models/landmarks'
 /**
  * Route and subject placement data.
  *
@@ -234,7 +233,6 @@ export interface RouteDef {
    */
   corridors?: Corridor[]
   /** Hand-authored buildings, placed by real address. */
-  landmarks?: LandmarkDef[]
   /** Seed for the procedural street blockout. */
   seed: number
   /** Shots available per run. */

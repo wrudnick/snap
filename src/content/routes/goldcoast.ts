@@ -174,20 +174,6 @@ export const GOLD_COAST: RouteDef = {
    * 22-sided polygon 343 m tall. Position and height come from the OSM centroid,
    * and its extruded footprint is suppressed in city.ts so the two don't fight.
    */
-  landmarks: [
-    {
-      id: 'hancork',
-      name: 'The Hancork',
-      kind: 'hancock',
-      position: [100, 0, 222], // OSM centroid of 875 N Michigan
-      rotationY: 0,
-      height: 343, // OSM height tag
-      footprint: [80, 50],
-      taper: 0.38,
-      color: 0x2b2d33,
-      accent: 0x585c66,
-    },
-  ],
 
   seed: 20260826,
   film: 80,

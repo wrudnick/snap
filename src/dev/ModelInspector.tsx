@@ -2,11 +2,12 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
-import { buildLandmark, type LandmarkDef } from '@/content/models/landmarks'
+import { LANDMARK_BUILDINGS, heightOf } from '@/content/models/landmarkBuildings'
+import { siteById } from '@/content/models/landmarkSites'
+import { mergeByMaterial } from '@/content/models/landmarkKit'
 import { PROPS } from '@/content/models/props'
 import { FrameOnce, Gizmo, PartPanel, useOverrides, type GizmoMode } from './PartEditor'
 import { buildModel } from '@/content/models/procedural'
-import { GOLD_COAST } from '@/content/routes/goldcoast'
 import { SUBJECTS } from '@/content/subjects'
 import { DAWN, toonRamp } from '@/render/palette'
 
@@ -167,7 +168,6 @@ type Mode = 'turntable' | 'angles' | 'animation' | 'parts'
 
 type Entry =
   | { kind: 'subject'; id: string; label: string }
-  | { kind: 'landmark'; id: string; label: string; def: LandmarkDef }
   | { kind: 'prop'; id: string; label: string; build: () => THREE.Object3D }
 
 export function ModelInspector() {
@@ -177,12 +177,24 @@ export function ModelInspector() {
       id: s.species,
       label: s.displayName,
     }))
-    const landmarks: Entry[] = (GOLD_COAST.landmarks ?? []).map((l) => ({
-      kind: 'landmark',
-      id: l.id,
-      label: l.name,
-      def: l,
-    }))
+    /**
+     * Landmarks, each on its own, sited from its real footprint.
+     *
+     * Built at the origin rather than in place: the inspector frames whatever
+     * it is given, and a building standing at its world coordinates would be a
+     * kilometre off screen. The footprint and height still come from OSM, so
+     * what is inspected is what the street gets.
+     */
+    const landmarks: Entry[] = Object.entries(LANDMARK_BUILDINGS).flatMap(([key, entry]) => {
+      const site = siteById(Number(key))
+      if (!site) return []
+      return [{
+        kind: 'prop' as const,
+        id: `landmark-${key}`,
+        label: entry.name,
+        build: () => mergeByMaterial(entry.build({ ...site, height: heightOf(entry, site) })),
+      }]
+    })
     const props: Entry[] = PROPS.map((p) => ({
       kind: 'prop',
       id: p.id,
@@ -210,18 +222,6 @@ export function ModelInspector() {
     if (!entry) return null
     if (entry.kind === 'prop') {
       const object = entry.build()
-      const box = new THREE.Box3().setFromObject(object)
-      const size = box.getSize(new THREE.Vector3())
-      return {
-        object,
-        clips: [] as THREE.AnimationClip[],
-        height: size.y,
-        reach: Math.max(size.x, size.y, size.z),
-        parts: countParts(object),
-      }
-    }
-    if (entry.kind === 'landmark') {
-      const object = buildLandmark({ ...entry.def, position: [0, 0, 0] })
       const box = new THREE.Box3().setFromObject(object)
       const size = box.getSize(new THREE.Vector3())
       return {
@@ -357,7 +357,7 @@ export function ModelInspector() {
           <button onClick={() => setSpin((s) => !s)}>{spin ? 'Stop' : 'Spin'}</button>
         )}
 
-        {mode === 'parts' && entry.kind !== 'landmark' && (
+        {mode === 'parts' && entry.kind === 'subject' && (
           <PartPanel
             root={built.object}
             species={entry.id}

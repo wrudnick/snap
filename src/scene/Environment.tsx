@@ -5,8 +5,7 @@ import * as THREE from 'three'
 import { generateEnvironment, type Prop } from '@/content/models/environment'
 import { buildCityGeometry } from '@/content/models/city'
 import { buildCityGround } from '@/content/models/cityGround'
-import { buildLandmark } from '@/content/models/landmarks'
-import type { LandmarkDef } from '@/content/models/landmarks'
+import { buildLandmarks } from '@/content/models/landmarkScene'
 import type { RouteDef } from '@/content/routes/types'
 import { type Rail, segmentActive } from '@/game/rail'
 import type { ResolvedSection } from '@/game/sections'
@@ -184,29 +183,43 @@ function CityGround() {
  * Never gated. There are a handful, they are the reason the setting is
  * recognisable, and half of them are meant to be seen from most of a mile away.
  */
-function Landmarks({ landmarks }: { landmarks?: LandmarkDef[] }) {
-  const groups = useMemo(
-    () => (landmarks ?? []).map((def) => ({ def, object: buildLandmark(def) })),
-    [landmarks],
-  )
+function Landmarks() {
+  /**
+   * Built once from the OSM record, not from coordinates in the route file.
+   *
+   * The route used to carry a hand-typed position, footprint and height per
+   * landmark. Those are all facts the map already knows, and every one of them
+   * was a chance to put a building in the middle of a street — or to go stale
+   * the next time the map was re-extracted.
+   */
+  const group = useMemo(() => buildLandmarks(), [])
+
+  /**
+   * The facade shader, patched onto whatever materials the builders used.
+   *
+   * Landmarks keep their own colours — limestone, brick, rose granite — and
+   * gain the fenestration on top, exactly as the extruded city composes windows
+   * over its per-building vertex colour.
+   */
+  useEffect(() => {
+    group.traverse((child: THREE.Object3D) => {
+      if (child instanceof THREE.Mesh) {
+        child.material = patchToonMaterial(child.material as THREE.MeshToonMaterial, {
+          facade: {},
+        })
+      }
+    })
+  }, [group])
 
   useEffect(() => {
     return () => {
-      for (const { object } of groups) {
-        object.traverse((child) => {
-          if (child instanceof THREE.Mesh) child.geometry.dispose()
-        })
-      }
+      group.traverse((child: THREE.Object3D) => {
+        if (child instanceof THREE.Mesh) child.geometry.dispose()
+      })
     }
-  }, [groups])
+  }, [group])
 
-  return (
-    <group>
-      {groups.map(({ def, object }) => (
-        <primitive key={def.id} object={object} dispose={null} />
-      ))}
-    </group>
-  )
+  return <primitive object={group} dispose={null} />
 }
 
 export function Environment({
@@ -271,7 +284,7 @@ export function Environment({
     <group>
       <CityGround />
       <City />
-      <Landmarks landmarks={route.landmarks} />
+      <Landmarks />
 
       <PropInstances props={visible.buildings} limit={420} castShadow receiveShadow />
       <PropInstances props={visible.poles} limit={80} castShadow />

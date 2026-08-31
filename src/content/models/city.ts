@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import cityData from '@/content/geo/goldcoast.json'
+import { LANDMARK_IDS } from './landmarkBuildings'
 
 /**
  * The real Chicago, extruded from OpenStreetMap footprints.
@@ -82,11 +83,16 @@ const HEIGHT_OVERRIDES: Record<string, number> = {
 /**
  * Footprints suppressed because a hand-authored landmark stands there instead.
  *
- * OSM can give the Hancock's true outline and height but not its X-bracing or
- * taper, and those are what make it recognisable — so the modelled version wins
- * and the extruded box is dropped to stop the two z-fighting.
+ * OSM can give a building's true outline and height but never its taper, its
+ * setbacks or its crown — and those are what make it recognisable. So the
+ * modelled version wins and the extruded box is dropped to stop the two
+ * z-fighting.
+ *
+ * Keyed by OSM id rather than by name. Names get retagged and are not unique;
+ * this list used to hold the string '875 N Michigan', which would have silently
+ * stopped suppressing anything the day someone renamed it.
  */
-const REPLACED_BY_LANDMARK = new Set(['875 N Michigan'])
+
 
 /**
  * Chicago's actual materials, banded by height.
@@ -136,7 +142,7 @@ export interface CityGeometry {
 
 export function buildCityGeometry(
   buildings: CityBuilding[] = CITY.buildings.filter(
-    (b) => !b.n || !REPLACED_BY_LANDMARK.has(b.n),
+    (b) => !LANDMARK_IDS.has(b.i),
   ),
 ): CityGeometry {
   const positions: number[] = []

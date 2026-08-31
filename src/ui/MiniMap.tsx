@@ -6,6 +6,7 @@ import type { Rail } from '@/game/rail'
 import { runtime } from '@/game/runtime'
 import { input } from '@/input'
 import type { ResolvedCheckpoint } from '@/game/sections'
+import { LANDMARK_MARKERS } from '@/content/models/landmarkScene'
 
 /**
  * Route minimap.
@@ -155,10 +156,10 @@ export function MiniMap({
       // The walked route.
       stroke(path, 'rgba(245, 196, 81, 0.85)', 2.4)
 
-      // Landmarks.
-      for (const lm of route.landmarks ?? []) {
-        const x = px(lm.position[0])
-        const y = py(lm.position[2])
+      // Landmarks, sited from their real footprints like everything else.
+      for (const lm of LANDMARK_MARKERS) {
+        const x = px(lm.x)
+        const y = py(lm.z)
         if (x < -20 || x > WIDTH + 20) continue
         ctx.fillStyle = 'rgba(196, 214, 236, 0.9)'
         ctx.beginPath()
@@ -218,7 +219,7 @@ export function MiniMap({
 
     raf = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(raf)
-  }, [bounds, path, rail, route.corridors, route.landmarks, checkpoints])
+  }, [bounds, path, rail, route.corridors, checkpoints])
 
   /**
    * Click to travel there.

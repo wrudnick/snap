@@ -5,17 +5,16 @@ test('inspect', async ({ page }: { page: Page }) => {
   await page.setViewportSize({ width: 1300, height: 900 })
   await page.goto('/?debug=models')
   await page.waitForTimeout(2500)
-  for (const [name, clip] of [['Beachgoer', 'lounge'], ['Beachgoer', 'sunbathe'], ['Beach Club', 'party']] as const) {
+  for (const name of [
+    'The Hancork', 'Palmolive Building', 'The Drake Hotel', '900 North Michigan',
+    'One Magnificent Mile', 'Fourth Presbyterian Church', 'Waldorf Astoria',
+    'Newberry Plaza', '1000 Lake Shore Plaza',
+  ]) {
     const b = page.getByRole('button', { name, exact: true }).first()
     if (!(await b.count())) { console.log('MISSING ' + name); continue }
     await b.click()
     await page.getByRole('button', { name: /All angles/ }).click()
-    if (clip) {
-      const c = page.getByRole('button', { name: clip, exact: true }).first()
-      if (await c.count()) await c.click()
-    }
     await page.waitForTimeout(1300)
-    const slug = `${name}-${clip ?? 'idle'}`.replace(/ /g, '-').toLowerCase()
-    await page.screenshot({ path: `${OUT}/${slug}.png` })
+    await page.screenshot({ path: `${OUT}/${name.replace(/ /g, '-').toLowerCase()}.png` })
   }
 })
