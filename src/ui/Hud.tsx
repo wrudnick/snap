@@ -2,7 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
+import { GyroOverlay } from '@/dev/GyroOverlay'
 import { input, isPortrait, prefersTouch } from '@/input'
+
+/**
+ * The sensor readout is opt-in. It covers the corner of the viewfinder, and it
+ * is for diagnosing a specific fault rather than for playing with.
+ */
+const GYRO_DEBUG =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('gyro') === '1'
 
 /**
  * "Turn your phone."
@@ -208,6 +217,7 @@ export function Hud() {
       </div>
 
       {touch ? <RotatePrompt /> : null}
+      {GYRO_DEBUG ? <GyroOverlay /> : null}
       {touch ? <TouchControls /> : (
         <div className="hint">
           Drag to look · Click or Space to shoot · Shift or right-click to zoom

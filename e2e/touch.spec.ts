@@ -71,18 +71,28 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
    * in the hand. The signs are the part worth pinning down: they are the thing
    * most likely to be backwards, and the least obvious from reading the code.
    */
-  const point = async (alpha: number, beta: number) => {
+  /**
+   * Angles for a phone held sideways, which is how this game is played.
+   *
+   * Not `beta: 90`. That is the phone upright in portrait, and it is the exact
+   * pose where the Z-X'-Y'' decomposition loses a degree of freedom and cannot
+   * express a heading at all — the tracker deliberately holds its last bearing
+   * there rather than emit noise, so a test driving it from that pose is
+   * testing nothing. Landscape and level is `beta 0, gamma -90`; tilting up
+   * folds gamma past its limit and lands on `beta 180`.
+   */
+  const point = async (alpha: number, beta: number, gamma: number) => {
     await page.evaluate(
-      ([a, b]) => {
+      ([a, b, g]) => {
         // `absolute: true` is what makes the adapter treat alpha as a true
         // heading rather than integrating changes in it.
         window.dispatchEvent(
           new (window as any).DeviceOrientationEvent('deviceorientationabsolute', {
-            alpha: a, beta: b, gamma: 0, absolute: true,
+            alpha: a, beta: b, gamma: g, absolute: true,
           }),
         )
       },
-      [alpha, beta],
+      [alpha, beta, gamma],
     )
     await page.waitForTimeout(250)
   }
@@ -95,20 +105,41 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
    * a pose, moving away and coming back is the test that tells the two apart —
    * under integration the second reading would land somewhere else.
    */
-  await point(0, 90)
+  /**
+   * Travel paused for the attitude checks.
+   *
+   * `runtime.yaw` is an offset from the *rail's* heading, not a world bearing,
+   * so while the route is moving the same physical attitude legitimately maps
+   * to a slightly different yaw each frame. Pausing removes that from the
+   * measurement without mocking anything.
+   */
+  await page.evaluate(() => { (window as any).__snap.runtime.paused = true })
+
+  await point(0, 0, -90)
   const first = await page.evaluate(() => (window as any).__snap.runtime.yaw)
-  await point(-40, 90)
+  await point(-40, 0, -90)
   const turned = await page.evaluate(() => (window as any).__snap.runtime.yaw)
   expect(turned, 'turning the phone right looks right').toBeLessThan(first)
 
-  await point(0, 90)
+  await point(0, 0, -90)
   const returned = await page.evaluate(() => (window as any).__snap.runtime.yaw)
   expect(returned, 'the same attitude gives the same view').toBeCloseTo(first, 3)
 
-  /** Tilting the phone up looks up, by the angle it was tilted. */
-  await point(0, 110)
-  const raised = await page.evaluate(() => (window as any).__snap.runtime.pitch)
-  expect(raised, 'tilting the phone up looks up').toBeGreaterThan(0.25)
+  /**
+   * Tilting up in landscape looks up — and does not flip.
+   *
+   * This is the motion that was broken: gamma runs out of range at -90 and the
+   * phone re-expresses the same orientation with beta at 180 and alpha half a
+   * turn round. The view used to spin 180 degrees at exactly this point.
+   */
+  const levelYaw = await page.evaluate(() => (window as any).__snap.runtime.yaw)
+  await point(180, 180, 70)
+  const raised = await page.evaluate(() => (window as any).__snap.runtime)
+  expect(raised.pitch, 'tilting the phone up looks up').toBeGreaterThan(0.25)
+  expect(
+    Math.abs(raised.yaw - levelYaw),
+    'tilting up does not swing the view sideways',
+  ).toBeLessThan(0.2)
 
   /** Zoom latches on and off. */
   const wide = await page.evaluate(() => (window as any).__snap.runtime.targetFov)

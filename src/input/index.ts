@@ -1,4 +1,4 @@
-import { attitudeFromEvent, wrapPi } from '@/lib/deviceOrientation'
+import { NorthReference, wrapPi } from '@/lib/deviceOrientation'
 
 /**
  * Input abstraction.
@@ -209,6 +209,8 @@ export class TouchAdapter implements InputAdapter {
   /** Last accepted absolute yaw, and how many readings have been thrown away. */
   private lastYaw: number | null = null
   private rejected = 0
+  /** Where the device's alpha zero sits relative to north. See NorthReference. */
+  private readonly north = new NorthReference()
 
   attach(element: HTMLElement): void {
     this.element = element
@@ -239,6 +241,7 @@ export class TouchAdapter implements InputAdapter {
     this.points.clear()
     this.lastYaw = null
     this.rejected = 0
+    this.north.reset()
     this.pinchOwnsZoom = false
     input.zoom = false
     input.absoluteYaw = null
@@ -262,7 +265,7 @@ export class TouchAdapter implements InputAdapter {
    * not tilt the horizon in a game whose whole subject is framing.
    */
   private onOrientation = (e: DeviceOrientationEvent): void => {
-    const attitude = attitudeFromEvent(e)
+    const attitude = this.north.update(e)
 
     if (attitude === null) {
       /**

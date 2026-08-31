@@ -33,7 +33,18 @@ export interface Attitude {
  * east / north / up. The camera looks along the device's −Z, so its world
  * direction is the negated third column.
  */
-export function cameraAttitude(alpha: number, beta: number, gamma: number): Attitude {
+/**
+ * The device's axes in the world, as east/north/up triples.
+ *
+ * The matrix is the W3C spec's: an intrinsic Z-X'-Y'' rotation by alpha, beta,
+ * gamma, taking device coordinates into a world frame of east / north / up.
+ * Its columns are the device's own axes, and two of them matter — the camera
+ * looks along −Z, and the compass reports the heading of +Y.
+ *
+ * Everything downstream is derived from this rather than from the angles,
+ * because the matrix is continuous where the angles are not.
+ */
+function frameOf(alpha: number, beta: number, gamma: number) {
   const cA = Math.cos(alpha * DEG)
   const sA = Math.sin(alpha * DEG)
   const cB = Math.cos(beta * DEG)
@@ -41,60 +52,115 @@ export function cameraAttitude(alpha: number, beta: number, gamma: number): Atti
   const cG = Math.cos(gamma * DEG)
   const sG = Math.sin(gamma * DEG)
 
-  // Third column of R = Rz(alpha) · Rx(beta) · Ry(gamma).
-  const east = -(cA * sG + cG * sA * sB)
-  const north = -(sA * sG - cA * cG * sB)
-  const up = -(cB * cG)
-
   return {
-    bearing: Math.atan2(east, north),
-    elevation: Math.asin(Math.max(-1, Math.min(1, up))),
+    // −(third column): where the back camera points.
+    camera: {
+      east: -(cA * sG + cG * sA * sB),
+      north: -(sA * sG - cA * cG * sB),
+      up: -(cB * cG),
+    },
+    // Second column: the top of the screen.
+    screenUp: { east: -cB * sA, north: cA * cB, up: sB },
+  }
+}
+
+export function cameraAttitude(alpha: number, beta: number, gamma: number): Attitude {
+  const { camera } = frameOf(alpha, beta, gamma)
+  return {
+    bearing: Math.atan2(camera.east, camera.north),
+    elevation: Math.asin(Math.max(-1, Math.min(1, camera.up))),
   }
 }
 
 /**
- * North-referenced attitude straight from an event, or null if it has no north.
+ * Holds the offset between the device's alpha zero and true north.
  *
- * The compass is applied as a *correction to the bearing*, never by
- * substituting it for alpha in the angle triple. That substitution is what
- * flipped the view 180° the moment the phone was tilted while held sideways,
- * and the reason is worth writing down because it is invisible from the code
- * that does it:
+ * Stateful because it has to be. The compass is only meaningful in some poses,
+ * and the reference it gives is a constant of the device — so it is measured
+ * when it can be measured and held when it cannot, rather than recomputed from
+ * whatever the sensor happens to be saying this frame.
  *
- * The three angles are an intrinsic Z-X'-Y'' decomposition, and in landscape
- * gamma sits at ±90°, which is that decomposition's gimbal singularity. There
- * alpha and beta stop being independent — only their sum or difference is
- * determined — so a device reports them *jumping together*, by 180° each, with
- * the physical orientation completely unchanged. The matrix built from the
- * reported triple is continuous through that jump. Replace alpha with a compass
- * reading and keep the jumped beta, and it is not: you have built a rotation
- * the phone was never in.
+ * The bug this exists to kill: alpha, beta and gamma are an intrinsic
+ * Z-X'-Y'' decomposition with gamma confined to [-90, 90). A phone held
+ * sideways and tilted up through the horizon *wants* a gamma past 90, cannot
+ * report one, and re-expresses the identical orientation on the other branch —
+ * gamma folds back and alpha jumps by 180 degrees. Any correction with alpha in
+ * it inherits that jump. The previous version computed
+ * `360 - compass - alpha`, and flipped the view half a turn every time the
+ * player tilted the phone through level.
  *
- * Since alpha is the first rotation of the three, changing it by Δ post-
- * multiplies nothing and pre-multiplies a rotation about world up — so it
- * turns the camera's bearing by exactly −Δ and leaves elevation alone. That
- * makes the correction a scalar on the output, which is safe at any pose.
+ * So the offset is measured between two quantities that both come from the
+ * rotation matrix — the compass's own axis, and where that axis points — and
+ * the matrix is continuous across the fold even though the angles are not.
  */
-export function attitudeFromEvent(event: DeviceOrientationEvent): Attitude | null {
-  const { alpha, beta, gamma } = event
-  if (alpha === null || beta === null || gamma === null) return null
+export class NorthReference {
+  private offset: number | null = null
+  /**
+   * The last bearing taken from a pose that could actually express one.
+   *
+   * Held through poses that cannot. `conditioning` below is |cos(beta)|, and
+   * beta reaches 90 degrees when the phone is upright in portrait — the top of
+   * the screen pointing at the sky. There the Z-X'-Y'' decomposition loses a
+   * degree of freedom: alpha and gamma stop being independent and a real device
+   * reports whichever of the two swings wildly. Nothing is wrong with the
+   * phone, and no amount of arithmetic recovers a heading the angles do not
+   * contain.
+   *
+   * Elevation survives it — at beta 90 the camera really is on the horizon, and
+   * that is what the maths returns — so only the bearing is held.
+   */
+  private bearing: number | null = null
 
-  // Built from the reported triple, unmodified, so it stays self-consistent.
-  const raw = cameraAttitude(alpha, beta, gamma)
+  /**
+   * How horizontal the compass's axis has to be for its reading to mean
+   * anything. The top of the screen points at the sky when the phone is held
+   * upright in portrait, and a heading derived from a vertical axis is noise.
+   */
+  private static readonly MIN_CONDITIONING = 0.3
 
-  const compass = (event as DeviceOrientationEvent & { webkitCompassHeading?: number })
-    .webkitCompassHeading
-  if (typeof compass === 'number' && Number.isFinite(compass)) {
-    // iOS: the recipe is `trueAlpha = 360 − heading`, applied as a bearing
-    // offset rather than a substitution.
-    const delta = (360 - compass - alpha) * DEG
-    return { bearing: wrapPi(raw.bearing - delta), elevation: raw.elevation }
+  reset(): void {
+    this.offset = null
+    this.bearing = null
   }
 
-  // Android's absolute event already measures alpha from north.
-  if (event.absolute) return raw
+  /** North-referenced attitude, or null while there is no reference yet. */
+  update(event: DeviceOrientationEvent): Attitude | null {
+    const { alpha, beta, gamma } = event
+    if (alpha === null || beta === null || gamma === null) return null
 
-  return null
+    const { camera, screenUp } = frameOf(alpha, beta, gamma)
+    const elevation = Math.asin(Math.max(-1, Math.min(1, camera.up)))
+
+    /**
+     * How much heading the reported angles can carry.
+     *
+     * The horizontal length of the screen-up axis, which is |cos(beta)|. It
+     * governs both the compass reading and the bearing, because both are
+     * headings and beta 90 is where headings stop existing.
+     */
+    const conditioning = Math.hypot(screenUp.east, screenUp.north)
+    const usable = conditioning > NorthReference.MIN_CONDITIONING
+    if (usable) this.bearing = Math.atan2(camera.east, camera.north)
+    const bearing = this.bearing
+
+    if (event.absolute) {
+      // Android's absolute event already measures alpha from north.
+      this.offset = 0
+    } else {
+      const compass = (event as DeviceOrientationEvent & { webkitCompassHeading?: number })
+        .webkitCompassHeading
+      if (typeof compass === 'number' && Number.isFinite(compass) && usable) {
+        // Both sides are the heading of the same axis: one measured by the
+        // magnetometer, one derived from the reported orientation. Their
+        // difference is where the device's alpha zero sits relative to north.
+        const axisBearing = Math.atan2(screenUp.east, screenUp.north)
+        this.offset = wrapPi(compass * DEG - axisBearing)
+      }
+    }
+
+    if (this.offset === null || bearing === null) return null
+    return { bearing: wrapPi(bearing + this.offset), elevation }
+  }
 }
 
 /** Bring an angle into −π…π. */
