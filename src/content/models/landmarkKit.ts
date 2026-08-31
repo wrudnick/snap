@@ -263,7 +263,28 @@ export function mergeByMaterial(source: THREE.Object3D): THREE.Group {
   source.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return
     const material = child.material as THREE.Material
-    const geometry = child.geometry.clone().applyMatrix4(child.matrixWorld)
+    /**
+     * De-indexed first.
+     *
+     * `gable` is written out by hand and is non-indexed; every primitive from
+     * three is indexed. `mergeGeometries` refuses a mixture, and the failure is
+     * a console error rather than a throw — so the church simply had no roof
+     * and nothing said why.
+     */
+    const source = child.geometry.index ? child.geometry.toNonIndexed() : child.geometry.clone()
+    const geometry = source.applyMatrix4(child.matrixWorld)
+    /**
+     * Position and normal only.
+     *
+     * `mergeGeometries` needs every input to carry the same attributes, and the
+     * hand-written parts have no `uv` while three's primitives all do. Nothing
+     * downstream wants them either: landmarks are flat-shaded and their windows
+     * come from `aFacade`, which is generated after the merge. Dropping them is
+     * both the fix and a smaller buffer.
+     */
+    for (const name of Object.keys(geometry.attributes)) {
+      if (name !== 'position' && name !== 'normal') geometry.deleteAttribute(name)
+    }
     const bucket = buckets.get(material)
     if (bucket) bucket.push(geometry)
     else buckets.set(material, [geometry])

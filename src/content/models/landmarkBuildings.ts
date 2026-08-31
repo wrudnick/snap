@@ -11,6 +11,31 @@ import {
   slab,
   taperedSlab,
 } from './landmarkKit'
+import {
+  BROWN_BRICK,
+  DARK_GRANITE,
+  GLASS,
+  LIMESTONE,
+  LIMESTONE_SHADE,
+  PALE_CONCRETE,
+  RED_BRICK,
+  floorplate,
+  prewarHotel,
+  shopFront,
+  towerBlock,
+  type ShopOptions,
+  type TowerOptions,
+} from './landmarkArchetypes'
+import {
+  beachCafe,
+  carlyle,
+  drakeTower,
+  esquire,
+  fortnightly,
+  knickerbocker,
+  quigley,
+  sofitel,
+} from './landmarkSpecials'
 import type { LandmarkSite } from './landmarkSites'
 
 /**
@@ -43,12 +68,6 @@ export interface LandmarkBuilding {
 /** Storey height used when converting a level count to metres. */
 const STOREY = 3.6
 
-/** A limestone-ish palette, since half of this district is Indiana limestone. */
-const LIMESTONE = 0xd8cfb8
-const LIMESTONE_SHADE = 0xc2b79c
-const DARK_GRANITE = 0x4a4a50
-const RED_BRICK = 0x9c6a52
-const GLASS = 0x51697d
 
 /**
  * 875 North Michigan Avenue — the John Hancock Center.
@@ -189,8 +208,10 @@ function nineHundred(site: LandmarkSite): THREE.Object3D {
   g.add(slab(w, podiumH, d, 0, LIMESTONE))
   g.add(band(w, d, podiumH, 1.4, 1.0, LIMESTONE_SHADE))
 
-  const towerW = w * 0.66
-  const towerD = d * 0.72
+  // The OSM outline is the whole block; the tower's plate is a fraction of it.
+  const plate = floorplate(site)
+  const towerW = plate.width
+  const towerD = plate.depth
   const towerH = h - podiumH
   g.add(slab(towerW, towerH, towerD, podiumH, DARK_GRANITE))
   g.add(floorBands(towerW, towerH - 8, towerD, podiumH, 7.2, 0x3c3c42))
@@ -392,16 +413,163 @@ function lakeShorePlaza(site: LandmarkSite): THREE.Object3D {
   return g
 }
 
+/** A tower archetype, curried so the registry stays a table. */
+const tower = (o: TowerOptions) => (site: LandmarkSite) => towerBlock(site, o)
+const shop = (o: ShopOptions) => (site: LandmarkSite) => shopFront(site, o)
+const hotel = (brick: number, trim?: number) => (site: LandmarkSite) =>
+  prewarHotel(site, brick, trim)
+
+/**
+ * Every hand-authored building on the route.
+ *
+ * Read as a table on purpose. The interesting information is which typology
+ * each building is and what makes it itself — not the arithmetic of its
+ * massing, which lives in the archetypes.
+ */
 export const LANDMARK_BUILDINGS: Record<number, LandmarkBuilding> = {
+  // — Michigan Avenue —
   31064573: { name: 'The Hancork', build: hancock },
   143756601: { name: 'Palmolive Building', build: palmolive },
-  143773461: { name: 'The Drake Hotel', levels: 13, build: drakeHotel },
   31064552: { name: '900 North Michigan', levels: 66, build: nineHundred },
   143758386: { name: 'One Magnificent Mile', build: oneMagnificentMile },
   129575948: { name: 'Fourth Presbyterian Church', levels: 5, build: fourthPresbyterian },
+  148554645: {
+    name: 'The Westin Michigan Avenue',
+    build: tower({ color: 0x8f8b80, trim: PALE_CONCRETE, crown: 'flat', base: 0.09 }),
+  },
+  144020993: {
+    name: 'The Walton Residence',
+    build: tower({ color: LIMESTONE, trim: LIMESTONE_SHADE, crown: 'stepped', setback: 0.9 }),
+  },
+  144018863: { name: 'Millennium Knickerbocker', build: knickerbocker },
+
+  // — East Lake Shore Drive —
+  201603717: { name: '1000 Lake Shore Plaza', build: lakeShorePlaza },
+  143773461: { name: 'The Drake Hotel', levels: 13, build: drakeHotel },
+  144016878: { name: 'Drake Tower', levels: 30, build: drakeTower },
+
+  // — Oak Street Beach —
+  220408416: { name: 'Oak Street Beach Cafe', levels: 1, build: beachCafe },
+  153734156: {
+    name: '199 East Lake Shore Drive',
+    build: hotel(BROWN_BRICK),
+  },
+  144016876: {
+    name: 'The Mayfair',
+    levels: 22,
+    build: tower({ color: BROWN_BRICK, trim: LIMESTONE, crown: 'cornice' }),
+  },
+
+  // — The underpass —
+  210680521: { name: 'The Carlyle', build: carlyle },
+  210679333: { name: 'Fortnightly of Chicago', levels: 4, build: fortnightly },
+
+  // — Delaware Place —
+  144124764: {
+    name: 'Michigan Place',
+    build: tower({ color: PALE_CONCRETE, trim: 0xa8a498, balconies: true, crown: 'flat' }),
+  },
+  144015975: { name: 'The Whitehall Hotel', build: hotel(RED_BRICK) },
+  144015987: {
+    name: 'The Bristol',
+    build: tower({ color: 0xb8b0a2, trim: LIMESTONE_SHADE, crown: 'stepped', setback: 0.88 }),
+  },
+  144015994: {
+    name: '50 East Chestnut',
+    build: tower({ color: 0x9b968a, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+  },
+  144016013: {
+    name: 'Delaware Towers',
+    build: tower({ color: BROWN_BRICK, trim: LIMESTONE, crown: 'cornice' }),
+  },
+  144015980: { name: 'Selina Hotel', build: hotel(RED_BRICK) },
+  144015977: {
+    name: 'Tremont Studios',
+    levels: 12,
+    build: tower({ color: BROWN_BRICK, trim: LIMESTONE, crown: 'cornice' }),
+  },
+  144016002: { name: 'Sofitel Chicago', build: sofitel },
+  210680482: {
+    name: 'One East Delaware',
+    build: tower({ color: 0xa8a196, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+  },
+  144015971: {
+    name: 'Elysees Condominiums',
+    levels: 40,
+    build: tower({ color: 0xb4ada0, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+  },
+  144015992: { name: 'Quigley Seminary', levels: 4, build: quigley },
+  144016003: {
+    name: 'America-Fore Building',
+    build: tower({ color: LIMESTONE, trim: LIMESTONE_SHADE, crown: 'cornice', base: 0.16 }),
+  },
+  385480271: { name: "Jeni's Ice Creams", levels: 2, build: shop({ color: 0xd8ccb8, trim: LIMESTONE_SHADE, awning: 0xc4566a }) },
+
+  // — Rush Street —
   153966977: { name: 'Waldorf Astoria', build: waldorfAstoria },
   210679211: { name: 'Newberry Plaza', build: newberryPlaza },
-  201603717: { name: '1000 Lake Shore Plaza', build: lakeShorePlaza },
+  210680490: { name: 'Prada', levels: 4, build: shop({ color: 0x2f3238, trim: 0x4a4e56 }) },
+  210680518: {
+    name: 'Thompson Chicago',
+    build: tower({ color: 0x6f6a62, trim: 0x4f4b45, crown: 'flat', base: 0.12 }),
+  },
+  210679593: { name: 'Lululemon', levels: 2, build: shop({ color: 0xd4cdbb, trim: LIMESTONE_SHADE, awning: 0x3f6b8f }) },
+  144124765: { name: 'The Talbott Hotel', build: hotel(RED_BRICK) },
+  210680702: {
+    name: '40 East Oak',
+    build: tower({ color: 0xb0a898, trim: LIMESTONE_SHADE, crown: 'cornice' }),
+  },
+  210679144: { name: 'Esquire Theater', levels: 3, build: esquire },
+  210679812: {
+    name: '30 West Oak',
+    build: tower({ color: 0x8e8a80, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+  },
+
+  // — The Triangle —
+  210679228: { name: "Dublin's", levels: 2, build: shop({ color: 0x6b4a30, trim: 0x8f6c46, blade: 0x2f6f4f }) },
+  380663491: { name: 'Urban Outfitters', levels: 3, build: shop({ color: 0xc4b8a2, trim: LIMESTONE_SHADE, awning: 0x24282c }) },
+  445817830: {
+    name: 'Viceroy Chicago',
+    levels: 18,
+    build: tower({ color: 0x8a7f6e, trim: LIMESTONE, crown: 'cornice', base: 0.14 }),
+  },
+  210679116: { name: 'Dearborn North Apartments', build: hotel(RED_BRICK) },
+  210680450: {
+    name: 'Maple Tower',
+    build: tower({ color: 0x9c9182, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+  },
+  210680685: {
+    name: '1111 North Dearborn',
+    build: tower({ color: 0x8f8a7e, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+  },
+  210679635: { name: 'Elms Hotel', build: hotel(BROWN_BRICK) },
+  210680687: {
+    name: '1133 North Dearborn',
+    build: tower({ color: 0xa39a8a, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+  },
+  304799197: {
+    name: '4 East Elm',
+    build: tower({ color: 0xb0a696, trim: LIMESTONE_SHADE, crown: 'stepped', setback: 0.9 }),
+  },
+  210679164: {
+    name: '10 West Elm',
+    build: tower({ color: 0x968f82, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+  },
+
+  // — The alley, and the block it runs behind —
+  210679704: { name: 'The Original Pancake House', levels: 2, build: shop({ color: 0xb8845e, trim: LIMESTONE_SHADE, awning: 0xc23a35 }) },
+  210680703: {
+    name: '50 East Bellevue',
+    build: tower({ color: 0x9a9284, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+  },
+  210680701: {
+    name: '40 East Cedar',
+    build: tower({ color: BROWN_BRICK, trim: LIMESTONE, crown: 'cornice' }),
+  },
+  210680695: {
+    name: '20 East Cedar',
+    build: tower({ color: RED_BRICK, trim: LIMESTONE, crown: 'cornice' }),
+  },
 }
 
 /**
