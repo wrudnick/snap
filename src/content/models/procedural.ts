@@ -1606,7 +1606,22 @@ function buildHorse(def: SubjectDef, seed: number): BuiltModel {
     // proud of that, so a thigh at x 0.26 was buried inside the horse.
     part('riderLegL', BOX, 0x1f2432, [-0.36, 0.06, -0.06], [0.16, 0.46, 0.2], [0.5, 0, 0]),
     part('riderLegR', BOX, 0x1f2432, [0.36, 0.06, -0.06], [0.16, 0.46, 0.2], [0.5, 0, 0]),
-    part('riderVest', BOX, 0xf2e14a, [0, 0.4, -0.16], [0.36, 0.4, 0.06]),
+    /**
+     * The hi-vis is worn, not carried.
+     *
+     * It was a flat plate six centimetres thick hung off the front of the
+     * chest — from the side and from above it read as a bright yellow card
+     * taped to the officer. A vest goes round a torso, so this one is a shell
+     * slightly proud of the uniform on all four sides and stopping short of the
+     * shoulders, with the collar band that is the giveaway on the real thing.
+     *
+     * The torso is 0.42 × 0.62 × 0.30 from a pivot at y 0.05, so the vest sits
+     * over its upper two thirds.
+     */
+    part('riderVest', BOX, 0xf2e14a, [0, 0.42, 0], [0.45, 0.34, 0.33]),
+    part('riderVestBand', BOX, shadeOf(0xf2e14a, 0.82), [0, 0.6, 0], [0.4, 0.05, 0.3]),
+    // The reflective stripe across the back and chest.
+    part('riderVestStripe', BOX, 0xe8eef4, [0, 0.38, 0], [0.46, 0.05, 0.34]),
     // Mounted-unit helmet: a dome with a brim, not a flat cap.
     part('riderDome', SPHERE, uniform, [0, 0.99, 0], [0.25, 0.2, 0.26]),
     part('riderBrim', BOX, shadeOf(uniform, 0.6), [0, 0.9, -0.05], [0.31, 0.03, 0.34]),
