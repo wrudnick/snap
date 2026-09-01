@@ -52,12 +52,22 @@ wants), so the floor removes the invisible tail without removing supporting cast
 Buildings have no pose and no facing-you, and want terms of their own. Weights
 sum to 1.
 
+**Fit gates the other four.** It is not one question among five — it is the
+question a postcard asks, and the rest are only worth asking once it is
+answered. `quality = fit × (weighted fill, clear, level, face)`.
+
+This is the same rule actors follow, where presence gates craft. Additively Fit
+was worth thirty percent, which meant a building with a quarter of it cut off
+lost only seventeen percent of its quality — little enough that golden hour paid
+for the mistake, and a measured test had a clipped tower at dawn outscoring a
+whole one at midday.
+
 | Term | Weight | What it measures |
 |---|---|---|
-| **Fit** | 0.30 | Fraction of the silhouette inside the frame. Whole building is the headline postcard virtue; clipping a corner should fall off a cliff, not a ramp. |
-| **Fill** | 0.20 | How much of the frame it occupies. Wants roughly half to two-thirds — big, with breathing room. |
-| **Clear** | 0.20 | Fraction of the silhouette not blocked by trees, poles or other buildings. |
-| **Level** | 0.20 | How close to horizontal the camera was. See below. |
+| **Fit** | *gate* | Fraction of the silhouette inside the frame, cubed. Ninety percent in frame caps the photograph at 0.73 — clipping a corner is a cliff, not a ramp. |
+| **Fill** | 0.30 | How much of the frame it occupies. Wants roughly half — big, with breathing room. |
+| **Clear** | 0.30 | Fraction of the silhouette not blocked by trees, poles or other buildings. |
+| **Level** | 0.30 | How close to horizontal the camera was. See below. |
 | **Face** | 0.10 | Angle to the nearest facade normal. Two good answers, not one. |
 
 **Light** multiplies the result (roughly 0.85–1.15) from the section's lighting
@@ -69,6 +79,12 @@ two-storey shop is free, and the same tilt at a 340 m tower is ruinous, because
 that is when verticals visibly converge. This is what makes portrait orientation,
 wide-angle glass and eventually a shift lens feel like capabilities rather than
 upgrades — each one buys back height without tilt.
+
+**Face** is only *named* when you are near one of its two answers. The band
+threshold was low enough at first to label the bottom of the trough
+"three-quarter" — twenty-two degrees off, scoring half marks, and being told it
+was the shot you were going for. A band that names the angle you missed is worse
+than no band, because the player corrects away from it.
 
 **Face** peaks twice. Square-on to a facade (within a few degrees) is the formal
 postcard elevation. A three-quarter view, roughly 35–55° off the normal, shows

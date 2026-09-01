@@ -51,6 +51,54 @@ export interface PhotoSnapshot {
   subjects: SubjectObservation[]
 }
 
+/**
+ * A building as it appeared in one photograph.
+ *
+ * A separate shape from `SubjectObservation` because a pigeon and a cathedral
+ * are not judged the same way: a building has no pose, and "facing the lens" is
+ * meaningless for something with four faces. What it has instead is whether you
+ * got all of it, whether anything was in the way, and whether you kept the
+ * verticals upright.
+ *
+ * Everything here is derived from the footprint and the camera rather than from
+ * scene objects. The landmarks are merged into a handful of meshes by material,
+ * so there is no per-building object to interrogate — but there is a ring and a
+ * height, which is all a silhouette needs.
+ */
+export interface StructureObservation {
+  structureId: string
+  name: string
+  rarity: Rarity
+  /** Projected silhouette bounds in NDC. May exceed ±1 when clipped. */
+  bounds: { minX: number; minY: number; maxX: number; maxY: number }
+  /** Share of the frame the silhouette covers, 0..1. */
+  fill: number
+  /** Share of the silhouette that is inside the frame, 0..1. */
+  inFrame: number
+  /** Share of sampled points with a clear line of sight, 0..1. */
+  visibility: number
+  /** Camera pitch when the shutter fired, radians. Negative is looking down. */
+  pitch: number
+  /**
+   * How much of the view the building stands through, radians.
+   *
+   * Paired with pitch to decide keystoning: tilting up at a two-storey shop
+   * costs nothing and the same tilt at a tower ruins it, because convergence is
+   * a product of how far you tilted and how tall the thing is in frame.
+   */
+  angularHeight: number
+  /**
+   * Angle between the view direction and the nearest facade's normal, 0..π/2.
+   *
+   * Zero is square-on to a wall. Around 45° is the three-quarter view that shows
+   * two faces and gives a building its mass.
+   */
+  faceAngle: number
+  /** Quality of the light where it stands, 0..1, from the section's profile. */
+  light: number
+  distance: number
+}
+
 /** One named pose of a species, and what it's worth. */
 export interface PoseDef {
   label: string
@@ -108,6 +156,67 @@ export interface ScoringConfig {
     awayFloor: number
     profileFloor: number
     facingFloor: number
+  }
+  /**
+   * How a building is judged. Five terms, weights summing to 1.
+   *
+   * Separate from the four above because they are answering a different
+   * question. See `docs/SCORING.md`.
+   */
+  structure: {
+    /**
+     * Weights over the four terms Fit gates. Must sum to 1.
+     *
+     * Fit is not among them: it multiplies the rest rather than being averaged
+     * with them. See `scoreStructure`.
+     */
+    weights: {
+      /** Is it big in frame, with room to breathe? */
+      fill: number
+      /** Was anything in the way? */
+      clear: number
+      /** Did the verticals stay upright? */
+      level: number
+      /** Square-on or three-quarter, rather than the mush between. */
+      face: number
+    }
+    fill: {
+      /** Share of the frame that scores full marks. */
+      ideal: number
+      /** Width of the log-gaussian falloff. */
+      sigma: number
+    }
+    fit: {
+      /**
+       * How steeply clipping is punished.
+       *
+       * A cliff rather than a ramp: a postcard with a corner of the building
+       * sliced off is not a slightly worse postcard, it is a mistake. Raising
+       * `inFrame` to this power is what makes the last few percent expensive.
+       */
+      exponent: number
+    }
+    level: {
+      /**
+       * Convergence, in radian-squared, at which Level reaches zero.
+       *
+       * Convergence is `|pitch| × angularHeight`, so this is one number for
+       * both halves of the trade: how far you tilted and how much building you
+       * tilted at.
+       */
+      ruinous: number
+    }
+    face: {
+      /** Width of the square-on peak, radians. Tight — square-on is exacting. */
+      squareOnSigma: number
+      /** Centre and width of the three-quarter peak, radians. */
+      threeQuarter: number
+      threeQuarterSigma: number
+      /** Score in the trough between the two, so the mush is not worthless. */
+      floor: number
+    }
+    /** Multiplier range from the light where it stands. */
+    light: { min: number; max: number }
   }
   /** Subjects below this visibility are treated as not in the photo at all. */
   minVisibility: number

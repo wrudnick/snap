@@ -39,6 +39,39 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
     facingFloor: 0.8,
   },
 
+  /**
+   * Buildings.
+   *
+   * Fit gates everything else, because "did you get the whole thing" is not one
+   * question among five — it is the question a postcard asks, and the others are
+   * only worth asking once it is answered.
+   */
+  structure: {
+    // Fit is absent deliberately — it gates these rather than averaging with
+    // them. Face counts least, because both of its right answers are right and
+    // choosing between them is taste.
+    weights: { fill: 0.3, clear: 0.3, level: 0.3, face: 0.1 },
+    // Half the frame, and forgiving: a building can be a third of the picture
+    // or two-thirds of it and still be a postcard.
+    fill: { ideal: 0.5, sigma: 0.75 },
+    // Cubed, so ninety percent in frame keeps 0.73 and eighty keeps 0.51.
+    // Clipping a corner has to hurt.
+    fit: { exponent: 3 },
+    /**
+     * 0.35 rad² is about a thirty-degree tilt at a building thirty-eight
+     * degrees tall — which is roughly the Hancock from the pavement, and is
+     * exactly the shot the player should be told they cannot take yet.
+     */
+    level: { ruinous: 0.35 },
+    face: {
+      squareOnSigma: 0.13,
+      threeQuarter: 0.79,
+      threeQuarterSigma: 0.26,
+      floor: 0.3,
+    },
+    light: { min: 0.85, max: 1.15 },
+  },
+
   // Below a quarter visible, it isn't a photo of that subject.
   minVisibility: 0.25,
   requireCentroidInFrame: true,
