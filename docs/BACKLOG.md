@@ -8,27 +8,36 @@ The rule of thumb: **build the thing that the most other things depend on
 first.** Lenses are cheap once the rubric exists and expensive to retrofit once
 five of them assume the old one.
 
-## Slice 1 — the camera
+## Slice 1 — the camera — **done, except the film**
 
-Raise to eye, viewfinder crop, portrait toggle.
+Raise to eye, viewfinder crop, the frame as a property of the body.
 
-The photograph becomes the viewfinder crop rather than the screen, which changes
-framing for every rule downstream — so it has to land before the rules do. Zoom
-is already a held-Shift field-of-view lerp, so a good deal of this exists.
+**What landed.** `src/content/cameras/` holds bodies as data; the store owns
+which one you have. The first is a fixed-lens compact, so `input.raise` replaced
+`input.zoom` — the view narrows when you lift the camera because an eye and a
+forty-millimetre lens differ, not because the player asked. Zoom is now
+something the shop can sell.
 
-**What you will find.** Zoom is already held-Shift on the keyboard
-(`input/index.ts` sets `input.zoom` on keydown and clears it on keyup) and a
-toggle on touch, so raise-to-eye maps onto input that exists. The real work is
-the crop: `Shutter.tsx` takes `aspect` from the viewport
-(`size.width / size.height`) and derives the photo height from it, so the crop
-has to reach both capture *and* the snapshot, and those are two places.
+The photograph is 3:2 and the viewport is not, so the finder draws a bright-line
+rectangle: a faint guide held low, masked and lit when raised. The finder, the
+capture and the snapshot all take that rectangle from one `frameCrop`.
+`e2e/camera.spec.ts` asserts they agree, on a 16:9 viewport deliberately — a 3:2
+viewport would pass however badly it were wired.
 
-- Held low: wide, no frame furniture.
-- Raised: tighter crop, frame bars, per-body viewfinder HUD.
-- Capture and scoring both use the crop's aspect, not the viewport's.
-- Portrait as a frame option, gated behind a body that offers it.
+**Still to do here.** Film simulation. `CameraBody.film` carries grain, warmth
+and vignette and nothing reads them yet; they want a pass in the composer. This
+is what makes one body look different from another, so it is the difference
+between the shop selling looks and selling numbers.
 
-*Playable at the end:* the game feels like holding a camera.
+**Portrait** is deliberately not in this slice. The frame is a property of the
+body now, which is the mechanism; portrait arrives with a body that offers it,
+and that belongs with the shop.
+
+**Two things worth knowing.** `aspect-ratio` in CSS with a max on the other axis
+does not clamp back through the ratio — it will hand you a frame larger than its
+container. And a hidden browser pane stops `requestAnimationFrame`, so every
+`useFrame` silently does nothing: an hour went into three components that
+appeared broken and were not. Verify in Playwright.
 
 ## Slice 2 — buildings are subjects
 
