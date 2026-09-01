@@ -820,7 +820,14 @@ const PARTYGOER: SubjectDef = {
     accessories: ['sunhat', 'cap', 'tote'],
   },
   poses: {
-    party: { label: 'Drink in hand', value: 0.75, peak: [0.35, 0.65], peakBonus: 0.05 },
+    /**
+     * The peak is the top of the beat, where the raised arm is fully up.
+     *
+     * The clip is a two-beat loop with the arms at their extremes at 0 and half
+     * way, so the window straddles the second of those. It was 35–65% of a
+     * three-and-a-half second sway that had no extreme to catch.
+     */
+    party: { label: 'Dancing', value: 0.75, peak: [0.42, 0.58], peakBonus: 0.1 },
     talk: { label: 'Shouting over the music', value: 0.85 },
     idle: { label: 'At the rail', value: 0.45 },
     gawk: { label: 'Cheering', value: 0.95, peak: [0.3, 0.7], peakBonus: 0.08 },

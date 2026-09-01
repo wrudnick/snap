@@ -2359,15 +2359,38 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     ]),
 
     /** Drink in hand, weight on one hip, talking over the music. */
-    new THREE.AnimationClip('party', 3.6, [
-      num('torso.rotation[z]', [0, 0.9, 1.8, 2.7, 3.6], [0.07, -0.05, 0.07, -0.05, 0.07]),
-      num('torso.position[y]', [0, 0.9, 1.8, 2.7, 3.6], [hipY, hipY + h * 0.014, hipY, hipY + h * 0.014, hipY]),
-      num('armR.rotation[x]', [0, 1.8, 3.6], [-1.25, -1.4, -1.25]),
-      num('armR.rotation[z]', [0, 3.6], [0.34, 0.34]),
-      num('armL.rotation[x]', [0, 1.2, 2.4, 3.6], [0.15, -0.3, 0.25, 0.15]),
-      num('head.rotation[y]', [0, 1.2, 2.4, 3.6], [0.35, -0.25, 0.45, 0.35]),
-      num('legL.rotation[x]', [0, 3.6], [0.08, 0.08]),
-      num('legR.rotation[x]', [0, 3.6], [-0.12, -0.12]),
+    /**
+     * Dancing, on a beat.
+     *
+     * It used to be a drink held at a slow sway over three and a half seconds —
+     * and the drink was behind his back, because `armR.rotation[x]` was −1.25
+     * and a negative rotation on a model facing −Z reaches backwards. A person
+     * standing nearly still for three and a half seconds is not at a party
+     * anyway; they are queuing.
+     *
+     * Everything runs on one 1.6-second loop of two beats, so the bob, the
+     * sway, the twist, the arms and the weight change all land together.
+     * Anything that alternates is half a loop out, which is what makes it read
+     * as a beat rather than as wobble.
+     */
+    new THREE.AnimationClip('party', 1.6, [
+      // Drop on the beat, rise between.
+      num('torso.position[y]', [0, 0.4, 0.8, 1.2, 1.6],
+        [hipY, hipY - h * 0.016, hipY, hipY - h * 0.016, hipY]),
+      num('torso.rotation[z]', [0, 0.4, 0.8, 1.2, 1.6], [0.13, 0, -0.13, 0, 0.13]),
+      // Twist off the sway, or it reads as one stiff rock.
+      num('torso.rotation[y]', [0, 0.4, 0.8, 1.2, 1.6], [-0.22, 0, 0.22, 0, -0.22]),
+      // Arms up and alternating. Positive is forward — the whole point.
+      num('armL.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [1.35, 0.8, 0.4, 0.8, 1.35]),
+      num('armR.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [0.4, 0.8, 1.35, 0.8, 0.4]),
+      // Elbows carried out, so the arms are not two pistons.
+      num('armL.rotation[z]', [0, 0.8, 1.6], [-0.6, -0.3, -0.6]),
+      num('armR.rotation[z]', [0, 0.8, 1.6], [0.3, 0.6, 0.3]),
+      // Weight foot to foot, opposite the arms.
+      num('legL.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [0.2, 0.02, -0.06, 0.02, 0.2]),
+      num('legR.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [-0.06, 0.02, 0.2, 0.02, -0.06]),
+      num('head.rotation[y]', [0, 0.4, 0.8, 1.2, 1.6], [0.28, 0, -0.28, 0, 0.28]),
+      num('head.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [0.12, -0.04, 0.12, -0.04, 0.12]),
     ]),
   ]
 
