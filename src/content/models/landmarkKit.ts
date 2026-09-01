@@ -55,11 +55,23 @@ export function taperedSlab(
   taper: number,
   color: number,
 ): THREE.Mesh {
-  const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(taper, 1, 1, 4, 1),
-    mat(color),
-  )
-  mesh.rotation.y = Math.PI / 4
+  /**
+   * The quarter turn is baked into the geometry, not left on the mesh.
+   *
+   * A four-sided cylinder has its corners on the axes, so it needs turning
+   * forty-five degrees to become a box. Doing that with `mesh.rotation` applies
+   * it *after* the scale — three.js composes T·R·S — so a plan that is not
+   * square comes out as a rhombus with its axes swapped into the diagonals.
+   * On the Hancock, 72 by 46 metres, that put the body thirteen metres outside
+   * its own footprint in z, and every brace measured against the intended
+   * rectangle then looked like it was floating clear of the building.
+   *
+   * Baked first, the vertices are already a square in plan and the scale simply
+   * stretches it to width and depth.
+   */
+  const geometry = new THREE.CylinderGeometry(taper, 1, 1, 4, 1)
+  geometry.rotateY(Math.PI / 4)
+  const mesh = new THREE.Mesh(geometry, mat(color))
   mesh.scale.set(width / Math.SQRT2, height, depth / Math.SQRT2)
   mesh.position.y = y + height / 2
   mesh.castShadow = true
