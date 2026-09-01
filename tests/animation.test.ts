@@ -102,6 +102,16 @@ describe('subject animation clips', () => {
           return
         }
 
+        if (def.model === 'rat') {
+          // Mostly tail: twenty-four centimetres of animal and another
+          // twenty-two behind it, on a body twelve tall. Long is the shape, so
+          // the bound is loosened along the body and left tight across it,
+          // where a part flying off would still show.
+          expect(size.x).toBeLessThan(size.y * 3)
+          expect(size.z).toBeLessThan(size.y * 5)
+          return
+        }
+
         expect(size.x).toBeLessThan(size.y * 3)
         expect(size.z).toBeLessThan(size.y * 3)
       })
