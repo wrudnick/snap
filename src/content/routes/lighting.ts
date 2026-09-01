@@ -16,6 +16,7 @@ import type { LightingProfile } from './types'
 
 /** Open lakefront at dawn. The brightest, widest moment in the route. */
 export const BEACH_DAWN: LightingProfile = {
+  photographic: 0.9,
   sky: 0xa9c8e6,
   fogNear: 150,
   fogFar: 750,
@@ -35,6 +36,7 @@ export const BEACH_DAWN: LightingProfile = {
  * tunnel is worth having.
  */
 export const TUNNEL: LightingProfile = {
+  photographic: 0.05,
   // Daylight, not a dungeon.
   //
   // This used to dim the whole scene — dark sky, short fog — which meant the
@@ -64,6 +66,7 @@ export const TUNNEL: LightingProfile = {
 
 /** Michigan Avenue. Tall, hard-edged, plenty of sky between the towers. */
 export const AVENUE_DAWN: LightingProfile = {
+  photographic: 0.85,
   sky: 0x9fc0e0,
   // Reaches to the river — the Michigan corridor runs a mile south and the
   // distant towers are the reason to look that way at all.
@@ -81,6 +84,7 @@ export const AVENUE_DAWN: LightingProfile = {
 
 /** Oak Street. Low-rise and tree-lined, so more bounce and softer contrast. */
 export const BOUTIQUE_DAWN: LightingProfile = {
+  photographic: 0.75,
   sky: 0xa4c4e2,
   fogNear: 100,
   fogFar: 480,
@@ -131,6 +135,7 @@ export const PARK_DAWN: LightingProfile = {
 
 /** Service alley. Sunless slot between buildings; almost all bounce. */
 export const ALLEY: LightingProfile = {
+  photographic: 0.25,
   sky: 0x6a7488,
   fogNear: 14,
   fogFar: 60,
@@ -150,6 +155,7 @@ export const ALLEY: LightingProfile = {
  * service door behind you.
  */
 export const INTERIOR: LightingProfile = {
+  photographic: 0.1,
   sky: 0x120d09,
   fogNear: 10,
   fogFar: 42,
@@ -171,6 +177,7 @@ export const INTERIOR: LightingProfile = {
  * block rather than at the corner.
  */
 export const BOUTIQUE_SUNSET: LightingProfile = {
+  photographic: 0.95,
   sky: 0xe0a06a,
   fogNear: 70,
   fogFar: 420,
@@ -195,6 +202,7 @@ export const BOUTIQUE_SUNSET: LightingProfile = {
  * it — the key is barely more than a rim.
  */
 export const DINING_DUSK: LightingProfile = {
+  photographic: 0.8,
   sky: 0x2b2740,
   fogNear: 60,
   fogFar: 320,
@@ -219,6 +227,7 @@ export const DINING_DUSK: LightingProfile = {
  * so the fill carries the street and the key stays warm.
  */
 export const PARK_DUSK: LightingProfile = {
+  photographic: 0.85,
   sky: 0x2e2a4c,
   fogNear: 60,
   fogFar: 300,

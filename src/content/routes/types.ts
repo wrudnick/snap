@@ -148,6 +148,15 @@ export interface LightingProfile {
   /** Interiors and tunnels have no sun; shadow maps are wasted there. */
   castShadows: boolean
   /**
+   * How good this light is to photograph a building in, 0..1.
+   *
+   * Authored rather than derived from the colours above, because it is a
+   * judgement and not a measurement: golden hour and blue hour are worth more
+   * than midday to a postcard, and a tunnel is worth nothing, and none of that
+   * falls out of a key intensity. Defaults to a middling 0.5.
+   */
+  photographic?: number
+  /**
    * How much of this section the fade in from the previous one takes, 0..1.
    *
    * Defaults to a third. Long for the sunset over Rush Street, which has to

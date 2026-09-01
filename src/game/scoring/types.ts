@@ -49,6 +49,14 @@ export interface PhotoSnapshot {
    */
   view?: { yaw: number; pitch: number; fov: number; focalLength: number; build: string }
   subjects: SubjectObservation[]
+  /**
+   * Named buildings in frame.
+   *
+   * Optional so the hand-built snapshot literals in the scoring tests stay
+   * valid — those are about how a subject was framed, and predate buildings
+   * being worth anything at all.
+   */
+  structures?: StructureObservation[]
 }
 
 /**

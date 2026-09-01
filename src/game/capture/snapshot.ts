@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 
+import { clearFraction, flattenOccluders } from './occlusion'
+import { observeStructures } from './structures'
 import type { PhotoSnapshot, SubjectObservation } from '@/game/scoring/types'
 
 import { activeSubjects, type SubjectInstance } from './registry'
@@ -21,18 +23,7 @@ const _forward = new THREE.Vector3()
 const _toCamera = new THREE.Vector3()
 const _camPos = new THREE.Vector3()
 const _camDir = new THREE.Vector3()
-const _rayDir = new THREE.Vector3()
 const _quat = new THREE.Quaternion()
-const _raycaster = new THREE.Raycaster()
-/**
- * Only the nearest hit matters, and three-mesh-bvh can stop at it.
- *
- * The test is "is anything between the camera and this point", so a sorted list
- * of everything along the ray was work thrown away. With a bounds tree this
- * also lets the traversal prune whole branches once it has a hit.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-;(_raycaster as any).firstHitOnly = true
 
 /** The 8 corners of a box, as unit offsets. */
 const CORNERS: Array<[number, number, number]> = [
@@ -81,9 +72,6 @@ function measureVisibility(
 ): number {
   const box = subject.bounds
   const size = box.getSize(_corner.clone())
-  let visible = 0
-  let sampled = 0
-
   /**
    * How many points to test, by how much of the frame the subject fills.
    *
@@ -110,52 +98,7 @@ function measureVisibility(
   }
 
   camera.getWorldPosition(_camPos)
-
-  for (const point of samples) {
-    sampled++
-    const distance = _camPos.distanceTo(point)
-    if (distance < 1e-4) {
-      visible++
-      continue
-    }
-    _rayDir.subVectors(point, _camPos).normalize()
-    _raycaster.set(_camPos, _rayDir)
-    _raycaster.far = distance + 0.05
-
-    // Flat list, so this does not re-walk the scene graph on every ray.
-    const hits = _raycaster.intersectObjects(occluders, false)
-    const first = hits.find((h) => h.distance > 0.01)
-
-    // Nothing in the way, or the first thing hit is the subject itself.
-    if (!first || belongsTo(first.object, subject.object) || first.distance >= distance - 0.05) {
-      visible++
-    }
-  }
-
-  return sampled === 0 ? 0 : visible / sampled
-}
-
-/**
- * Every mesh that can block a line of sight, flattened once.
- *
- * `intersectObjects(roots, true)` walks the whole scene graph again for every
- * single ray. At nine rays a subject and a couple of thousand objects in the
- * scene, that was half a million pointless traversal steps per photograph
- * before a single triangle got tested. The graph does not change between the
- * rays of one shutter press, so it is walked once.
- *
- * `traverseVisible` rather than `traverse`: something switched off cannot
- * occlude anything, and skipping it here also skips its children.
- */
-function flattenOccluders(roots: THREE.Object3D[]): THREE.Mesh[] {
-  const meshes: THREE.Mesh[] = []
-  for (const root of roots) {
-    root.traverseVisible((object) => {
-      const mesh = object as THREE.Mesh
-      if (mesh.isMesh) meshes.push(mesh)
-    })
-  }
-  return meshes
+  return clearFraction(_camPos, samples, occluders, (hit) => belongsTo(hit, subject.object))
 }
 
 /**
@@ -212,6 +155,10 @@ export interface SnapshotOptions {
   camera: THREE.Camera
   /** Everything that can block line of sight — typically the whole scene. */
   occluders: THREE.Object3D[]
+  /** Camera pitch in radians, for the buildings' keystone rule. */
+  pitch: number
+  /** How good the light is where the camera stands, 0..1. */
+  light: number
 }
 
 export function buildSnapshot(opts: SnapshotOptions): PhotoSnapshot {
@@ -265,5 +212,11 @@ export function buildSnapshot(opts: SnapshotOptions): PhotoSnapshot {
     t: opts.t,
     aspect: opts.aspect,
     subjects,
+    structures: observeStructures({
+      camera: camera as THREE.PerspectiveCamera,
+      pitch: opts.pitch,
+      light: opts.light,
+      occluders,
+    }),
   }
 }

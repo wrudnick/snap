@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 
+import type { Rarity } from '@/game/scoring/types'
+
 import {
   band,
   carve,
@@ -60,6 +62,16 @@ import type { LandmarkSite } from './landmarkSites'
 export interface LandmarkBuilding {
   /** Display name. Real architecture, invented signage. */
   name: string
+  /**
+   * How much a postcard of it is worth. Defaults to 1.
+   *
+   * Deliberately unassigned for now. The Hancock is plainly not 40 East Oak,
+   * but this decides both the size of the money supply and which buildings are
+   * worth crossing town for — and it is a tuning number, which means setting it
+   * from a spreadsheet before either building can be photographed would be a
+   * guess dressed up as a decision. See `docs/PROGRESSION.md`.
+   */
+  rarity?: Rarity
   /** Storeys, when OSM has none or has the wrong part of the block. */
   levels?: number
   build: (site: LandmarkSite) => THREE.Object3D

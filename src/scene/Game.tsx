@@ -175,7 +175,7 @@ export function Game() {
         sections={resolved.sections}
         checkpoints={resolved.checkpoints}
       />
-      <Shutter routeId={route.id} rail={rail} body={body} />
+      <Shutter routeId={route.id} rail={rail} body={body} sections={resolved.sections} />
       <Items />
       <RunController fov={route.fov.default} duration={route.durationSeconds} />
       <InputBinding />

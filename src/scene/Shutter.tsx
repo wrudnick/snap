@@ -9,6 +9,8 @@ import { buildSnapshot } from '@/game/capture/snapshot'
 import { captureWorldState } from '@/game/capture/world'
 import { finderCrop, formatAspect, type CameraBody } from '@/content/cameras'
 import type { Rail } from '@/game/rail'
+import { lightingAt } from '@/game/sections'
+import type { ResolvedSection } from '@/game/sections'
 import { runtime } from '@/game/runtime'
 import { DEFAULT_SCORING_CONFIG } from '@/game/scoring/config'
 import { scorePhoto } from '@/game/scoring/score'
@@ -37,10 +39,12 @@ export function Shutter({
   routeId,
   rail,
   body,
+  sections,
 }: {
   routeId: string
   rail: Rail
   body: CameraBody
+  sections: ResolvedSection[]
 }) {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
@@ -97,6 +101,8 @@ export function Shutter({
       aspect,
       camera,
       occluders: scene.children,
+      pitch: runtime.pitch,
+      light: lightingAt(sections, runtime.t).photographic ?? 0.5,
     })
     /**
      * Stamped on after the fact, so `buildSnapshot` stays about the subjects.
