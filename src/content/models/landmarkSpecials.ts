@@ -89,23 +89,69 @@ export function sofitel(site: LandmarkSite): THREE.Object3D {
  */
 export function quigley(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
-  const [w, d] = site.size
-  const wallH = 15
-  const naveD = Math.min(d, w * 0.5)
-  const STONE = 0xcdc4ac
+  const [, d] = site.size
+  const [fullW, fullD] = site.bounds
+  const wallH = 16
+  const naveD = Math.min(fullD, d * 1.6)
+  const STONE = 0xb9b5a4
 
+  /**
+   * The rose window is the building.
+   *
+   * St James Chapel is modelled on the Sainte-Chapelle and its street front is
+   * one steep gable almost entirely filled by a great traceried circle, over a
+   * deep pointed portal. The first version had a gable, buttresses and a flèche
+   * and none of that — which is most of a Gothic chapel's face missing.
+   *
+   * Built as a recessed disc with radiating spokes rather than real tracery:
+   * the outline pass draws every one of those edges, and at the distance this
+   * is seen from the ring and the spokes are exactly what reads.
+   */
   g.add(extrudeRing(site.localRing, 0, wallH, STONE))
-  g.add(gable(w, naveD, wallH, 8, 0x5f5348))
-  g.add(piers(w, wallH, naveD, 0, Math.max(4, Math.round(w / 5)), 0xbdb49c, 0.8))
+  g.add(gable(fullW * 0.98, naveD, wallH, 11, 0x5a5148))
+  g.add(piers(fullW * 0.96, wallH * 0.9, naveD, 0, Math.max(5, Math.round(fullW / 5)), 0xa9a494, 0.85))
 
-  // The flèche — a slender spire over the ridge, which is the silhouette.
-  const spire = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.001, 1.6, 14, 6, 1),
-    mat(0x5f5348),
+  // The west front, stepped proud of the nave and carried up as a gable wall.
+  const frontZ = -naveD / 2
+  g.add(slab(fullW * 0.46, wallH + 11, 1.8, 0, STONE, [0, frontZ]))
+
+  const rose = Math.min(fullW * 0.3, 9)
+  const ring = new THREE.Mesh(
+    new THREE.CylinderGeometry(rose / 2, rose / 2, 1.0, 16, 1),
+    mat(0x6f6a5c),
   )
-  spire.position.y = wallH + 8 + 7
-  g.add(spire)
-  g.add(slab(2.6, 3, 2.6, wallH + 8, 0x5f5348))
+  ring.rotation.x = Math.PI / 2
+  ring.position.set(0, wallH * 0.86, frontZ - 1.0)
+  g.add(ring)
+  const hub = new THREE.Mesh(
+    new THREE.CylinderGeometry(rose * 0.13, rose * 0.13, 1.2, 10, 1),
+    mat(STONE),
+  )
+  hub.rotation.x = Math.PI / 2
+  hub.position.set(0, wallH * 0.86, frontZ - 1.1)
+  g.add(hub)
+  for (let i = 0; i < 8; i++) {
+    const spoke = slab(0.5, rose * 0.92, 0.4, 0, STONE, [0, frontZ - 1.1])
+    spoke.position.y = wallH * 0.86
+    spoke.rotation.z = (i / 8) * Math.PI
+    g.add(spoke)
+  }
+
+  // The portal beneath it, and pinnacles up the gable.
+  g.add(slab(fullW * 0.2, wallH * 0.44, 0.9, 0, 0x554f44, [0, frontZ - 1.0]))
+  for (const sx of [-1, 1]) {
+    g.add(slab(1.5, 7, 1.5, wallH + 2, STONE, [sx * fullW * 0.22, frontZ]))
+    g.add(slab(1.1, 4, 1.1, wallH + 9, STONE, [sx * fullW * 0.22, frontZ]))
+  }
+
+  // The flèche over the ridge.
+  const spireMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.001, 1.5, 15, 6, 1),
+    mat(0x5a5148),
+  )
+  spireMesh.position.y = wallH + 11 + 7
+  g.add(spireMesh)
+  g.add(slab(2.4, 3, 2.4, wallH + 11, 0x5a5148))
   return g
 }
 
@@ -127,11 +173,27 @@ export function esquire(site: LandmarkSite): THREE.Object3D {
   for (const y of [h * 0.55, h * 0.62, h * 0.69]) {
     g.add(band(w, d, y, 0.4, 0.25, 0xc0b49c))
   }
-  // Marquee over the pavement.
-  g.add(slab(w * 0.7, 1.3, 3.4, h * 0.34, 0xc23a35, [0, d / 2 + 1.5]))
-  g.add(slab(w * 0.66, 0.5, 3.0, h * 0.34 - 0.5, 0xffe2a8, [0, d / 2 + 1.5]))
-  // The blade, running past the parapet.
-  g.add(slab(1.4, h * 0.95, 3.2, h * 0.3, 0xc23a35, [0, d / 2 + 1.7]))
+  /**
+   * A cinema is its signage.
+   *
+   * The marquee is a deep slab over the pavement with a lit underside — that
+   * glow is the thing you see at dusk, and the route passes here after dark —
+   * and the blade is fluted and runs well past the parapet with the name down
+   * it. Both are deliberately oversized: at street scale a marquee modelled to
+   * its real depth reads as a shelf.
+   */
+  const MARQUEE = 0xb8332f
+  g.add(slab(w * 0.72, 1.8, 4.0, h * 0.32, MARQUEE, [0, d / 2 + 1.8]))
+  g.add(slab(w * 0.68, 0.45, 3.6, h * 0.32 - 0.6, 0xffe6b4, [0, d / 2 + 1.8]))
+  g.add(slab(w * 0.72, 0.4, 4.2, h * 0.32 + 1.8, 0xe8d9b8, [0, d / 2 + 1.8]))
+
+  const blade = h * 1.05
+  g.add(slab(1.8, blade, 3.6, h * 0.3, MARQUEE, [0, d / 2 + 2.0]))
+  // Flutes down the blade, which is what makes it Deco rather than a plank.
+  for (const sx of [-1, 0, 1]) {
+    g.add(slab(0.3, blade * 0.92, 3.8, h * 0.32, 0xe8d9b8, [sx * 0.55, d / 2 + 2.0]))
+  }
+  g.add(slab(2.4, 1.2, 4.0, h * 0.3 + blade, 0xe8d9b8, [0, d / 2 + 2.0]))
   return g
 }
 
@@ -200,11 +262,26 @@ export function knickerbocker(site: LandmarkSite): THREE.Object3D {
   g.add(floorBands(w * 0.97, shaftH - 4, d * 0.97, baseH, 3.6, 0x6d5344))
   g.add(band(w, d, baseH + shaftH, 1.6, 1.2, LIMESTONE))
 
-  // The arcaded top: a colonnade rather than a wall.
+  /**
+   * The arcaded top: an open colonnade, not a wall with piers drawn on it.
+   *
+   * The recessed core behind the columns is what makes it read as open — a
+   * solid block with fins on the outside is just a fluted block, and the whole
+   * point of this crown is that you can see daylight through it.
+   */
   const top = baseH + shaftH + 1.6
-  g.add(slab(w * 0.86, 10, d * 0.86, top, LIMESTONE))
-  g.add(piers(w * 0.86, 9, d * 0.86, top, Math.max(5, Math.round(w / 4)), LIMESTONE_SHADE, 0.6))
-  g.add(band(w * 0.86, d * 0.86, top + 10, 1.8, 1.4, LIMESTONE))
+  g.add(slab(w * 0.72, 10, d * 0.72, top, 0x6d5344))
+  const columns = Math.max(5, Math.round(w / 3.6))
+  const pitch = (w * 0.86) / columns
+  for (let i = 0; i < columns; i++) {
+    const x = -(w * 0.86) / 2 + pitch * (i + 0.5)
+    for (const z of [(d * 0.86) / 2, -(d * 0.86) / 2]) {
+      g.add(slab(pitch * 0.34, 10, 0.9, top, LIMESTONE, [x, z]))
+    }
+  }
+  g.add(band(w * 0.86, d * 0.86, top, 0.9, 0.5, LIMESTONE))
+  g.add(band(w * 0.86, d * 0.86, top + 10, 2.2, 1.6, LIMESTONE))
+  g.add(band(w * 0.78, d * 0.78, top + 12.2, 0.9, 0.6, LIMESTONE_SHADE))
   return g
 }
 
@@ -217,17 +294,48 @@ export function knickerbocker(site: LandmarkSite): THREE.Object3D {
  */
 export function beachCafe(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
-  const [w, d] = site.size
+  const [fullW, fullD] = site.bounds
 
-  g.add(extrudeRing(site.localRing, 0, 0.5, 0xb08a5e))
-  g.add(slab(w * 0.8, 3.4, d * 0.7, 0.5, 0xe4dccc))
-  g.add(slab(w * 0.76, 2.2, d * 0.66, 0.9, GLASS))
-  // Canopy on posts, out over the deck.
-  g.add(slab(w, 0.4, d, 4.2, 0xd8d0bc))
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      g.add(slab(0.3, 4.2, 0.3, 0.5, 0x7a6a52, [(sx * w) / 2 - sx * 0.6, (sz * d) / 2 - sz * 0.6]))
+  /**
+   * The Beachstro, from a photograph, and it is nothing like the pale kiosk it
+   * was.
+   *
+   * Mint-green painted timber with white *peaked* canvas canopies — not a flat
+   * slab roof — and open sides with a lattice rail rather than glass. It is
+   * also several linked pavilions rather than one box, which is what gives it
+   * that scalloped run of white peaks along the sand. Those peaks are the first
+   * built thing in the game and the only pitched roof on the beach.
+   */
+  const GREEN = 0x6fa89a
+  const GREEN_DARK = 0x4e7d72
+  const CANVAS = 0xeef0ea
+
+  g.add(extrudeRing(site.localRing, 0, 0.45, 0xb8a684))
+
+  const bays = Math.max(2, Math.round(fullW / 7))
+  const pitch = fullW / bays
+  for (let i = 0; i < bays; i++) {
+    const x = -fullW / 2 + pitch * (i + 0.5)
+    const bayW = pitch * 0.92
+    const bayD = Math.min(fullD * 0.8, 8)
+
+    // Deck rail, open above it.
+    g.add(slab(bayW, 1.05, bayD, 0.45, GREEN, [x, 0]))
+    g.add(slab(bayW * 0.88, 0.75, bayD * 0.86, 0.6, GREEN_DARK, [x, 0]))
+    // Corner posts carrying the canopy.
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        g.add(
+          slab(0.28, 3.1, 0.28, 0.45, GREEN, [
+            x + (sx * bayW) / 2,
+            (sz * bayD) / 2,
+          ]),
+        )
+      }
     }
+    // A peaked canvas roof per bay.
+    g.add(gable(bayW * 1.12, bayD * 1.12, 3.55, 1.9, CANVAS).translateX(x))
+    g.add(band(bayW * 1.12, bayD * 1.12, 3.5, 0.16, 0.1, GREEN))
   }
   return g
 }
@@ -246,12 +354,21 @@ export function carlyle(site: LandmarkSite): THREE.Object3D {
   const h = site.height
   const WHITE = 0xdad6c9
 
+  /**
+   * A white 1963 slab, and its whole character is the balcony grid.
+   *
+   * Every floor projects a continuous white slab and every bay is divided by a
+   * fin, so the face is a deep waffle rather than a flat wall with lines drawn
+   * on it. That depth is what the outline pass needs to make it read as
+   * anything at all from the underpass, which is the one place it is seen from.
+   */
   g.add(extrudeRing(site.localRing, 0, 5, WHITE))
   g.add(slab(w * 0.96, h - 5, d * 0.96, 5, WHITE))
-  // Recessed glazed strips between the balcony slabs.
-  g.add(slab(w * 0.9, h - 12, d * 0.9, 6, 0x5e7285))
-  g.add(floorBands(w * 0.96, h - 10, d * 0.96, 5, 3.6, WHITE))
-  g.add(band(w * 0.96, d * 0.96, h - 2, 2, 0.7, WHITE))
+  g.add(slab(w * 0.88, h - 12, d * 0.88, 6, 0x55677a))
+  g.add(floorBands(w * 0.98, h - 10, d * 0.98, 5, 3.6, WHITE))
+  // Vertical fins between the bays, so the balconies read as a grid.
+  g.add(piers(w * 0.96, h - 12, d * 0.96, 6, Math.max(4, Math.round(w / 4)), WHITE, 0.5))
+  g.add(band(w * 0.96, d * 0.96, h - 2, 2, 0.8, WHITE))
   return g
 }
 
@@ -271,9 +388,23 @@ export function drakeTower(site: LandmarkSite): THREE.Object3D {
   g.add(slab(w * 0.96, h - baseH - 8, d * 0.96, baseH, BROWN_BRICK))
   g.add(piers(w * 0.96, h - baseH - 12, d * 0.96, baseH + 2, Math.max(4, Math.round(w / 4)), 0x6d5344, 0.4))
   g.add(band(w, d, h - 8, 1.4, 1.0, LIMESTONE))
-  // Stepped brick crown.
-  g.add(slab(w * 0.78, 5, d * 0.78, h - 8, BROWN_BRICK))
-  g.add(slab(w * 0.54, 4, d * 0.54, h - 3, BROWN_BRICK))
-  g.add(band(w * 0.54, d * 0.54, h + 1, 1.0, 0.7, LIMESTONE))
+  /**
+   * A stepped brick crown with corner piers carried above the parapet, which is
+   * what 1920s apartment towers do instead of a cornice — the corners rise and
+   * the middle steps back between them.
+   */
+  g.add(slab(w * 0.82, 6, d * 0.82, h - 8, BROWN_BRICK))
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      g.add(
+        slab(w * 0.14, 9, w * 0.14, h - 8, BROWN_BRICK, [
+          (sx * w * 0.82) / 2,
+          (sz * d * 0.82) / 2,
+        ]),
+      )
+    }
+  }
+  g.add(slab(w * 0.5, 5, d * 0.5, h - 2, BROWN_BRICK))
+  g.add(band(w * 0.5, d * 0.5, h + 3, 1.1, 0.8, LIMESTONE))
   return g
 }
