@@ -2,6 +2,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
+import { buildHotDog } from '@/content/models/hotDog'
 import { LANDMARK_BUILDINGS, heightOf } from '@/content/models/landmarkBuildings'
 import { siteById } from '@/content/models/landmarkSites'
 import { mergeByMaterial } from '@/content/models/landmarkKit'
@@ -201,7 +202,17 @@ export function ModelInspector() {
       label: p.label,
       build: p.build,
     }))
-    return [...subjects, ...props, ...landmarks]
+    /**
+     * Throwables, so they can be looked at rather than squinted at.
+     *
+     * A hot dog is twenty centimetres and lands five metres away, which is
+     * forty pixels — judging whether the mustard reads by throwing one and
+     * flying the camera at it is a poor substitute for a turntable.
+     */
+    const items: Entry[] = [
+      { kind: 'prop' as const, id: 'item-hot-dog', label: 'Hot dog', build: buildHotDog },
+    ]
+    return [...subjects, ...items, ...props, ...landmarks]
   }, [])
 
   const [selected, setSelected] = useState(entries[0]?.id ?? '')

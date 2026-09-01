@@ -3,9 +3,8 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
 import { HOT_DOG } from '@/content/items'
+import { hotDogParts } from '@/content/models/hotDog'
 import { EYE_HEIGHT } from '@/content/routes/types'
-import { toonRamp } from '@/render/palette'
-import { toonMaterial } from '@/render/toonPatch'
 import { activeItems, clearItems, stepItems, throwItem } from '@/game/items'
 import { input } from '@/input'
 
@@ -25,18 +24,17 @@ export function Items() {
   const group = useRef<THREE.Group>(null)
 
   const meshes = useMemo(() => {
-    // A bun with something in it, at the scale of a thing in a fist. Two boxes
-    // is enough: it is 20 cm long and mostly seen in the air or underfoot.
-    const bun = toonMaterial(HOT_DOG.palette.body, toonRamp())
-    const filling = toonMaterial(HOT_DOG.palette.accent, toonRamp())
+    // One set of geometries for the whole pool: every thrown item is the same
+    // hot dog, so twelve copies would be eleven wasted.
+    const parts = hotDogParts()
     return Array.from({ length: POOL }, () => {
       const holder = new THREE.Group()
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.07, 0.09), bun)
-      const inner = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.05), filling)
-      inner.position.y = 0.035
-      holder.add(body, inner)
+      for (const { geometry, material } of parts) {
+        const mesh = new THREE.Mesh(geometry, material)
+        mesh.castShadow = true
+        holder.add(mesh)
+      }
       holder.visible = false
-      holder.castShadow = true
       return holder
     })
   }, [])
@@ -47,10 +45,9 @@ export function Items() {
     meshes.forEach((m) => parent.add(m))
     return () => {
       clearItems()
-      meshes.forEach((m) => {
-        m.removeFromParent()
-        m.children.forEach((c) => (c as THREE.Mesh).geometry.dispose())
-      })
+      // Geometry is shared with every other item and outlives this component,
+      // so only the holders are torn down.
+      meshes.forEach((m) => m.removeFromParent())
     }
   }, [meshes])
 
