@@ -153,9 +153,21 @@ function InspectorScene({
     )
   }
 
-  // The angle grid takes over rendering, so the scene contents are the same —
-  // only the cameras differ.
-  if (mode === 'angles') {
+  /**
+   * Six angles, for stepping through an animation as much as for a still.
+   *
+   * A pose is wrong from one angle far more often than it is wrong from all of
+   * them — a leg that swings through the body, a head that turns the wrong way,
+   * an arm that reads fine in profile and passes through the chest head-on.
+   * Judging a keyframe from a single camera means finding those one at a time,
+   * by luck, which is how the horse ended up with floating reins and the
+   * cyclist ended up leaning backwards.
+   *
+   * The grid takes over rendering, so the scene contents are the same and only
+   * the cameras differ — which means the mixer, the scrub and the dope sheet
+   * all work exactly as they did.
+   */
+  if (mode === 'angles' || mode === 'animation') {
     return (
       <AngleGrid height={height} reach={reach}>
         {lights}
@@ -413,7 +425,7 @@ export function ModelInspector() {
           >
             <InspectorScene
               object={built.object}
-              spin={mode === 'angles' ? false : spin}
+              spin={mode === 'angles' || mode === 'animation' ? false : spin}
               height={built.height}
               reach={built.reach}
               mixer={mixer}
@@ -430,7 +442,7 @@ export function ModelInspector() {
             />
           </Canvas>
 
-          {mode === 'angles' && (
+          {(mode === 'angles' || mode === 'animation') && (
             <div className="angle-labels">
               {ANGLES.map((a) => (
                 <div key={a.label} className="angle-label">
