@@ -1,9 +1,10 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { ROUTES } from '@/content/routes/goldcoast'
 import { SPECIES_INDEX } from '@/content/subjects'
-import { capturePhotoImage } from '@/game/capture/image'
+import { capturePhotoImage, warmCapturePipeline } from '@/game/capture/image'
+import { prepareOccluders } from '@/render/raycastAcceleration'
 import { buildSnapshot } from '@/game/capture/snapshot'
 import { runtime } from '@/game/runtime'
 import { DEFAULT_SCORING_CONFIG } from '@/game/scoring/config'
@@ -37,6 +38,23 @@ export function Shutter({ routeId }: { routeId: string }) {
 
   const busy = useRef(false)
 
+  /**
+   * Index the scene for the occlusion rays, once, before the first shot.
+   *
+   * Done here rather than only where the city and the landmarks are built,
+   * because the rays are cast against everything in the scene and this is the
+   * one place that knows that. Idempotent: geometry that already has a tree is
+   * skipped, so the walk is all it costs on a re-mount.
+   */
+  useEffect(() => {
+    prepareOccluders(scene)
+  }, [scene])
+
+  /** Compile the capture pipeline now rather than on the first photograph. */
+  useEffect(() => {
+    warmCapturePipeline(gl, PHOTO_WIDTH, Math.round(PHOTO_WIDTH / (size.width / size.height)))
+  }, [gl, size.width, size.height])
+
   useFrame(() => {
     if (!input.shutter) return
     input.shutter = false
@@ -61,6 +79,18 @@ export function Shutter({ routeId }: { routeId: string }) {
 
     const height = Math.round(PHOTO_WIDTH / aspect)
 
+    /**
+     * The shot is recorded now, not when the picture finishes encoding.
+     *
+     * Everything that decides what the photograph *is* has already happened:
+     * the world was frozen for the snapshot and the score is settled. All that
+     * remains is reading the pixels back off the GPU and writing a JPEG, and
+     * hanging the film counter and the shutter flash on that meant the camera
+     * appeared not to respond for most of a second on a crowded street. Take
+     * the photograph, then develop it.
+     */
+    useGame.getState().addPhoto({ id, url: null, snapshot, score })
+
     capturePhotoImage({
       gl,
       scene,
@@ -70,12 +100,7 @@ export function Shutter({ routeId }: { routeId: string }) {
       composer: activeComposer.current,
     })
       .then((blob) => {
-        useGame.getState().addPhoto({
-          id,
-          url: URL.createObjectURL(blob),
-          snapshot,
-          score,
-        })
+        useGame.getState().attachImage(id, URL.createObjectURL(blob))
       })
       .catch((err: unknown) => {
         console.error('[shutter] capture failed', err)

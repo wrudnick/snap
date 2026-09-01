@@ -226,3 +226,32 @@ export function disposeCaptureTargets(): void {
   blit?.material.dispose()
   blit = null
 }
+
+/**
+ * Build the capture pipeline before the player needs it.
+ *
+ * The first shutter press paid roughly half a second on the frame it happened,
+ * because the render target and the blit material were created — and the blit
+ * shader compiled — right then. That is the shader-compile stall the plan warns
+ * about, arriving on the one interaction in the game whose whole point is
+ * timing.
+ *
+ * Called once at scene setup, where half a second costs nothing.
+ */
+export function warmCapturePipeline(
+  gl: THREE.WebGLRenderer,
+  width: number,
+  height: number,
+): void {
+  const rt = getTarget(width, height)
+  const { scene, camera, material } = getBlit()
+  // A real texture, so the shader compiles with the same defines the first
+  // genuine capture will use. Without a map bound it compiles a different
+  // program and the stall simply moves.
+  material.map = rt.texture
+  const previous = gl.getRenderTarget()
+  gl.setRenderTarget(rt)
+  gl.render(scene, camera)
+  gl.setRenderTarget(previous)
+  material.map = null
+}

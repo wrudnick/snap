@@ -192,6 +192,19 @@ test.describe('gameplay loop', () => {
     expect(shot!.subject).not.toBeNull()
     expect(shot!.total).toBeGreaterThan(0)
 
+    /**
+     * The picture arrives after the shot is recorded.
+     *
+     * The shutter now registers the photograph the instant it fires and
+     * attaches the JPEG when the readback and encode finish, so a photo exists
+     * with `url: null` for a moment. Reading it straight away raced the encode.
+     */
+    await page.waitForFunction(
+      () => (window as any).__snap.store.getState().photos[0]?.url != null,
+      null,
+      { timeout: 20_000 },
+    )
+
     // The captured image must be a real frame, not a black or empty one.
     const image = await page.evaluate(async () => {
       const photo = (window as any).__snap.store.getState().photos[0]

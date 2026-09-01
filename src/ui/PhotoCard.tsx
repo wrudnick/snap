@@ -45,7 +45,18 @@ export function PhotoCard({
       onClick={onToggle ? () => onToggle(photo.id) : undefined}
       style={{ cursor: onToggle ? 'pointer' : 'default' }}
     >
-      <img src={photo.url} alt={primary ? `Photo of ${primary.displayName}` : 'Empty photo'} />
+      {/*
+        The frame is drawn whether or not the picture has arrived.
+
+        A photo exists from the moment the shutter fires; the JPEG turns up a
+        beat later. Rendering nothing until then would make the review grid pop
+        as images land, which is a worse tell than a briefly empty frame.
+      */}
+      {photo.url ? (
+        <img src={photo.url} alt={primary ? `Photo of ${primary.displayName}` : 'Empty photo'} />
+      ) : (
+        <div className="shot__developing" aria-label="Developing" />
+      )}
 
       <div className="meta">
         <div>

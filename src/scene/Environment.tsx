@@ -6,6 +6,7 @@ import { generateEnvironment, type Prop } from '@/content/models/environment'
 import { buildCityGeometry } from '@/content/models/city'
 import { buildCityGround } from '@/content/models/cityGround'
 import { buildLandmarks } from '@/content/models/landmarkScene'
+import { prepareOccluders } from '@/render/raycastAcceleration'
 import type { RouteDef } from '@/content/routes/types'
 import { type Rail, segmentActive } from '@/game/rail'
 import type { ResolvedSection } from '@/game/sections'
@@ -209,6 +210,17 @@ function Landmarks() {
         })
       }
     })
+  }, [group])
+
+  /**
+   * Index the landmarks for the shutter's occlusion rays.
+   *
+   * Done at scene setup rather than on the first shot, so the cost lands while
+   * the player is still on the menu instead of on the first photograph they
+   * try to take.
+   */
+  useEffect(() => {
+    prepareOccluders(group)
   }, [group])
 
   useEffect(() => {

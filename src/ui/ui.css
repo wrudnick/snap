@@ -1037,3 +1037,17 @@ h2 {
   font-size: 0.68rem;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* A photo that has been taken but not yet encoded. Sized by the same rule as
+   the image it stands in for, so nothing shifts when the picture arrives. */
+.shot__developing {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05));
+  background-size: 220% 100%;
+  animation: developing 1.1s ease-in-out infinite;
+}
+@keyframes developing {
+  from { background-position: 180% 0; }
+  to { background-position: -40% 0; }
+}

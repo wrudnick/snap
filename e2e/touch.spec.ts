@@ -115,6 +115,22 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
    */
   await page.evaluate(() => { (window as any).__snap.runtime.paused = true })
 
+  /**
+   * Warm the compass first.
+   *
+   * The north tracker needs several readings before it will report a bearing at
+   * all — until then there is no absolute look and `runtime.yaw` sits at zero,
+   * so both ends of the comparison below were zero and the assertion was
+   * measuring nothing. It only surfaced once the shutter stopped blocking for a
+   * second, which had been giving the tracker time to settle by accident.
+   */
+  for (const a of [0, -6, 0, -6, 0]) await point(a, 0, -90)
+  await page.waitForFunction(
+    () => (window as any).__snap.runtime.yawReference !== null,
+    null,
+    { timeout: 10_000 },
+  )
+
   await point(0, 0, -90)
   const first = await page.evaluate(() => (window as any).__snap.runtime.yaw)
   await point(-40, 0, -90)

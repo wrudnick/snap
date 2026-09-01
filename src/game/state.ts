@@ -15,7 +15,17 @@ export type Phase = 'menu' | 'riding' | 'review' | 'results'
 export interface Photo {
   id: string
   /** Object URL for the captured image. Revoked when the photo is discarded. */
-  url: string
+  /**
+   * Object URL for the JPEG, or null while it is still being encoded.
+   *
+   * The photo is recorded the instant the shutter fires — that is when the
+   * world was frozen and the score decided — and the picture is attached when
+   * the GPU readback and the encode finish. Waiting for the image before
+   * admitting the shot had happened meant the film counter and the shutter
+   * flash lagged the button by most of a second on a busy street, which reads
+   * as the camera being slow rather than as the file being written.
+   */
+  url: string | null
   snapshot: PhotoSnapshot
   score: PhotoScore
   /** Whether the player kept this one at the review screen. */
@@ -64,6 +74,8 @@ interface GameStore {
 
   startRun: (routeId: string, film: number) => void
   addPhoto: (photo: Omit<Photo, 'selected'>) => void
+  /** Attach the encoded image to a photo already recorded. */
+  attachImage: (id: string, url: string) => void
   endRun: () => void
   toggleSelected: (id: string) => void
   submit: () => void
@@ -80,7 +92,7 @@ export const useGame = create<GameStore>((set, get) => ({
 
   startRun: (routeId, film) => {
     // Release the previous run's images before dropping the references.
-    get().photos.forEach((p) => URL.revokeObjectURL(p.url))
+    get().photos.forEach((p) => { if (p.url) URL.revokeObjectURL(p.url) })
     set({ phase: 'riding', routeId, filmRemaining: film, photos: [], shutterTick: 0 })
   },
 
@@ -89,6 +101,11 @@ export const useGame = create<GameStore>((set, get) => ({
       photos: [...s.photos, { ...photo, selected: true }],
       filmRemaining: Math.max(0, s.filmRemaining - 1),
       shutterTick: s.shutterTick + 1,
+    })),
+
+  attachImage: (id, url) =>
+    set((s) => ({
+      photos: s.photos.map((p) => (p.id === id ? { ...p, url } : p)),
     })),
 
   endRun: () => set({ phase: 'review' }),
