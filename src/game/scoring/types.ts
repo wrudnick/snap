@@ -1,3 +1,6 @@
+import type { Composition, SceneEntry } from './scene'
+import type { StructureBreakdown } from './structure'
+
 /**
  * Pure data types for photo scoring.
  *
@@ -234,6 +237,53 @@ export interface ScoringConfig {
   base: number
   /** Multiplier applied per rarity tier, indexed 1..3. */
   rarityMultiplier: Record<Rarity, number>
+  /**
+   * How a photograph is assembled from everything in it.
+   *
+   * One subject leads and the rest contribute, decaying by rank. The decay is
+   * deliberately weak, because decay can only ever reward *headcount* — the
+   * real value of a scene lives in the named bonuses below, which key off
+   * relationships instead.
+   */
+  scene: {
+    /**
+     * Supporting subject at rank n contributes `points / (divisor × n)`.
+     *
+     * A property of the lens in the end — a fisheye is an instrument for scenes
+     * and a telephoto is one for subjects — with this as the standard default.
+     *
+     * Rank decay rather than a flat divisor because a flat one pays by
+     * headcount: on Michigan Avenue, 28 supporting subjects averaging 150 points
+     * would add 420 to a 900-point primary, a 47% bonus for pointing the camera
+     * at the busiest thing in view. The harmonic series grows logarithmically,
+     * so this turns the same crowd into about 13%.
+     */
+    divisor: number
+    /** NDC radius within which subjects of one species count as a single group. */
+    clusterRadius: number
+    /**
+     * A group of `n` scores `1 + growth × ln(n)` times its best member.
+     *
+     * Twelve pigeons is about 1.9×, not 12×. A flock in the air is one strong
+     * thing that happens to be made of birds, and it must not decompose into
+     * twelve weak entries that decay to nothing — which is also what makes the
+     * thrown hot dog pay off.
+     */
+    clusterGrowth: number
+    /** Flat awards for relationships rather than counts. */
+    bonuses: {
+      /** A small figure at the base of a large building. */
+      scale: number
+      /** Two or more named landmarks in one frame. */
+      context: number
+      /** Something in motion. */
+      life: number
+      /** Subjects at clearly separated distances. */
+      depth: number
+    }
+    /** Clips that read as movement, for the Life bonus. */
+    motionClips: string[]
+  }
   bonuses: {
     /** Points per additional subject of the primary's species. */
     sameSpecies: number
@@ -284,6 +334,18 @@ export interface PhotoScore {
   primary: SubjectScore | null
   /** Every qualifying subject, descending by points. */
   subjects: SubjectScore[]
+  /** Every named building in frame, descending by points. */
+  structures: StructureBreakdown[]
+  /**
+   * Everything in the photograph, ranked, with flocks collapsed to one entry.
+   *
+   * The first is what the photograph is *of*; the rest are supporting cast.
+   */
+  scene: SceneEntry[]
+  /** What the supporting cast contributed after rank decay. */
+  supporting: number
+  /** Named relationship bonuses. This is where the value of a scene lives. */
+  composition: Composition
   sameSpeciesBonus: number
   distinctSpeciesBonus: number
   total: number

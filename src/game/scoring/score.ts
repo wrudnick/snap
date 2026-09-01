@@ -1,4 +1,12 @@
 import {
+  clusterActors,
+  composition,
+  structureEntry,
+  supportingPoints,
+  type SceneEntry,
+} from './scene'
+import { scoreStructure } from './structure'
+import {
   clamp01,
   framedFraction,
   frameFraction,
@@ -155,33 +163,66 @@ export function scorePhoto(
   }
 
   scored.sort((a, b) => b.points - a.points)
-  const primary = scored[0] ?? null
 
+  /**
+   * Buildings, judged by their own rubric.
+   *
+   * A pigeon and a cathedral are not the same question: a building has no pose,
+   * and "facing the lens" is meaningless for something with four faces.
+   */
+  const structures = (snapshot.structures ?? [])
+    .map((obs) => ({ obs, score: scoreStructure(obs, config) }))
+    .sort((a, b) => b.score.total - a.score.total)
+
+  /**
+   * The scene: everything in frame, ranked, with flocks collapsed to one entry.
+   *
+   * Actors and buildings compete for the same first place, which is the point —
+   * a superb pigeon can be the subject of a photograph that happens to contain
+   * a skyline, and usually is not.
+   */
+  const scene: SceneEntry[] = [
+    ...clusterActors(scored, snapshot.subjects, config),
+    ...structures.map((x) => structureEntry(x.score, x.obs)),
+  ].sort((a, b) => b.points - a.points)
+
+  const lead = scene[0] ?? null
+  const supporting = supportingPoints(scene, config.scene.divisor)
+  const composed = composition(scene, config)
+
+  // Kept for the album's per-species bests, which are about actors.
+  const primary = scored[0] ?? null
   let sameSpeciesBonus = 0
   let distinctSpeciesBonus = 0
-
   if (primary) {
     const sameSpecies = scored.filter((s) => s.species === primary.species).length - 1
     sameSpeciesBonus = sameSpecies * config.bonuses.sameSpecies
-
     const distinct = new Set(scored.map((s) => s.species)).size - 1
     distinctSpeciesBonus = distinct * config.bonuses.distinctSpecies
   }
 
-  const total = Math.round(
-    (primary?.points ?? 0) + sameSpeciesBonus + distinctSpeciesBonus,
-  )
+  const total = Math.round((lead?.points ?? 0) + supporting + composed.total)
 
-  // Grade on the photograph, not the points: composition scaled by how much of
-  // the subject was actually visible. A half-occluded subject isn't a good shot
-  // however well it was framed.
-  const quality = primary ? primary.quality * primary.visibility : 0
+  /**
+   * The grade is the *primary's* craft, and nothing else.
+   *
+   * Points carry the scene; the letter carries how well you took the thing you
+   * took. Otherwise a careless snap of a busy street earns an S and the grade
+   * stops being feedback. It is also what makes composition safe to reward
+   * generously — money follows the grade, so a scene can never be farmed for
+   * cash because cash does not respond to it.
+   */
+  const quality = lead ? lead.quality * lead.visibility : 0
   const grade = gradeFor(quality, config)
 
   return {
     photoId: snapshot.photoId,
     primary,
     subjects: scored,
+    structures: structures.map((x) => x.score),
+    scene,
+    supporting: Math.round(supporting),
+    composition: composed,
     sameSpeciesBonus: Math.round(sameSpeciesBonus),
     distinctSpeciesBonus: Math.round(distinctSpeciesBonus),
     total,

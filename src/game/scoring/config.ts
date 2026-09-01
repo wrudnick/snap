@@ -84,6 +84,21 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
     3: 1.6,
   },
 
+  scene: {
+    divisor: 5,
+    clusterRadius: 0.22,
+    clusterGrowth: 0.35,
+    /**
+     * Tuned so a composed handful beats a crowd.
+     *
+     * Four subjects arranged well earn roughly +34% between decay and these;
+     * twenty-eight standing about earn +13% from decay and none of these. That
+     * relationship is the point of the whole scheme.
+     */
+    bonuses: { scale: 80, context: 110, life: 70, depth: 70 },
+    motionClips: ['walk', 'cruise', 'pedal', 'flap', 'trot', 'run', 'drive', 'chase'],
+  },
+
   bonuses: {
     sameSpecies: 60,
     distinctSpecies: 90,

@@ -392,7 +392,16 @@ describe('scorePhoto', () => {
     expect(r.subjects.map((s) => s.subjectId)).toEqual(['good', 'bad'])
   })
 
-  it('awards a same-species bonus per extra bird, not a full second score', () => {
+  /**
+   * A flock is one subject, not many.
+   *
+   * Twelve pigeons in the air is one strong thing that happens to be made of
+   * birds. Left as separate entries they rank against each other and decay to
+   * nothing, which would make the most photogenic event in the game — a flock
+   * going up, which the player can cause with a thrown hot dog — score worse
+   * than a single pigeon standing still.
+   */
+  it('collapses a flock into one subject that grows sub-linearly', () => {
     const solo = scorePhoto(snapshotOf([perfectObservation()]), INDEX, CFG)
     const pair = scorePhoto(
       snapshotOf([
@@ -402,10 +411,38 @@ describe('scorePhoto', () => {
       INDEX,
       CFG,
     )
-    expect(pair.sameSpeciesBonus).toBe(CFG.bonuses.sameSpecies)
-    expect(pair.total).toBe(solo.total + CFG.bonuses.sameSpecies)
-    // Crucially, far less than two full subject scores.
-    expect(pair.total).toBeLessThan(solo.total * 2)
+
+    expect(pair.scene).toHaveLength(1)
+    expect(pair.scene[0]!.count).toBe(2)
+    expect(pair.total).toBeGreaterThan(solo.total)
+    // Two birds are worth about a quarter more than one, not twice as much.
+    expect(pair.total).toBeLessThan(solo.total * 1.4)
+  })
+
+  /**
+   * And a crowd cannot beat a composition.
+   *
+   * The invariant the whole scene scheme exists to hold. A flat divisor pays by
+   * headcount: on a real street, 28 supporting subjects would have added nearly
+   * half again to the primary, and the optimal play becomes pointing the camera
+   * at the busiest thing in view rather than composing.
+   */
+  it('does not let a crowd run away with the score', () => {
+    const solo = scorePhoto(snapshotOf([perfectObservation()]), INDEX, CFG)
+    // Twenty-eight, spread far enough apart not to cluster.
+    const crowd = scorePhoto(
+      snapshotOf(
+        Array.from({ length: 28 }, (_, i) =>
+          perfectObservation({
+            subjectId: `c${i}`,
+            centroid: { x: -0.9 + (i % 7) * 0.3, y: -0.9 + Math.floor(i / 7) * 0.6 },
+          }),
+        ),
+      ),
+      INDEX,
+      CFG,
+    )
+    expect(crowd.total).toBeLessThan(solo.total * 1.6)
   })
 
   it('awards a distinct-species bonus for a mixed photo', () => {
@@ -431,7 +468,17 @@ describe('scorePhoto', () => {
       CFG,
     )
     expect(rare.total).toBeGreaterThan(common.total)
-    expect(rare.total).toBeCloseTo(common.total * CFG.rarityMultiplier[3], 0)
+    /**
+     * Compared on the subject rather than the photograph.
+     *
+     * Rarity scales what the subject is worth; the photograph's total also
+     * carries flat composition awards, which do not scale with anything and
+     * would break an exact ratio here without either number being wrong.
+     */
+    expect(rare.primary!.points).toBeCloseTo(
+      common.primary!.points * CFG.rarityMultiplier[3],
+      0,
+    )
   })
 
   it('returns an integer total', () => {

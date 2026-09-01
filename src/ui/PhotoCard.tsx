@@ -43,6 +43,20 @@ export function PhotoCard({
   const { score } = photo
   const primary = score.primary
 
+  /**
+   * What the photograph is *of*, which may be a building.
+   *
+   * `score.primary` is the best *actor*, and the card used to be built entirely
+   * around it — so a photograph of the Hancock read "Nothing in frame · No
+   * points" while scoring nine hundred. The lead is the head of the scene, and
+   * the two rubrics need different breakdowns because they measure different
+   * things.
+   */
+  const lead = score.scene[0] ?? null
+  const structure = lead?.kind === 'structure'
+    ? score.structures.find((b) => b.structureId === lead.id) ?? null
+    : null
+
   return (
     <div
       className={`shot ${photo.selected ? 'kept' : 'dropped'}`}
@@ -63,18 +77,20 @@ export function PhotoCard({
         as images land, which is a worse tell than a briefly empty frame.
       */}
       {photo.url ? (
-        <img src={photo.url} alt={primary ? `Photo of ${primary.displayName}` : 'Empty photo'} />
+        <img src={photo.url} alt={lead ? `Photo of ${lead.label}` : 'Empty photo'} />
       ) : (
         <div className="shot__developing" aria-label="Developing" />
       )}
 
       <div className="meta">
         <div>
-          <div className="name">{primary ? primary.displayName : 'Nothing in frame'}</div>
+          <div className="name">{lead ? lead.label : 'Nothing in frame'}</div>
           <div className="sub">
-            {primary
-              ? `${primary.poseLabel}${primary.hitPeak ? ' ✦' : ''} · ${BAND_LABEL[primary.directionBand]}`
-              : 'No points'}
+            {structure
+              ? `${structure.faceBand}${lead && lead.count > 1 ? '' : ''}`
+              : primary
+                ? `${primary.poseLabel}${primary.hitPeak ? ' ✦' : ''} · ${BAND_LABEL[primary.directionBand]}`
+                : 'No points'}
           </div>
         </div>
         <div className="row" style={{ gap: '0.5rem' }}>
@@ -120,26 +136,52 @@ export function PhotoCard({
         </div>
       </div>
 
-      {showBreakdown && primary && (
+      {showBreakdown && (structure || primary) && (
         <div className="breakdown">
-          <Metric label="Size" value={primary.size} />
-          <Metric label="Placement" value={primary.placement} />
-          <Metric label="Direction" value={primary.direction} />
-          <Metric label="Pose" value={primary.pose} />
-          {score.sameSpeciesBonus > 0 && (
+          {structure ? (
+            <>
+              <Metric label="Fit" value={structure.fit} />
+              <Metric label="Fill" value={structure.fill} />
+              <Metric label="Clear" value={structure.clear} />
+              <Metric label="Level" value={structure.level} />
+              <Metric label="Face" value={structure.face} />
+            </>
+          ) : (
+            <>
+              <Metric label="Size" value={primary!.size} />
+              <Metric label="Placement" value={primary!.placement} />
+              <Metric label="Direction" value={primary!.direction} />
+              <Metric label="Pose" value={primary!.pose} />
+            </>
+          )}
+          {score.supporting > 0 && (
             <div className="metric">
-              <span className="k">Flock</span>
+              <span className="k">Scene</span>
               <span className="track" />
-              <span className="v">+{score.sameSpeciesBonus}</span>
+              <span className="v">+{score.supporting}</span>
             </div>
           )}
-          {score.distinctSpeciesBonus > 0 && (
-            <div className="metric">
-              <span className="k">Variety</span>
+          {/*
+            Composition is named rather than totalled, because these are the
+            levers the player can actually pull. A number labelled "bonus" is
+            something that happened to you; "Scale" is something you did.
+          */}
+          {score.composition.earned.map((name) => (
+            <div className="metric" key={name}>
+              <span className="k">{name}</span>
               <span className="track" />
-              <span className="v">+{score.distinctSpeciesBonus}</span>
+              <span className="v">
+                +{
+                  {
+                    Scale: score.composition.scale,
+                    Context: score.composition.context,
+                    Life: score.composition.life,
+                    Depth: score.composition.depth,
+                  }[name] ?? 0
+                }
+              </span>
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>
