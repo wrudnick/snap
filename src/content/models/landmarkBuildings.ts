@@ -96,42 +96,93 @@ function hancock(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
   const [w, d] = site.size
   const h = site.height
+  /** Top is a bit over a third of the base, which is the real ratio. */
   const TAPER = 0.38
+  const SKIN = 0x2b2d33
+  const STEEL = 0x6c7079
 
-  g.add(taperedSlab(w, h, d, 0, TAPER, 0x2b2d33))
+  g.add(taperedSlab(w, h, d, 0, TAPER, SKIN))
 
-  // Ten braced bays up the shaft. Width at any height is the linear taper.
-  const widthAt = (t: number) => w * (1 - (1 - TAPER) * t)
-  const bays = 10
-  for (let i = 0; i < bays; i++) {
-    const t0 = 0.06 + (i / bays) * 0.88
-    const t1 = 0.06 + ((i + 1) / bays) * 0.88
-    const y0 = h * t0
-    const y1 = h * t1
-    const wMid = widthAt((t0 + t1) / 2)
-    const rise = y1 - y0
-    const diagonal = Math.hypot(wMid, rise)
-    const angle = Math.atan2(rise, wMid)
+  /** How wide the tower is, as a fraction, at height fraction `t`. */
+  const k = (t: number) => 1 - (1 - TAPER) * t
 
-    for (const z of [d / 2 * (1 - (1 - TAPER) * t0), -d / 2 * (1 - (1 - TAPER) * t0)]) {
-      for (const sign of [1, -1]) {
-        const brace = new THREE.Mesh(
-          new THREE.BoxGeometry(diagonal, 1.5, 1.0),
-          mat(0x585c66),
-        )
-        brace.position.set(0, (y0 + y1) / 2, z)
-        brace.rotation.z = angle * sign
-        brace.castShadow = true
-        g.add(brace)
-      }
-      // The belt at each brace junction.
-      g.add(slab(wMid, 1.4, 1.2, y0, 0x585c66, [0, z]))
-    }
+  /**
+   * One brace, between two points on the sloping face.
+   *
+   * The old version laid a straight box across the bay at the *bottom's* width
+   * and the bottom's z, then tilted it. The tower narrows as it rises, so the
+   * top half of every brace came out through the glass — from any angle it read
+   * as spikes growing out of the sides, and there were ten rows of them.
+   *
+   * A member between two given points cannot do that. One quaternion turns the
+   * box's own axis onto the line between them; no composed rotations, which is
+   * what put wings on the first gable and reins in mid-air on the horse.
+   */
+  const member = (from: THREE.Vector3, to: THREE.Vector3, thickness: number) => {
+    const along = new THREE.Vector3().subVectors(to, from)
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(thickness, along.length(), thickness * 0.7),
+      mat(STEEL),
+    )
+    mesh.position.copy(from).add(to).multiplyScalar(0.5)
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), along.clone().normalize())
+    mesh.castShadow = true
+    return mesh
   }
 
-  // Twin antennas.
-  for (const x of [-widthAt(1) * 0.22, widthAt(1) * 0.22]) {
-    g.add(slab(1.1, 100, 1.1, h, 0x585c66, [x, 0]))
+  /**
+   * Five tiers, not ten.
+   *
+   * The building carries five enormous X's up each face and they are the whole
+   * of its identity — at ten they stop being structure and become a texture,
+   * which is what the last version looked like from across the river.
+   */
+  const BAYS = 5
+  const BOTTOM = 0.06
+  const TOP = 0.96
+  const PROUD = 0.9
+
+  for (let i = 0; i < BAYS; i++) {
+    const ta = BOTTOM + (i / BAYS) * (TOP - BOTTOM)
+    const tb = BOTTOM + ((i + 1) / BAYS) * (TOP - BOTTOM)
+    const ya = h * ta
+    const yb = h * tb
+    const halfWa = (w * k(ta)) / 2
+    const halfWb = (w * k(tb)) / 2
+    const halfDa = (d * k(ta)) / 2
+    const halfDb = (d * k(tb)) / 2
+    const thickness = Math.max(1.6, w * 0.035)
+
+    // The two broad faces, front and back.
+    for (const s of [1, -1]) {
+      const za = s * (halfDa + PROUD)
+      const zb = s * (halfDb + PROUD)
+      g.add(member(new THREE.Vector3(-halfWa, ya, za), new THREE.Vector3(halfWb, yb, zb), thickness))
+      g.add(member(new THREE.Vector3(halfWa, ya, za), new THREE.Vector3(-halfWb, yb, zb), thickness))
+    }
+    // And the two ends, which carry the same bracing.
+    for (const s of [1, -1]) {
+      const xa = s * (halfWa + PROUD)
+      const xb = s * (halfWb + PROUD)
+      g.add(member(new THREE.Vector3(xa, ya, -halfDa), new THREE.Vector3(xb, yb, halfDb), thickness))
+      g.add(member(new THREE.Vector3(xa, ya, halfDa), new THREE.Vector3(xb, yb, -halfDb), thickness))
+    }
+
+    // The belt where each tier meets the next, sized to the taper at that height.
+    g.add(band(w * k(ta), d * k(ta), ya, thickness * 0.9, PROUD, STEEL))
+  }
+  g.add(band(w * k(TOP), d * k(TOP), h * TOP, 2.0, PROUD, STEEL))
+
+  /**
+   * The twin masts, which are most of the silhouette from a mile down Michigan.
+   *
+   * Stepped rather than two plain sticks: they are lattice towers and taper in
+   * two stages, and at this distance the step is the only part of that anyone
+   * can see.
+   */
+  for (const x of [-w * TAPER * 0.24, w * TAPER * 0.24]) {
+    g.add(slab(1.6, h * 0.16, 1.6, h, 0xb9bdc4, [x, 0]))
+    g.add(slab(0.9, h * 0.16, 0.9, h + h * 0.16, 0xb9bdc4, [x, 0]))
   }
   return g
 }
