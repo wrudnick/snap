@@ -97,7 +97,19 @@ export function towerBlock(site: LandmarkSite, o: TowerOptions): THREE.Object3D 
   const baseH = podium
     ? Math.min(h * 0.18, 22)
     : Math.min(h * (o.base ?? 0.1), 14)
-  const shaftTop = h - (o.crown === 'flat' ? 1.5 : 6)
+  /**
+   * Where the shaft stops is where the crown starts. It was not.
+   *
+   * The shaft ended six metres below the parapet whatever the crown was, and a
+   * cornice begins three metres below it — so eight buildings carried their top
+   * three metres in the air with nothing under it. It is the default crown, so
+   * it was the default bug.
+   *
+   * Deriving both from one number means they cannot drift apart again.
+   */
+  const crown = o.crown ?? 'cornice'
+  const crownHeight = crown === 'flat' ? 1.5 : crown === 'cornice' ? 3 : 6
+  const shaftTop = h - crownHeight
 
   // The base follows the real outline; the shaft above keeps the fitted
   // rectangle. See extrudeRing.
@@ -122,7 +134,7 @@ export function towerBlock(site: LandmarkSite, o: TowerOptions): THREE.Object3D 
     g.add(floorBands(shaftW, shaftTop - baseH - 4, shaftD, baseH, 14.4, o.trim))
   }
 
-  switch (o.crown ?? 'cornice') {
+  switch (crown) {
     case 'cornice':
       g.add(band(shaftW, shaftD, h - 3, 3, 1.6, o.trim))
       g.add(band(shaftW, shaftD, h, 0.9, 0.9, o.color))
