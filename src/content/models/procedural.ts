@@ -1889,7 +1889,19 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   for (const side of ['L', 'R'] as const) {
     const arm = torsoGroup.getObjectByName(`arm${side}`) as THREE.Group
     const hand = new THREE.Mesh(BOX, mat(skin))
-    hand.scale.set(armW * 1.6, h * 0.062, armW * 1.5)
+    /**
+     * Longest along the arm, not across it.
+     *
+     * It was a flat plate — its *shortest* axis ran down the forearm — so the
+     * hand sat across the wrist like a paddle. Hanging at the side that reads
+     * as a palm and passes; the moment an arm lifts, which is what `talk`,
+     * `wave` and `party` all do, the plate swings out broadside and the hand
+     * looks broken at ninety degrees to the arm it belongs to.
+     *
+     * A hand is about as long as it is wide and thinner than either, so the
+     * long axis follows the limb.
+     */
+    hand.scale.set(armW * 1.2, h * 0.075, armW * 0.95)
     hand.position.set(0, -armLen * 0.86 - h * 0.022, 0)
     hand.name = `hand${side}`
     hand.castShadow = true
@@ -2157,7 +2169,23 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
   for (const child of [...g.children]) body.add(child)
   g.add(body)
 
-  if (spec.stoop) g.rotation.x = spec.stoop
+  /**
+   * A stoop is a bent back, not a lean.
+   *
+   * This tilted the entire figure — feet included — about X, and since the
+   * model faces −Z a positive rotation tips the top *backwards*. The old man
+   * and the rough sleeper were both standing at an angle, heels dug in, leaning
+   * away from whatever they were looking at.
+   *
+   * Age rounds the upper back and pushes the head forward while the legs stay
+   * under you. So the torso curves forward, the head comes part of the way back
+   * towards level — a stooped person still looks where they are going — and
+   * the feet are left alone.
+   */
+  if (spec.stoop) {
+    torsoGroup.rotation.x = -spec.stoop * 1.7
+    head.rotation.x = spec.stoop * 1.1
+  }
 
   const armSwing = 0.55
 
@@ -2186,7 +2214,13 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
     ]),
 
     new THREE.AnimationClip('talk', 2.2, [
-      num('armR.rotation[x]', [0, 0.55, 1.1, 1.65, 2.2], [-0.1, -0.85, -0.4, -0.9, -0.1]),
+      /*
+       * Positive swings the arm forward. The model faces −Z, so a negative
+       * rotation about X sends the hand out behind the shoulder — this clip
+       * had someone gesturing over their own back while talking to a person
+       * in front of them.
+       */
+      num('armR.rotation[x]', [0, 0.55, 1.1, 1.65, 2.2], [0.1, 0.85, 0.4, 0.9, 0.1]),
       num('head.rotation[y]', [0, 1.1, 2.2], [0.42, 0.3, 0.42]),
       num('head.rotation[x]', [0, 0.55, 1.1, 1.65, 2.2], [0, -0.12, 0.05, -0.1, 0]),
     ]),
