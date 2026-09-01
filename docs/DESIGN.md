@@ -28,11 +28,15 @@ impossible*, which is a much better reason to want one.
 2. Ride it. You cannot stop, cannot go back, and have a fixed roll of film.
 3. Frame and shoot. Raise the camera to your eye to compose through the
    viewfinder; throw things to make the world react.
-4. At the end, choose which shots to develop from the contact sheet.
+4. At the end, choose one postcard per slot from what you brought back.
 5. They sell. The money buys equipment and locations.
 
 A run is short enough to repeat and different enough each time — traffic,
 behaviour and light are not fixed — that the same route rewards being learned.
+
+**Built as of this writing: steps 2 to 5.** There is one location and no map, so
+step 1 is a menu button. Money is earned and spends on equipment; there is
+nothing but equipment to spend it on yet.
 
 ## Settled
 

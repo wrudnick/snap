@@ -229,6 +229,25 @@ export interface ScoringConfig {
     /** Multiplier range from the light where it stands. */
     light: { min: number; max: number }
   }
+  /**
+   * Can you see it at all, as distinct from how well it is framed.
+   *
+   * Two different questions that were being answered by one curve. `size` is a
+   * judgement about framing and peaks at a species' ideal; presence is whether
+   * there is anything there to judge. Measured before this existed: a person
+   * sixty metres away, facing away, at the edge of the frame scored 179 points
+   * with `size` at literally 0.000, earning almost all of it from `pose 0.45` —
+   * twenty-five percent of the weight for happening to be mid-stride at four
+   * pixels tall.
+   *
+   * Both are fractions of frame area.
+   */
+  presence: {
+    /** Below this a subject is scenery and is not in the photograph at all. */
+    floor: number
+    /** At or above this, craft counts for full. Ramps between the two. */
+    full: number
+  }
   /** Subjects below this visibility are treated as not in the photo at all. */
   minVisibility: number
   /** Subjects whose centroid falls outside the frame don't count. */

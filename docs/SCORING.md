@@ -47,6 +47,18 @@ at which a figure still reads (a person at twenty metres is about thirty pixels
 tall on a 1080-line frame, and that is exactly the figure a **Scale** bonus
 wants), so the floor removes the invisible tail without removing supporting cast.
 
+**Placement is gated too, and `size` is the only term that is not** — because
+`size` *is* the judgement about presence. With pose and direction gated but
+centring left alone, a crowd of invisible people dead centre still reached five
+hundred points on centring by itself.
+
+Gated on projected *area*, not on the `size` score. Those are different
+questions: `size` peaks at a species' ideal and a perfectly good street portrait
+at eight metres scores 0.17 there, so multiplying craft by it would gut the
+ordinary shot the rule exists to protect. Measured after: a portrait at six
+metres is unchanged at 899 points and grade A, while twenty specks fall from
+1,462 to 319.
+
 ### Structures — named buildings
 
 Buildings have no pose and no facing-you, and want terms of their own. Weights

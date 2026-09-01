@@ -575,3 +575,52 @@ describe('bestPerSpecies', () => {
     expect(bestPerSpecies([empty]).size).toBe(0)
   })
 })
+
+/**
+ * Presence gates craft.
+ *
+ * `SCORING.md` described this rule for weeks before the code had it, which is
+ * the worst kind of drift: the document read as a description and was a wish.
+ * The leak it describes was live — a person sixty metres away, facing away, at
+ * the edge of the frame scored 179 points with `size` at literally 0.000,
+ * earning almost all of it from being mid-stride.
+ */
+describe('presence', () => {
+  it('drops a subject too small to be in the photograph', () => {
+    const speck = perfectObservation({
+      bounds: { minX: 0.79, maxX: 0.81, minY: -0.01, maxY: 0.01 },
+      centroid: { x: 0.8, y: 0 },
+    })
+    const r = scorePhoto(snapshotOf([speck]), INDEX, CFG)
+    expect(r.primary, 'a speck is scenery, not a subject').toBeNull()
+    expect(r.total).toBe(0)
+  })
+
+  /**
+   * The terms that never asked whether you can see it.
+   *
+   * Pose and direction bank a quarter of the score each for a subject that
+   * failed every visual test, and centring carries one that is dead centre and
+   * invisible. `size` is the only ungated term, because size *is* the
+   * judgement about presence.
+   */
+  it('will not let a barely-there subject bank pose or centring', () => {
+    const tiny = perfectObservation({
+      bounds: { minX: -0.02, maxX: 0.02, minY: -0.02, maxY: 0.02 },
+      centroid: { x: 0, y: 0 },
+    })
+    const near = perfectObservation()
+
+    const tinyScore = scorePhoto(snapshotOf([tiny]), INDEX, CFG)
+    const nearScore = scorePhoto(snapshotOf([near]), INDEX, CFG)
+
+    expect(tinyScore.primary).not.toBeNull()
+    // Dead centre and in a good pose, and still worth a fraction of the real one.
+    expect(tinyScore.primary!.quality).toBeLessThan(nearScore.primary!.quality * 0.35)
+  })
+
+  it('does not harm an ordinary street portrait', () => {
+    const r = scorePhoto(snapshotOf([perfectObservation()]), INDEX, CFG)
+    expect(r.primary!.quality).toBeGreaterThan(0.75)
+  })
+})

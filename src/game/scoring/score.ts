@@ -99,6 +99,8 @@ export function scoreSubject(
 
   const visible = frameFraction(obs.bounds)
   if (visible <= 0) return null
+  // Too small to be in the photograph at all, rather than badly framed.
+  if (visible < config.presence.floor) return null
 
   const size = sizeScore(visible, species.idealSize ?? config.size.ideal, config.size.sigma)
 
@@ -114,9 +116,32 @@ export function scoreSubject(
   const dir = directionScore(obs.facing, config.direction)
   const pose = poseScore(obs, species)
 
+  /**
+   * Presence gates craft.
+   *
+   * Direction and pose ask how well you caught it, and neither of them checks
+   * whether you can see it — so a weighted sum let a subject fail every visual
+   * criterion and still bank a quarter of the score for happening to be
+   * mid-stride. You cannot have caught something mid-stride if it is four
+   * pixels tall.
+   *
+   * Placement is gated too, and for the same reason: a speck dead centre is
+   * still a speck, and centring was carrying a crowd of invisible people to
+   * five hundred points on its own once pose had been dealt with. `size` is the
+   * only ungated term, because size *is* the judgement about presence.
+   *
+   * Gated on projected area rather than on `size`, because `size` is a
+   * judgement about framing that peaks at a species' ideal — a perfectly good
+   * street portrait at eight metres scores 0.17 there, and multiplying craft by
+   * that would gut the ordinary shot this is meant to protect.
+   */
+  const { floor, full } = config.presence
+  const presence = clamp01((visible - floor) / Math.max(1e-9, full - floor))
+
   const w = config.weights
   const quality = clamp01(
-    w.size * size + w.placement * placement + w.direction * dir.score + w.pose * pose.score,
+    w.size * size +
+      presence * (w.placement * placement + w.direction * dir.score + w.pose * pose.score),
   )
 
   const points =

@@ -96,18 +96,32 @@ supporting cast counts for more through wide glass. The scoring config is
 composed per shot from the body, so the divisor is a property of the glass
 rather than a global constant.
 
-**Still open here.** Prices are guesses against an ~$11,000 supply and want
-playing against. `LandmarkBuilding.rarity` is still unset, which is half the
-money supply. And the e2e suite has not been run since the scene assembly
-landed.
+**Still open here.** The wide angle is priced at $240 against a supply measured
+at $13,509, which is a guess and wants playing against rather than reasoning
+about. `LandmarkBuilding.rarity` is unset on all fifty-two, so the architecture
+half of the economy is priced at its floor.
+
+## The sell screen — **done, after Slice 4**
+
+Grouped by grade, one entry per slot, with the run's other shots of that slot on
+a strip. The same shape New Pokémon Snap uses: its Photodex has room for one
+photograph of each Pokémon at each star rating, where stars are behaviour
+rarity and the numeric score is separate — the same split as our slot and grade.
+
+Ours shows one thing Snap's does not: a slot already sold pays only the
+difference, so some shots are worth nothing and the card says so before you
+submit rather than after.
 
 ## Slice 5 — the map and the Playpen
 
 A second location, bought.
 
 Only worth building after Level exists, because the Playpen's entire pitch is
-that it is where the tall buildings finally fit. Without the keystone rule the
-player has no idea what they were missing.
+that it is where the tall buildings finally fit. That is now measured rather than
+claimed: tilting half a radian up on Michigan puts convergence at 0.46 against a
+ruinous 0.35, so the shot is genuinely unavailable from the pavement.
+
+There is no map yet — one location and a menu button.
 
 *Playable at the end:* the game has a reason to keep going.
 

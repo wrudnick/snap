@@ -36,16 +36,23 @@ subjects and should barely score them at all. So the lens changes *what kind of
 photograph you are taking*, rather than making the same photograph worth more.
 That is the difference between a shop worth visiting and a list of stat upgrades.
 
-| Lens | Scene divisor | For |
-|---|---|---|
-| Wide / fisheye | `/3n` | Streets, crowds, interiors. Rewards a busy frame. |
-| Standard | `/5n` | The default. |
-| Telephoto | `/8n` | One subject, compressed. Distant and shy things. |
+| Lens | Scene divisor | For | Built |
+|---|---|---|---|
+| Wide 28 | `/3n` | Streets, crowds, interiors. Rewards a busy frame. | yes, $240 |
+| Compact 45 | `/5n` | The one you start with. | yes, free |
+| Telephoto | `/8n` | One subject, compressed. Distant and shy things. | no |
+
+Bodies and lenses are one object for now — the compact and the wide are each a
+`CameraBody` with a fixed focal length. Splitting them apart is worth doing when
+a body exists whose film or finder differs from the compact's, and not before.
 
 ## What each unlock is *for*
 
 Every piece of equipment should answer a specific complaint the rulebook gave
 you. If you cannot name the complaint, it does not belong in the shop.
+
+None of these are built except the wide angle. They are recorded as the shape of
+the tree rather than as a promise about its order.
 
 | Unlock | The complaint it answers |
 |---|---|
@@ -102,11 +109,25 @@ back at golden hour, rather than the game inventing three times as many slots.
 ### Why this is the right shape
 
 **The money supply is finite and computable.** Every slot pays its S value once,
-so the whole economy is a sum you can write down — currently about $11,000
-across ninety pose slots and a hundred and four building faces, split almost
-exactly evenly between street life and architecture. Equipment and locations must
-be priced against that total, and the game has to be finishable well short of
-completing every slot.
+so the whole economy is a sum you can write down. Measured against the code:
+
+| | slots | at full S |
+|---|---|---|
+| 25 species × their poses | 90 | $5,709 |
+| 52 landmarks × three face bands | 156 | $7,800 |
+| **total** | **246** | **$13,509** |
+
+Two corrections to an earlier count of $11,000. Buildings have **three** face
+bands, not two — `square-on`, `three-quarter` and `oblique` — and the slot key
+uses the band, so the mush between the two good angles is its own postcard. And
+every landmark is priced at rarity 1 because none has a rarity set, so the
+architecture figure is a floor rather than an estimate.
+
+The oblique slot deserves a decision rather than an inheritance. The rubric names
+two right angles and scores the space between them lowest — but Face is only a
+tenth of the weight, so an oblique shot can still be an S, and a third of the
+building economy is currently the angle the rubric calls amateur. See the open
+list.
 
 **Grinding pays nothing.** Selling the same grade twice is worth zero. The only
 way to earn is to bring back something better than what is on the rack, or
@@ -146,6 +167,10 @@ photographer would actually have.
 
 ## Open
 
+- **Should `oblique` be a sellable slot at all?** It is a third of the building
+  economy and it is the angle the rubric exists to discourage. The alternatives
+  are to drop it (a run could then come back with nothing sellable), to price it
+  below the named bands, or to accept it as a genuinely different photograph.
 - Does film cost money?
 - **Building rarity is unassigned.** Every landmark currently prices the same,
   which is wrong: the Hancock is not 40 East Oak. Tiering them changes both the

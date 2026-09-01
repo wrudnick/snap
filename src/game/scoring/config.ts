@@ -72,6 +72,16 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
     light: { min: 0.85, max: 1.15 },
   },
 
+  /**
+   * A person at about thirty-five metres, and one at about sixteen.
+   *
+   * The floor sits deliberately below the size at which a figure still reads —
+   * a person at twenty metres is roughly thirty pixels on a 1080-line frame,
+   * and that is exactly the figure a Scale bonus wants at the base of a
+   * building. It removes the invisible tail without removing supporting cast.
+   */
+  presence: { floor: 0.0003, full: 0.0015 },
+
   // Below a quarter visible, it isn't a photo of that subject.
   minVisibility: 0.25,
   requireCentroidInFrame: true,
