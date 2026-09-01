@@ -7,7 +7,7 @@ import {
   LIMESTONE_SHADE,
   RED_BRICK,
 } from './landmarkArchetypes'
-import { band, crenellation, extrudeRing, floorBands, gable, mat, piers, slab } from './landmarkKit'
+import { band, extrudeRing, floorBands, gable, mat, piers, slab, taperedSlab } from './landmarkKit'
 import type { LandmarkSite } from './landmarkSites'
 
 /**
@@ -156,9 +156,27 @@ export function fortnightly(site: LandmarkSite): THREE.Object3D {
   for (const sx of [-1, 1]) {
     g.add(slab(1.4, h - 3, 1.4, 2.2, LIMESTONE, [(sx * w) / 2, d / 2]))
   }
-  // A cornice and a balustrade above it.
+  /**
+   * A cornice, a balustrade and a hipped roof.
+   *
+   * The balustrade was built with `crenellation`, which is a battlement — the
+   * wrong century and the wrong building type entirely. A Georgian parapet is a
+   * low run of balusters, and behind it the roof is hipped with dormers, which
+   * is what stops a townhouse reading as an office block.
+   */
   g.add(band(w, d, h - 1.6, 1.6, 1.1, LIMESTONE))
-  g.add(crenellation(w, d, h, LIMESTONE_SHADE))
+  const posts = Math.max(6, Math.round(w / 1.8))
+  for (let i = 0; i < posts; i++) {
+    const x = -w / 2 + (w * (i + 0.5)) / posts
+    for (const z of [d / 2, -d / 2]) {
+      g.add(slab(0.28, 1.3, 0.28, h, LIMESTONE_SHADE, [x, z]))
+    }
+  }
+  g.add(band(w, d, h + 1.3, 0.35, 0.5, LIMESTONE))
+  g.add(taperedSlab(w * 0.92, 4.5, d * 0.92, h + 1.6, 0.45, 0x5a5148))
+  for (const sx of [-1, 0, 1]) {
+    g.add(slab(1.6, 1.8, 1.2, h + 2.2, LIMESTONE, [sx * w * 0.24, d * 0.3]))
+  }
   return g
 }
 

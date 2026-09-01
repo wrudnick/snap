@@ -16,7 +16,6 @@ import {
   GLASS,
   LIMESTONE,
   LIMESTONE_SHADE,
-  PALE_CONCRETE,
   RED_BRICK,
   floorplate,
   prewarHotel,
@@ -524,15 +523,20 @@ function lakeShorePlaza(site: LandmarkSite): THREE.Object3D {
   const h = site.height
   const WHITE = 0xd6d4cc
 
-  g.add(extrudeRing(site.localRing, 0, 5, WHITE))
+  /**
+   * Vertical, not horizontal.
+   *
+   * The photograph corrects this outright: it is a pale tower of narrow window
+   * slots between full-height piers, with a flat top. I had built it with a
+   * balcony slab at every storey — that is the building *next to* it on the
+   * Drive, and the two rhythms are the most visible thing distinguishing one
+   * lakefront tower from another.
+   */
+  g.add(extrudeRing(site.localRing, 0, 6, WHITE))
   g.add(slab(w, h, d, 0, WHITE))
-  g.add(slab(w * 0.94, h - 6, d * 0.94, 3, 0x5b6d7c))
-  // Balcony slabs every storey — the defining feature.
-  const rows = Math.floor((h - 8) / STOREY)
-  for (let i = 1; i <= rows; i++) {
-    g.add(band(w, d, 3 + i * STOREY, 0.55, 0.55, WHITE))
-  }
-  g.add(band(w, d, h - 2.5, 2.5, 0.9, WHITE))
+  g.add(slab(w * 0.93, h - 9, d * 0.93, 6, 0x55677a))
+  g.add(piers(w, h - 10, d, 6, Math.max(6, Math.round(w / 3.2)), WHITE, 0.55))
+  g.add(band(w, d, h - 2, 2, 0.7, WHITE))
   return g
 }
 
@@ -558,11 +562,11 @@ export const LANDMARK_BUILDINGS: Record<number, LandmarkBuilding> = {
   129575948: { name: 'Fourth Presbyterian Church', levels: 5, build: fourthPresbyterian },
   148554645: {
     name: 'The Westin Michigan Avenue',
-    build: tower({ color: 0x8f8b80, trim: PALE_CONCRETE, crown: 'flat', base: 0.09 }),
+    build: tower({ color: 0x7f7a70, trim: 0xaba69a, crown: 'flat', base: 0.1, setback: 0.95 }),
   },
   144020993: {
     name: 'The Walton Residence',
-    build: tower({ color: LIMESTONE, trim: LIMESTONE_SHADE, crown: 'stepped', setback: 0.9 }),
+    build: tower({ color: 0xd0c6ae, trim: 0xa89c84, crown: 'stepped', setback: 0.87, base: 0.11 }),
   },
   144018863: { name: 'Millennium Knickerbocker', build: knickerbocker },
 
@@ -580,7 +584,7 @@ export const LANDMARK_BUILDINGS: Record<number, LandmarkBuilding> = {
   144016876: {
     name: 'The Mayfair',
     levels: 22,
-    build: tower({ color: BROWN_BRICK, trim: LIMESTONE, crown: 'cornice' }),
+    build: tower({ color: 0x86664f, trim: 0xd2c8b0, crown: 'cornice', base: 0.16 }),
   },
 
   // — The underpass —
@@ -590,20 +594,20 @@ export const LANDMARK_BUILDINGS: Record<number, LandmarkBuilding> = {
   // — Delaware Place —
   144124764: {
     name: 'Michigan Place',
-    build: tower({ color: PALE_CONCRETE, trim: 0xa8a498, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0xb9b3a4, trim: 0x8f8a7c, balconies: true, crown: 'flat', base: 0.12 }),
   },
   144015975: { name: 'The Whitehall Hotel', build: hotel(RED_BRICK) },
   144015987: {
     name: 'The Bristol',
-    build: tower({ color: 0xb8b0a2, trim: LIMESTONE_SHADE, crown: 'stepped', setback: 0.88 }),
+    build: tower({ color: 0xa89e8a, trim: 0xcfc4ad, crown: 'stepped', setback: 0.86, base: 0.13 }),
   },
   144015994: {
     name: '50 East Chestnut',
-    build: tower({ color: 0x9b968a, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0xa7a294, trim: 0xd2cec2, balconies: true, crown: 'flat', base: 0.09 }),
   },
   144016013: {
     name: 'Delaware Towers',
-    build: tower({ color: BROWN_BRICK, trim: LIMESTONE, crown: 'cornice' }),
+    build: tower({ color: 0x8a6a55, trim: 0xd8cfb8, crown: 'cornice', base: 0.15 }),
   },
   144015980: { name: 'Selina Hotel', build: hotel(RED_BRICK) },
   144015977: {
@@ -614,17 +618,17 @@ export const LANDMARK_BUILDINGS: Record<number, LandmarkBuilding> = {
   144016002: { name: 'Sofitel Chicago', build: sofitel },
   210680482: {
     name: 'One East Delaware',
-    build: tower({ color: 0xa8a196, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0x9a9488, trim: 0xc6c2b6, balconies: true, crown: 'flat', setback: 0.94 }),
   },
   144015971: {
     name: 'Elysees Condominiums',
     levels: 40,
-    build: tower({ color: 0xb4ada0, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0xc2bbac, trim: 0x8f8a7c, balconies: true, crown: 'flat' }),
   },
   144015992: { name: 'Quigley Seminary', levels: 4, build: quigley },
   144016003: {
     name: 'America-Fore Building',
-    build: tower({ color: LIMESTONE, trim: LIMESTONE_SHADE, crown: 'cornice', base: 0.16 }),
+    build: tower({ color: 0xd2c8b0, trim: 0xa89c84, crown: 'cornice', base: 0.2 }),
   },
   385480271: { name: "Jeni's Ice Creams", levels: 2, build: shop({ color: 0xd8ccb8, trim: LIMESTONE_SHADE, awning: 0xc4566a }) },
 
@@ -634,18 +638,18 @@ export const LANDMARK_BUILDINGS: Record<number, LandmarkBuilding> = {
   210680490: { name: 'Prada', levels: 4, build: shop({ color: 0x2f3238, trim: 0x4a4e56 }) },
   210680518: {
     name: 'Thompson Chicago',
-    build: tower({ color: 0x6f6a62, trim: 0x4f4b45, crown: 'flat', base: 0.12 }),
+    build: tower({ color: 0x5f5a52, trim: 0x8a857c, crown: 'flat', base: 0.14 }),
   },
   210679593: { name: 'Lululemon', levels: 2, build: shop({ color: 0xd4cdbb, trim: LIMESTONE_SHADE, awning: 0x3f6b8f }) },
   144124765: { name: 'The Talbott Hotel', build: hotel(RED_BRICK) },
   210680702: {
     name: '40 East Oak',
-    build: tower({ color: 0xb0a898, trim: LIMESTONE_SHADE, crown: 'cornice' }),
+    build: tower({ color: 0xc4b8a0, trim: 0x9a8f78, crown: 'cornice', base: 0.16 }),
   },
   210679144: { name: 'Esquire Theater', levels: 3, build: esquire },
   210679812: {
     name: '30 West Oak',
-    build: tower({ color: 0x8e8a80, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0x7e7a70, trim: 0xb6b2a6, balconies: true, crown: 'flat' }),
   },
 
   // — The Triangle —
@@ -654,44 +658,44 @@ export const LANDMARK_BUILDINGS: Record<number, LandmarkBuilding> = {
   445817830: {
     name: 'Viceroy Chicago',
     levels: 18,
-    build: tower({ color: 0x8a7f6e, trim: LIMESTONE, crown: 'cornice', base: 0.14 }),
+    build: tower({ color: 0x7d6a52, trim: 0xd8cfb8, crown: 'cornice', base: 0.18 }),
   },
   210679116: { name: 'Dearborn North Apartments', build: hotel(RED_BRICK) },
   210680450: {
     name: 'Maple Tower',
-    build: tower({ color: 0x9c9182, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0xaa9f8e, trim: 0x7c7768, balconies: true, crown: 'flat' }),
   },
   210680685: {
     name: '1111 North Dearborn',
-    build: tower({ color: 0x8f8a7e, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0x9a8f7e, trim: 0xc8c2b4, balconies: true, crown: 'flat', setback: 0.92 }),
   },
   210679635: { name: 'Elms Hotel', build: hotel(BROWN_BRICK) },
   210680687: {
     name: '1133 North Dearborn',
-    build: tower({ color: 0xa39a8a, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0x8b8577, trim: 0xbdb7a8, balconies: true, crown: 'flat' }),
   },
   304799197: {
     name: '4 East Elm',
-    build: tower({ color: 0xb0a696, trim: LIMESTONE_SHADE, crown: 'stepped', setback: 0.9 }),
+    build: tower({ color: 0xbaae98, trim: 0x8f8470, crown: 'stepped', setback: 0.88 }),
   },
   210679164: {
     name: '10 West Elm',
-    build: tower({ color: 0x968f82, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0x86806f, trim: 0xb0aa9a, balconies: true, crown: 'flat' }),
   },
 
   // — The alley, and the block it runs behind —
   210679704: { name: 'The Original Pancake House', levels: 2, build: shop({ color: 0xb8845e, trim: LIMESTONE_SHADE, awning: 0xc23a35 }) },
   210680703: {
     name: '50 East Bellevue',
-    build: tower({ color: 0x9a9284, trim: PALE_CONCRETE, balconies: true, crown: 'flat' }),
+    build: tower({ color: 0xa69c88, trim: 0x807a6c, balconies: true, crown: 'flat' }),
   },
   210680701: {
     name: '40 East Cedar',
-    build: tower({ color: BROWN_BRICK, trim: LIMESTONE, crown: 'cornice' }),
+    build: tower({ color: 0x92705a, trim: 0xd2c8b0, crown: 'cornice', base: 0.14 }),
   },
   210680695: {
     name: '20 East Cedar',
-    build: tower({ color: RED_BRICK, trim: LIMESTONE, crown: 'cornice' }),
+    build: tower({ color: 0x9c6248, trim: 0xd8cfb8, crown: 'cornice', base: 0.15 }),
   },
 }
 
