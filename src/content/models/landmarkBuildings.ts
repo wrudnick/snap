@@ -2,6 +2,7 @@ import * as THREE from 'three'
 
 import type { Rarity } from '@/game/scoring/types'
 
+import { buildWord } from './letters'
 import {
   band,
   carve,
@@ -297,9 +298,39 @@ function drakeHotel(site: LandmarkSite): THREE.Object3D {
   g.add(band(w, d, h - 3.4, 3.4, 2.6, 0x6b5f4c))
   g.add(band(w, d, h, 1.2, 1.2, LIMESTONE_SHADE))
 
-  // Rooftop sign, both long faces.
-  for (const z of [d / 2 + 0.6, -(d / 2 + 0.6)]) {
-    g.add(slab(w * 0.42, 4.4, 0.5, h + 1.4, 0xc23a35, [0, z]))
+  /**
+   * The rooftop sign, with the name actually on it.
+   *
+   * It was two red slabs standing on the parapet, which from the street is a
+   * hotel with two blank billboards. The sign is the building's whole
+   * signature — it is the thing you can read from Oak Street Beach — so it
+   * carries letters, built from boxes like everything else here. See
+   * `letters.ts` for why that is a font rather than a texture.
+   *
+   * On both long faces, because it is legible coming up Michigan and going
+   * back down it.
+   */
+  const SIGN_RED = 0xc23a35
+  const SIGN_LETTER = 0xf6efe2
+  const WORD = 'THE DORKE'
+  const boardW = w * 0.86
+  const letter = Math.min(boardW / (WORD.length * 1.16), 5.2)
+  const boardH = letter * 2.1
+
+  for (const side of [1, -1]) {
+    const z = side * (d / 2 + 0.6)
+    // Legs, so it stands on the roof rather than growing out of it.
+    for (const lx of [-boardW * 0.34, boardW * 0.34]) {
+      g.add(slab(0.5, 2.2, 0.5, h + 1.2, 0x4a4038, [lx, z]))
+    }
+    g.add(slab(boardW, boardH, 0.6, h + 3.0, SIGN_RED, [0, z]))
+    g.add(band(boardW, 0.9, h + 3.0, 0.35, 0.25, 0x8d2a26).translateZ(z))
+
+    const word = buildWord(WORD, letter, 0.5, mat(SIGN_LETTER))
+    // Proud of the board, and facing outwards on each side.
+    word.position.set(0, h + 3.0 + (boardH - letter) / 2, z + side * 0.45)
+    word.rotation.y = side > 0 ? 0 : Math.PI
+    g.add(word)
   }
   return g
 }
@@ -784,7 +815,7 @@ export const LANDMARK_BUILDINGS: Record<number, LandmarkBuilding> = {
 
   // — East Lake Shore Drive —
   201603717: { name: '1000 Lake Shore Plaza', build: lakeShorePlaza },
-  143773461: { name: 'The Drake Hotel', levels: 13, build: drakeHotel },
+  143773461: { name: 'The Dorke Hotel', levels: 13, build: drakeHotel },
   144016878: { name: 'Drake Tower', levels: 30, build: drakeTower },
 
   // — Oak Street Beach —
