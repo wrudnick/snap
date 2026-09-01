@@ -138,6 +138,26 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
     return () => unregisterSubject(placement.id)
   }, [placement.id, placement.species, built.bounds])
 
+  /**
+   * The lane this car follows, as a curve.
+   *
+   * Sampled at ground height once: a street's own gradient is gentle and the
+   * cars on it are not what sells a hill, so following the ground per frame
+   * would cost a height lookup on every car on every frame to fix something
+   * nobody would see.
+   */
+  const lane = useMemo(() => {
+    const path = placement.drivePath
+    if (!path || path.length < 2) return null
+    const y = placement.position?.[1] ?? 0
+    return new THREE.CatmullRomCurve3(
+      path.map(([x, z]) => new THREE.Vector3(x, y, z)),
+      false,
+      'catmullrom',
+      0.1,
+    )
+  }, [placement.drivePath, placement.position])
+
   useFrame((_, delta) => {
     const dt = Math.min(delta, 1 / 30)
     mixer.update(dt)
@@ -162,14 +182,37 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
     if (placement.driveSpeed) {
       const span = placement.driveSpan ?? 160
       driven.current = (driven.current + dt * placement.driveSpeed) % span
-      const along = driven.current - span / 2
-      const angle = placement.rotationY ?? 0
-      const home = placement.position ?? ZERO
-      group.position.set(
-        home[0] - Math.sin(angle) * along,
-        home[1],
-        home[2] - Math.cos(angle) * along,
-      )
+
+      if (lane) {
+        /**
+         * Along the lane, and pointed where the lane goes.
+         *
+         * `getPointAt` is by arc length, so a metre of travel is a metre of
+         * road whatever the curve is doing — which is the whole reason for
+         * using it rather than the raw parameter.
+         */
+        const u = driven.current / span
+        lane.getPointAt(u, _pos)
+        group.position.copy(_pos)
+        lane.getPointAt(Math.min(0.999, u + 0.004), _ahead)
+        group.lookAt(_ahead)
+      } else {
+        /**
+         * No lane found: carry on down the car's own facing.
+         *
+         * Only reached where the map has no street within seventy metres — the
+         * beach, and inside the underpass — and on those the straight line is
+         * right anyway.
+         */
+        const along = driven.current - span / 2
+        const angle = placement.rotationY ?? 0
+        const home = placement.position ?? ZERO
+        group.position.set(
+          home[0] - Math.sin(angle) * along,
+          home[1],
+          home[2] - Math.cos(angle) * along,
+        )
+      }
     }
 
     if (patrol && placement.patrolSeconds) {

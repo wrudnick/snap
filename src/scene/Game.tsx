@@ -44,22 +44,25 @@ const PERF_ENABLED = (() => {
 })()
 
 /**
- * The frame rate the game runs at.
+ * An optional cap on the frame rate. Uncapped by default.
  *
- * Capped rather than uncapped. An uncapped loop on a phone runs as fast as the
- * GPU will go, which on a 120 Hz panel means drawing this scene four times for
- * every one the player can distinguish, and the whole budget goes into heat and
- * battery instead of into what is on screen. A steady 30 also *looks* better
- * than a rate that swings between 45 and 60 — an on-rails camera makes any
- * variation read as stutter, because nothing else in frame is moving to
- * disguise it.
+ * It used to run pinned at 30, on the argument that an uncapped loop on a phone
+ * burns the whole budget on frames nobody can distinguish, and that a steady 30
+ * reads better than a rate swinging between 45 and 60 — which is true of a
+ * *swinging* rate, and this is an on-rails camera where any variation shows.
  *
- * Override with `?fps=60` when comparing.
+ * But 30 is also visibly 30 when you pan, and panning is the entire verb of
+ * this game. Capping was buying smoothness the game did not need at the cost of
+ * the one motion it is built around. Uncapped, and if the rate turns out to
+ * swing on a real phone, `AdaptiveDpr` and the performance monitor below are
+ * the honest tools for that — they shed resolution rather than frames.
+ *
+ * `?fps=30` still pins it, for comparing the two.
  */
-const TARGET_FPS = (() => {
-  if (typeof window === 'undefined') return 30
+const FPS_CAP = (() => {
+  if (typeof window === 'undefined') return null
   const flag = Number(new URLSearchParams(window.location.search).get('fps'))
-  return Number.isFinite(flag) && flag > 0 ? flag : 30
+  return Number.isFinite(flag) && flag > 0 ? flag : null
 })()
 
 /**
@@ -141,8 +144,9 @@ export function Game() {
   return (
     <Canvas
       shadows
-      // Nothing draws until FrameLimiter says so.
-      frameloop="never" 
+      // Uncapped unless `?fps=` asks otherwise, in which case FrameLimiter
+      // drives it and nothing draws until it says so.
+      frameloop={FPS_CAP ? 'never' : 'always'}
       // Retina at 2x is 4x the pixels for barely visible gain. This single line
       // is the largest performance win available.
       dpr={degraded ? 1 : [1, 1.5]}
@@ -187,15 +191,17 @@ export function Game() {
         </EffectComposer>
       )}
 
-      <FrameLimiter fps={TARGET_FPS} />
+      {FPS_CAP !== null && <FrameLimiter fps={FPS_CAP} />}
       {/*
-        Bounds moved to bracket the cap. The default range is built for an
-        uncapped loop and treats anything under about 50 fps as failing — with a
-        30 fps cap that fires immediately and permanently, dropping the
-        resolution to 1x on hardware that was never struggling.
+        Bounds bracket whatever rate is being targeted. Left at the library's
+        default while uncapped; a capped run needs them moved, because the
+        default range is built for an uncapped loop and treats anything under
+        about 50 fps as failing — against a 30 fps cap that fires immediately
+        and permanently, dropping resolution on hardware that was never
+        struggling.
       */}
       <PerformanceMonitor
-        bounds={() => [TARGET_FPS - 8, TARGET_FPS + 4]}
+        bounds={FPS_CAP === null ? undefined : () => [FPS_CAP - 8, FPS_CAP + 4]}
         onDecline={() => setDegraded(true)}
         onIncline={() => setDegraded(false)}
       />

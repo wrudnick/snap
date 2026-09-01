@@ -108,6 +108,22 @@ export interface SubjectDef extends SpeciesDef {
   vehicle?: VehicleSpec
   /** The person on the bike or the horse. */
   rider?: HumanSpec
+  /**
+   * Where in the street this species belongs.
+   *
+   * A property of the animal, not of the placement: a taxi belongs in the
+   * carriageway wherever you put it and a tourist belongs on the pavement.
+   * Authored offsets are metres from the *route*, which runs along the
+   * pavement and is refitted whenever the path moves, so an offset that once
+   * landed on a kerb ends up in a traffic lane or inside a shop. Measured
+   * across the route as it stands: forty pedestrians standing in the road and
+   * forty-two subjects of all kinds inside buildings.
+   *
+   * 'any' is for the things that genuinely go anywhere — pigeons, rats,
+   * anything on the beach — and means only that it will still be pushed out of
+   * a wall.
+   */
+  habitat: 'road' | 'pavement' | 'any'
   /** Uniform scale applied to the placeholder model. */
   scale: number
   behaviors: BehaviorDef[]

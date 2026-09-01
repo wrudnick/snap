@@ -59,6 +59,16 @@ export interface SubjectPlacement {
   /** Absolute world position. Only for things genuinely fixed in the world. */
   position?: [number, number, number]
   /**
+   * The lane a driving subject follows, derived from the street map at load.
+   *
+   * Never authored. Driving used to advance the car along its own facing in a
+   * straight line, which is correct only on a straight street — and Michigan
+   * bends, Lake Shore Drive bends hard, and the route turns two corners. A car
+   * left the road within a few seconds and drove across the pavement and
+   * through a building.
+   */
+  drivePath?: Array<[number, number]>
+  /**
    * Metres per second along the way this subject faces, if it drives.
    *
    * Traffic was parked. Vehicles have a `cruise` clip and it spins the wheels

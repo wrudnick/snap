@@ -13,6 +13,7 @@ import type { BehaviorDef, SubjectDef } from './types'
 
 const PIGEON: SubjectDef = {
   species: 'pigeon',
+  habitat: 'any',
   displayName: 'Pigeon',
   rarity: 1,
   model: 'bird',
@@ -38,6 +39,7 @@ const PIGEON: SubjectDef = {
 
 const DOG: SubjectDef = {
   species: 'dog',
+  habitat: 'pavement',
   displayName: 'Dog',
   rarity: 2,
   model: 'quadruped',
@@ -61,6 +63,7 @@ const DOG: SubjectDef = {
 
 const CAT: SubjectDef = {
   species: 'cat',
+  habitat: 'any',
   displayName: 'Cat',
   rarity: 3,
   model: 'quadruped',
@@ -82,6 +85,7 @@ const CAT: SubjectDef = {
 
 const TAXI: SubjectDef = {
   species: 'taxi',
+  habitat: 'road',
   displayName: 'Taxi',
   rarity: 1,
   model: 'vehicle',
@@ -127,6 +131,7 @@ const DENIM = [0x3f5470, 0x2f4258, 0x55637a, 0x1f2a38, 0x4a5240, 0x6b6f52]
 
 const TOURIST_MAN: SubjectDef = {
   species: 'tourist-man',
+  habitat: 'pavement',
   displayName: 'Tourist',
   rarity: 1,
   model: 'humanoid',
@@ -164,6 +169,7 @@ const TOURIST_MAN: SubjectDef = {
 const TOURIST_WOMAN: SubjectDef = {
   ...TOURIST_MAN,
   species: 'tourist-woman',
+  habitat: 'pavement',
   displayName: 'Tourist',
   palette: { body: 0xe08a5a, accent: 0x445566 },
   human: {
@@ -179,6 +185,7 @@ const TOURIST_WOMAN: SubjectDef = {
 
 const OLD_MAN: SubjectDef = {
   species: 'old-man',
+  habitat: 'pavement',
   displayName: 'Old Man',
   rarity: 2,
   model: 'humanoid',
@@ -214,6 +221,7 @@ const OLD_MAN: SubjectDef = {
 
 const ESCORT: SubjectDef = {
   species: 'escort',
+  habitat: 'pavement',
   displayName: 'Companion',
   rarity: 3,
   model: 'humanoid',
@@ -246,6 +254,7 @@ const ESCORT: SubjectDef = {
 
 const DOORMAN: SubjectDef = {
   species: 'doorman',
+  habitat: 'pavement',
   displayName: 'Doorman',
   rarity: 2,
   model: 'humanoid',
@@ -317,6 +326,7 @@ const CAR_COLOURS = [
 
 const SEDAN: SubjectDef = {
   species: 'sedan',
+  habitat: 'road',
   displayName: 'Car',
   rarity: 1,
   model: 'vehicle',
@@ -331,6 +341,7 @@ const SEDAN: SubjectDef = {
 
 const SUV: SubjectDef = {
   species: 'suv',
+  habitat: 'road',
   displayName: 'Black SUV',
   rarity: 1,
   model: 'vehicle',
@@ -353,6 +364,7 @@ const SUV: SubjectDef = {
 
 const RIDESHARE: SubjectDef = {
   species: 'rideshare',
+  habitat: 'road',
   displayName: 'Rideshare',
   rarity: 2,
   model: 'vehicle',
@@ -371,6 +383,7 @@ const RIDESHARE: SubjectDef = {
 
 const DELIVERY_CAR: SubjectDef = {
   species: 'delivery-car',
+  habitat: 'road',
   displayName: 'Delivery Driver',
   rarity: 2,
   model: 'vehicle',
@@ -385,6 +398,7 @@ const DELIVERY_CAR: SubjectDef = {
 
 const POLICE_CAR: SubjectDef = {
   species: 'police-car',
+  habitat: 'road',
   displayName: 'Squad Car',
   rarity: 2,
   model: 'vehicle',
@@ -407,6 +421,7 @@ const POLICE_CAR: SubjectDef = {
 
 const BUS: SubjectDef = {
   species: 'bus',
+  habitat: 'road',
   displayName: 'CTA Bus',
   rarity: 2,
   model: 'bus',
@@ -433,6 +448,7 @@ const BUS: SubjectDef = {
 
 const CYCLIST: SubjectDef = {
   species: 'cyclist',
+  habitat: 'road',
   displayName: 'Cyclist',
   rarity: 2,
   model: 'bicycle',
@@ -463,6 +479,7 @@ const CYCLIST: SubjectDef = {
 
 const DELIVERY_RIDER: SubjectDef = {
   species: 'delivery-rider',
+  habitat: 'road',
   displayName: 'Delivery Rider',
   rarity: 2,
   model: 'bicycle',
@@ -493,6 +510,7 @@ const DELIVERY_RIDER: SubjectDef = {
 
 const MOUNTED_POLICE: SubjectDef = {
   species: 'mounted-police',
+  habitat: 'pavement',
   displayName: 'Mounted Police',
   rarity: 3,
   model: 'horse',
@@ -527,6 +545,7 @@ const MOUNTED_POLICE: SubjectDef = {
 
 const POLICE: SubjectDef = {
   species: 'police',
+  habitat: 'pavement',
   displayName: 'Police Officer',
   rarity: 2,
   model: 'humanoid',
@@ -561,6 +580,7 @@ const POLICE: SubjectDef = {
 
 const HOMELESS: SubjectDef = {
   species: 'homeless',
+  habitat: 'pavement',
   displayName: 'Rough Sleeper',
   rarity: 2,
   model: 'humanoid',
@@ -603,6 +623,7 @@ const HOMELESS: SubjectDef = {
  */
 const BEACHGOER: SubjectDef = {
   species: 'beachgoer',
+  habitat: 'any',
   displayName: 'Beachgoer',
   rarity: 1,
   model: 'humanoid',
@@ -637,6 +658,7 @@ const BEACHGOER: SubjectDef = {
 /** The crowd at the beach club, drink in hand. */
 const PARTYGOER: SubjectDef = {
   species: 'partygoer',
+  habitat: 'any',
   displayName: 'Beach Club',
   rarity: 2,
   model: 'humanoid',
@@ -669,6 +691,7 @@ const PARTYGOER: SubjectDef = {
 
 const BUSINESS_MAN: SubjectDef = {
   species: 'business-man',
+  habitat: 'pavement',
   displayName: 'Businessman',
   rarity: 1,
   model: 'humanoid',
@@ -703,6 +726,7 @@ const BUSINESS_MAN: SubjectDef = {
 
 const BUSINESS_WOMAN: SubjectDef = {
   species: 'business-woman',
+  habitat: 'pavement',
   displayName: 'Businesswoman',
   rarity: 1,
   model: 'humanoid',
@@ -749,6 +773,7 @@ const BUSINESS_WOMAN: SubjectDef = {
  */
 const RAT: SubjectDef = {
   species: 'rat',
+  habitat: 'any',
   displayName: 'Rat',
   rarity: 3,
   model: 'quadruped',
