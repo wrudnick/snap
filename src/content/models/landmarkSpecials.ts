@@ -7,7 +7,7 @@ import {
   LIMESTONE_SHADE,
   RED_BRICK,
 } from './landmarkArchetypes'
-import { band, crenellation, floorBands, gable, mat, piers, slab } from './landmarkKit'
+import { band, crenellation, extrudeRing, floorBands, gable, mat, piers, slab } from './landmarkKit'
 import type { LandmarkSite } from './landmarkSites'
 
 /**
@@ -33,27 +33,49 @@ export function sofitel(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
   const [w, d] = site.size
   const h = site.height
-  const radius = Math.max(w, d) * 0.58
 
-  const prism = new THREE.Mesh(
-    new THREE.CylinderGeometry(radius * 0.92, radius, h, 3, 1),
-    mat(0xd9dde2),
-  )
-  prism.position.y = h / 2
-  prism.rotation.y = Math.PI / 2
-  prism.castShadow = true
-  prism.receiveShadow = true
-  g.add(prism)
+  /**
+   * A prow, and a *raked* one.
+   *
+   * Photographs settle what the first version missed: the plan is triangular
+   * and one face leans — the prow edge rakes back as it rises, so the building
+   * reads as a ship's bow cutting toward the street rather than as a wedge
+   * standing straight up. A symmetric prism has the plan right and the
+   * silhouette wrong, and the silhouette is the whole reason anyone notices it.
+   *
+   * Built from stacked triangular slices, each shifted a little further back
+   * than the one below. Blunt, but it is the only way to get a raking face out
+   * of prisms, and the outline pass draws every step.
+   */
+  const WHITE = 0xd9dde2
+  const radius = Math.max(w, d) * 0.6
+  const SLICES = 16
+  const RAKE = radius * 0.5
 
-  // Storey banding round the prism, which is all the articulation it has.
-  const rows = Math.floor(h / 7.2)
-  for (let i = 1; i < rows; i++) {
-    const t = i / rows
-    const r = radius * (1 - 0.08 * t) + 0.2
-    const ring = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.35, 3, 1), mat(GLASS))
-    ring.position.y = i * 7.2
-    ring.rotation.y = Math.PI / 2
-    g.add(ring)
+  for (let i = 0; i < SLICES; i++) {
+    const t = i / SLICES
+    const sliceH = h / SLICES
+    const r = radius * (1 - 0.1 * t)
+    const slice = new THREE.Mesh(
+      new THREE.CylinderGeometry(r, r, sliceH * 1.02, 3, 1),
+      mat(WHITE),
+    )
+    slice.position.set(0, sliceH * (i + 0.5), -RAKE * t)
+    slice.rotation.y = Math.PI / 2
+    slice.castShadow = true
+    slice.receiveShadow = true
+    g.add(slice)
+
+    // A glazed band at every second slice, so the shaft is not blank.
+    if (i % 2 === 1) {
+      const ring = new THREE.Mesh(
+        new THREE.CylinderGeometry(r + 0.25, r + 0.25, sliceH * 0.42, 3, 1),
+        mat(GLASS),
+      )
+      ring.position.set(0, sliceH * (i + 0.5), -RAKE * t)
+      ring.rotation.y = Math.PI / 2
+      g.add(ring)
+    }
   }
   return g
 }
@@ -72,7 +94,7 @@ export function quigley(site: LandmarkSite): THREE.Object3D {
   const naveD = Math.min(d, w * 0.5)
   const STONE = 0xcdc4ac
 
-  g.add(slab(w, wallH, naveD, 0, STONE))
+  g.add(extrudeRing(site.localRing, 0, wallH, STONE))
   g.add(gable(w, naveD, wallH, 8, 0x5f5348))
   g.add(piers(w, wallH, naveD, 0, Math.max(4, Math.round(w / 5)), 0xbdb49c, 0.8))
 
@@ -100,7 +122,7 @@ export function esquire(site: LandmarkSite): THREE.Object3D {
   const [w, d] = site.size
   const h = Math.max(site.height, 12)
 
-  g.add(slab(w, h, d, 0, 0xe0d8c4))
+  g.add(extrudeRing(site.localRing, 0, h, 0xe0d8c4))
   // Streamline banding, horizontal and shallow.
   for (const y of [h * 0.55, h * 0.62, h * 0.69]) {
     g.add(band(w, d, y, 0.4, 0.25, 0xc0b49c))
@@ -127,8 +149,8 @@ export function fortnightly(site: LandmarkSite): THREE.Object3D {
   const [w, d] = site.size
   const h = Math.max(site.height, 16)
 
-  g.add(slab(w, 2.2, d, 0, LIMESTONE))
-  g.add(slab(w * 0.98, h - 2.2, d * 0.98, 2.2, RED_BRICK))
+  g.add(extrudeRing(site.localRing, 0, 2.2, LIMESTONE))
+  g.add(extrudeRing(site.localRing, 2.2, h - 2.2, RED_BRICK))
   g.add(floorBands(w * 0.98, h - 6, d * 0.98, 2.2, 4.4, LIMESTONE_SHADE))
   // Quoins: limestone blocks up both front corners.
   for (const sx of [-1, 1]) {
@@ -153,7 +175,7 @@ export function knickerbocker(site: LandmarkSite): THREE.Object3D {
   const h = site.height
   const baseH = Math.min(h * 0.16, 10)
 
-  g.add(slab(w, baseH, d, 0, LIMESTONE))
+  g.add(extrudeRing(site.localRing, 0, baseH, LIMESTONE))
   g.add(band(w, d, baseH, 0.9, 0.6, LIMESTONE_SHADE))
   const shaftH = h - baseH - 12
   g.add(slab(w * 0.97, shaftH, d * 0.97, baseH, BROWN_BRICK))
@@ -179,7 +201,7 @@ export function beachCafe(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
   const [w, d] = site.size
 
-  g.add(slab(w, 0.5, d, 0, 0xb08a5e))
+  g.add(extrudeRing(site.localRing, 0, 0.5, 0xb08a5e))
   g.add(slab(w * 0.8, 3.4, d * 0.7, 0.5, 0xe4dccc))
   g.add(slab(w * 0.76, 2.2, d * 0.66, 0.9, GLASS))
   // Canopy on posts, out over the deck.
@@ -206,7 +228,7 @@ export function carlyle(site: LandmarkSite): THREE.Object3D {
   const h = site.height
   const WHITE = 0xdad6c9
 
-  g.add(slab(w, 5, d, 0, WHITE))
+  g.add(extrudeRing(site.localRing, 0, 5, WHITE))
   g.add(slab(w * 0.96, h - 5, d * 0.96, 5, WHITE))
   // Recessed glazed strips between the balcony slabs.
   g.add(slab(w * 0.9, h - 12, d * 0.9, 6, 0x5e7285))
@@ -227,7 +249,7 @@ export function drakeTower(site: LandmarkSite): THREE.Object3D {
   const h = site.height
   const baseH = 8
 
-  g.add(slab(w, baseH, d, 0, LIMESTONE))
+  g.add(extrudeRing(site.localRing, 0, baseH, LIMESTONE))
   g.add(slab(w * 0.96, h - baseH - 8, d * 0.96, baseH, BROWN_BRICK))
   g.add(piers(w * 0.96, h - baseH - 12, d * 0.96, baseH + 2, Math.max(4, Math.round(w / 4)), 0x6d5344, 0.4))
   g.add(band(w, d, h - 8, 1.4, 1.0, LIMESTONE))

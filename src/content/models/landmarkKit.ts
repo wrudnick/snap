@@ -198,6 +198,53 @@ export function gable(
   return mesh
 }
 
+/**
+ * A tapering spire, optionally on an open lantern stage.
+ *
+ * A Gothic tower ends in a point, and a flat crenellated top is a castle. The
+ * lantern — a short open stage of piers below the spire — is what stops the
+ * spire looking like a cone stuck on a box.
+ */
+export function spire(
+  width: number,
+  y: number,
+  lanternHeight: number,
+  spireHeight: number,
+  color: number,
+): THREE.Group {
+  const group = new THREE.Group()
+
+  group.add(slab(width, lanternHeight, width, y, color))
+  // Open the lantern with corner posts standing proud of the recessed core.
+  group.add(slab(width * 0.72, lanternHeight - 0.6, width * 0.72, y, shade(color, 0.72)))
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      group.add(
+        slab(width * 0.2, lanternHeight, width * 0.2, y, color, [
+          (sx * width) / 2 - sx * width * 0.1,
+          (sz * width) / 2 - sz * width * 0.1,
+        ]),
+      )
+    }
+  }
+
+  const cone = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.001, width * 0.62, spireHeight, 8, 1),
+    mat(color),
+  )
+  cone.position.y = y + lanternHeight + spireHeight / 2
+  cone.castShadow = true
+  group.add(cone)
+  return group
+}
+
+/** A darker or lighter version of a colour. */
+export function shade(color: number, factor: number): number {
+  const ch = (shift: number) =>
+    Math.min(255, Math.round(((color >> shift) & 0xff) * factor))
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0)
+}
+
 /** A row of merlons round a parapet — the tell for a Gothic tower. */
 export function crenellation(
   width: number,
@@ -253,6 +300,53 @@ export function setbackStack(
     d *= shrink
   }
   return group
+}
+
+/**
+ * A prism of the building's real outline.
+ *
+ * The rectangle a landmark is otherwise built from is the largest that fits
+ * *inside* the footprint, which keeps it out of the road but makes it smaller
+ * than the building — the Palmolive's plan came out 34 by 27 where the real one
+ * is nearer 70 by 32. At height nobody can tell. At the pavement, where the
+ * player walks past at arm's length, the wall is simply in the wrong place.
+ *
+ * So the part that meets the ground follows the outline exactly and the mass
+ * above it keeps the fitted rectangle. That is also how these buildings are
+ * actually shaped: a podium filling its plot with a tower set back on top.
+ */
+export function extrudeRing(
+  ring: Array<[number, number]>,
+  y: number,
+  height: number,
+  color: number,
+): THREE.Mesh {
+  /**
+   * The shape is laid out with z negated.
+   *
+   * `ExtrudeGeometry` builds in the XY plane and along +Z; standing it up with
+   * a −90° rotation about X sends the shape's Y to world −Z, which mirrors the
+   * footprint. Negating it here cancels that, so the prism has the outline the
+   * building actually has rather than its reflection.
+   */
+  const shape = new THREE.Shape()
+  ring.forEach(([x, z], i) => {
+    if (i === 0) shape.moveTo(x, -z)
+    else shape.lineTo(x, -z)
+  })
+  shape.closePath()
+
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false })
+  // Standing it up already puts it in 0..height, so this only lifts it to `y`.
+  // Translating by `y + height` — which is what this did — floats every base a
+  // whole storey above the building it belongs to.
+  geometry.rotateX(-Math.PI / 2)
+  geometry.translate(0, y, 0)
+
+  const mesh = new THREE.Mesh(geometry, mat(color))
+  mesh.castShadow = true
+  mesh.receiveShadow = true
+  return mesh
 }
 
 /** Merge a scaffold of primitives down to one mesh per material. */

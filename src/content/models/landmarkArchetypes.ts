@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-import { band, floorBands, piers, setbackStack, slab, taperedSlab } from './landmarkKit'
+import { band, extrudeRing, floorBands, piers, setbackStack, slab, taperedSlab } from './landmarkKit'
 import type { LandmarkSite } from './landmarkSites'
 
 /**
@@ -87,7 +87,9 @@ export function towerBlock(site: LandmarkSite, o: TowerOptions): THREE.Object3D 
     : Math.min(h * (o.base ?? 0.1), 14)
   const shaftTop = h - (o.crown === 'flat' ? 1.5 : 6)
 
-  g.add(slab(w, baseH, d, 0, o.trim))
+  // The base follows the real outline; the shaft above keeps the fitted
+  // rectangle. See extrudeRing.
+  g.add(extrudeRing(site.localRing, 0, baseH, o.trim))
   g.add(band(w, d, baseH, 1.1, 0.7, o.trim))
 
   const setback = o.setback ?? 1
@@ -147,7 +149,11 @@ export function shopFront(site: LandmarkSite, o: ShopOptions): THREE.Object3D {
   const [w, d] = site.size
   const h = Math.max(site.height, 6)
 
-  g.add(slab(w, h, d, 0, o.color))
+  /**
+   * Extruded whole, not just at the base: a two-storey shop *is* its plot, and
+   * these are the buildings the player passes closest to.
+   */
+  g.add(extrudeRing(site.localRing, 0, h, o.color))
   // Recessed glazing at street level.
   g.add(slab(w * 0.94, Math.min(4.2, h * 0.55), d * 0.94, 0.4, GLASS))
   g.add(band(w, d, Math.min(4.6, h * 0.6), 0.8, 0.5, o.trim))
@@ -185,7 +191,7 @@ export function prewarHotel(
   const h = site.height
   const baseH = Math.min(h * 0.14, 11)
 
-  g.add(slab(w, baseH, d, 0, trim))
+  g.add(extrudeRing(site.localRing, 0, baseH, trim))
   g.add(band(w, d, baseH, 1.0, 0.6, trim))
   g.add(slab(w * 0.97, h - baseH, d * 0.97, baseH, brick))
   g.add(floorBands(w * 0.97, h - baseH - 6, d * 0.97, baseH, 3.6, brick === RED_BRICK ? 0x8a5c46 : 0x6d5344))

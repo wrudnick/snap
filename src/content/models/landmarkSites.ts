@@ -44,8 +44,27 @@ export interface LandmarkSite {
    * see `inscribed` — never the bounding box.
    */
   size: [number, number]
-  /** The real footprint, for anything that wants to follow it exactly. */
+  /**
+   * The footprint's full extent as [width, depth], in the building's frame.
+   *
+   * `size` is the rectangle that fits *inside* the outline and is what a shaft
+   * or a tower should be built from. This is what the building actually covers,
+   * and it is what anything spanning the whole of it — a roof, a cornice over
+   * an extruded base — has to be sized by. Using `size` for a roof leaves it
+   * floating above a wider building, which is what happened to the church.
+   */
+  bounds: [number, number]
+  /** The real footprint in world metres. */
   ring: Array<[number, number]>
+  /**
+   * The same footprint in the building's own frame, ready to extrude.
+   *
+   * Builders work in local coordinates — the scene applies the position and
+   * heading — so a builder that wants to follow the real outline needs it
+   * rotated and centred to match. Without this every one of them would repeat
+   * the same transform, and any one of them could get it wrong.
+   */
+  localRing: Array<[number, number]>
   height: number
   /** Storeys, where OSM has them. */
   levels?: number
@@ -66,6 +85,9 @@ function longestEdge(ring: Array<[number, number]>): number {
   }
   return heading
 }
+
+const cosOf = Math.cos
+const sinOf = Math.sin
 
 /** Is a point inside a ring? Even-odd crossing test. */
 function inRing(ring: Array<[number, number]>, x: number, z: number): boolean {
@@ -300,7 +322,14 @@ export function siteOf(building: CityBuilding): LandmarkSite {
     center: fitted.center,
     heading,
     size: fitted.size,
+    bounds: extent(building.r, fitted.center, heading),
     ring: building.r,
+    localRing: building.r.map(([x, z]) => {
+      const dx = x - fitted.center[0]
+      const dz = z - fitted.center[1]
+      // Inverse of the scene's rotation: local +X across the heading, +Z along.
+      return [dx * cosOf(heading) - dz * sinOf(heading), dx * sinOf(heading) + dz * cosOf(heading)] as [number, number]
+    }),
     height: building.h,
     levels: building.l,
   }

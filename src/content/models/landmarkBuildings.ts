@@ -2,12 +2,13 @@ import * as THREE from 'three'
 
 import {
   band,
-  crenellation,
+  extrudeRing,
   floorBands,
   gable,
   mat,
   piers,
   slab,
+  spire,
   taperedSlab,
 } from './landmarkKit'
 import {
@@ -153,7 +154,7 @@ function palmolive(site: LandmarkSite): THREE.Object3D {
   const shaftH = h * SHAFT
   const baseH = Math.min(h * 0.06, 9)
 
-  g.add(slab(w, baseH, d, 0, LIMESTONE_SHADE))
+  g.add(extrudeRing(site.localRing, 0, baseH, LIMESTONE_SHADE))
   g.add(slab(w, shaftH, d, 0, LIMESTONE))
   g.add(piers(w, shaftH - baseH, d, baseH, Math.max(5, Math.round(w / 4.5)), LIMESTONE_SHADE, 0.6))
   g.add(band(w, d, shaftH, 1.2, 0.7, LIMESTONE_SHADE))
@@ -208,7 +209,7 @@ function drakeHotel(site: LandmarkSite): THREE.Object3D {
   const h = site.height
 
   const baseH = h * 0.16
-  g.add(slab(w, baseH, d, 0, LIMESTONE))
+  g.add(extrudeRing(site.localRing, 0, baseH, LIMESTONE))
   g.add(band(w, d, baseH, 1.0, 0.6, LIMESTONE_SHADE))
   /**
    * Buff brick, not red.
@@ -255,7 +256,7 @@ function nineHundred(site: LandmarkSite): THREE.Object3D {
   const h = site.height
 
   const podiumH = h * 0.22
-  g.add(slab(w, podiumH, d, 0, LIMESTONE))
+  g.add(extrudeRing(site.localRing, 0, podiumH, LIMESTONE))
   g.add(band(w, d, podiumH, 1.4, 1.0, LIMESTONE_SHADE))
 
   // The OSM outline is the whole block; the tower's plate is a fraction of it.
@@ -354,51 +355,70 @@ function oneMagnificentMile(site: LandmarkSite): THREE.Object3D {
  */
 function fourthPresbyterian(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
-  const [w, d] = site.size
-  const STONE = 0xcfc6ae
+  /**
+   * Worked from photographs of the Michigan Avenue front, which corrected the
+   * two things that decide whether it reads as a church at all.
+   *
+   * The tower ends in a *spire* over an open lantern, not the crenellated
+   * parapet the first version had — that is a castle. And the street front is a
+   * gable end with one great pointed arch and a deep recessed portal under it,
+   * which is the face the player actually walks past; the long flank with its
+   * buttresses is the side you see afterwards.
+   *
+   * The stone is a weathered grey-green rather than clean limestone: the real
+   * one is half covered in ivy.
+   */
+  const STONE = 0xc6c3ac
   const naveH = 17
-  const naveD = Math.min(d, w * 0.42)
+  // Sized from what the building actually covers, not from the rectangle that
+  // fits inside it — a roof has to span the walls it sits on.
+  const [fullW, fullD] = site.bounds
+  const naveD = Math.min(fullD, fullW * 0.5)
 
-  g.add(slab(w, naveH, naveD, 0, STONE))
-  g.add(gable(w, naveD, naveH, 6, 0x6b5f52))
+  g.add(extrudeRing(site.localRing, 0, naveH, STONE))
+  g.add(gable(fullW * 0.98, naveD, naveH, 8, 0x6b6152))
+
+  // Buttresses down the flanks, dying into the wall below the eaves.
+  const bays = Math.max(4, Math.round(fullW / 6))
+  g.add(piers(fullW * 0.96, naveH * 0.84, naveD, 0, bays, 0xb4b199, 0.75))
 
   /**
-   * Buttresses: slim, and stopping short of the eaves.
-   *
-   * The first pass ran full-height piers at the pier helper's default
-   * thickness, which on a low building came out as a colonnade of fat columns
-   * with the roof balanced on top. A buttress is a thin blade that dies into
-   * the wall below the roofline.
+   * The west front: a gable wall carrying a great arch, stepped forward of the
+   * nave so it casts its own shadow.
    */
-  const bays = Math.max(4, Math.round(w / 6))
-  g.add(piers(w, naveH * 0.82, naveD, 0, bays, 0xc0b69e, 0.7))
+  const frontZ = -naveD / 2
+  g.add(slab(fullW * 0.5, naveH + 8, 1.8, 0, STONE, [0, frontZ]))
+  // The arch, as a recess rather than a true opening — at this scale the
+  // shadow is the whole of it.
+  g.add(slab(fullW * 0.28, naveH * 0.74, 0.8, 2, 0x6f6a5c, [0, frontZ - 0.7]))
+  g.add(slab(fullW * 0.16, naveH * 0.34, 0.8, 0, 0x4a4438, [0, frontZ - 1.0]))
+  // Pinnacles along the front parapet.
+  for (const sx of [-1, 1]) {
+    g.add(slab(1.8, 6, 1.8, naveH + 8, STONE, [sx * fullW * 0.23, frontZ]))
+  }
 
-  // Bell tower at the street end, crenellated, with corner pinnacles.
-  const towerW = Math.min(naveD * 0.9, 11)
-  const towerH = 40
-  const towerX = -w / 2 + towerW * 0.65
-  g.add(slab(towerW, towerH, towerW, 0, STONE, [towerX, 0]))
-  // Offset onto the tower like everything else here — without the translate
-  // this string course floated over the middle of the nave.
-  g.add(band(towerW, towerW, towerH * 0.62, 0.9, 0.5, 0xc0b69e).translateX(towerX))
-  // A tall lancet recess on each face, which is most of what says Gothic.
+  /**
+   * The tower, at the street corner beside the front, with the lantern and
+   * spire that make the silhouette.
+   */
+  const towerW = Math.min(naveD * 0.8, 12)
+  const towerH = 38
+  const towerX = -fullW / 2 + towerW * 0.6
+  g.add(slab(towerW, towerH, towerW, 0, STONE, [towerX, frontZ * 0.4]))
+  g.add(
+    band(towerW, towerW, towerH * 0.55, 0.9, 0.5, 0xb4b199).translateX(towerX)
+      .translateZ(frontZ * 0.4),
+  )
+  // Tall lancet recesses, which is most of what says Gothic at a distance.
   for (const [ox, oz] of [[towerW / 2, 0], [-towerW / 2, 0], [0, towerW / 2], [0, -towerW / 2]] as const) {
     g.add(
-      slab(ox === 0 ? towerW * 0.34 : 0.5, towerH * 0.3, oz === 0 ? 0.5 : towerW * 0.34,
-        towerH * 0.3, 0x9c937f, [towerX + ox, oz]),
+      slab(ox === 0 ? towerW * 0.3 : 0.5, towerH * 0.28, oz === 0 ? 0.5 : towerW * 0.3,
+        towerH * 0.34, 0x8f8a76, [towerX + ox, frontZ * 0.4 + oz]),
     )
   }
-  g.add(crenellation(towerW, towerW, towerH, STONE).translateX(towerX))
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      g.add(
-        slab(1.5, 5.5, 1.5, towerH, STONE, [
-          towerX + sx * (towerW / 2 - 0.9),
-          sz * (towerW / 2 - 0.9),
-        ]),
-      )
-    }
-  }
+  const crown = spire(towerW, towerH, 6, 13, STONE)
+  crown.position.set(towerX, 0, frontZ * 0.4)
+  g.add(crown)
   return g
 }
 
@@ -415,23 +435,56 @@ function waldorfAstoria(site: LandmarkSite): THREE.Object3D {
   const [w, d] = site.size
   const h = site.height
 
-  const baseH = h * 0.12
-  g.add(slab(w, baseH, d, 0, LIMESTONE))
+  /**
+   * From photographs, and the first version had the crown wrong and was missing
+   * the feature that actually identifies it.
+   *
+   * It is pale limestone with *dark projecting bay windows* running in
+   * continuous vertical stripes up the shaft — that contrast is what you see
+   * from the street, far more than any moulding. And the top is a series of
+   * setbacks with the corners cut away, stepping to a chamfered cap. A mansard,
+   * which is what I gave it, belongs on a different building.
+   */
+  const BAY = 0x4e5158
+  const baseH = Math.min(h * 0.09, 12)
+
+  g.add(extrudeRing(site.localRing, 0, baseH, LIMESTONE))
   g.add(band(w, d, baseH, 1.2, 0.9, LIMESTONE_SHADE))
 
-  // Flanking wings, about half height.
-  for (const sx of [-1, 1]) {
-    g.add(slab(w * 0.3, h * 0.52, d * 0.8, baseH, LIMESTONE, [sx * w * 0.34, 0]))
+  // Two tiers of setback, each cutting the corners.
+  const tiers: Array<[number, number, number]> = [
+    [1.0, baseH, h * 0.46],
+    [0.78, h * 0.46, h * 0.82],
+    [0.6, h * 0.82, h],
+  ]
+  for (const [scale, from, to] of tiers) {
+    const tw = w * scale
+    const td = d * scale
+    g.add(slab(tw, to - from, td, from, LIMESTONE))
+    g.add(piers(tw, to - from - 1, td, from, Math.max(4, Math.round(tw / 4.5)), LIMESTONE_SHADE, 0.5))
+    // Dark bays: continuous vertical stripes, four to a face.
+    for (let i = 0; i < 4; i++) {
+      const x = -tw / 2 + (tw * (i + 0.5)) / 4
+      for (const z of [td / 2, -td / 2]) {
+        g.add(slab(tw * 0.1, to - from - 2, 1.1, from + 1, BAY, [x, z]))
+      }
+    }
+    // Chamfered corners: a diagonal post at each, so the step reads as cut.
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const post = slab(tw * 0.16, to - from, tw * 0.16, from, LIMESTONE, [
+          (sx * tw) / 2,
+          (sz * td) / 2,
+        ])
+        post.rotation.y = Math.PI / 4
+        g.add(post)
+      }
+    }
+    g.add(band(tw, td, to - 1.2, 1.4, 1.0, LIMESTONE_SHADE))
   }
 
-  const shaftW = w * 0.56
-  const shaftH = h - baseH - 10
-  g.add(slab(shaftW, shaftH, d * 0.9, baseH, LIMESTONE))
-  g.add(piers(shaftW, shaftH - 6, d * 0.9, baseH + 2, Math.max(4, Math.round(shaftW / 5)), LIMESTONE_SHADE))
-  g.add(band(shaftW, d * 0.9, baseH + shaftH, 1.6, 1.2, LIMESTONE_SHADE))
-
-  // Mansard crown.
-  g.add(taperedSlab(shaftW * 1.04, 10, d * 0.94, baseH + shaftH + 1.6, 0.45, 0x4f5560))
+  // A chamfered cap rather than a pitched roof.
+  g.add(taperedSlab(w * 0.6, 7, d * 0.6, h, 0.55, LIMESTONE_SHADE))
   return g
 }
 
@@ -449,6 +502,7 @@ function newberryPlaza(site: LandmarkSite): THREE.Object3D {
   const h = site.height
   const CONCRETE = 0x8a8880
 
+  g.add(extrudeRing(site.localRing, 0, 5, CONCRETE))
   g.add(slab(w, h, d, 0, CONCRETE))
   // Recessed glazed bays between the concrete piers.
   g.add(slab(w * 0.92, h - 8, d * 0.92, 4, GLASS))
@@ -470,6 +524,7 @@ function lakeShorePlaza(site: LandmarkSite): THREE.Object3D {
   const h = site.height
   const WHITE = 0xd6d4cc
 
+  g.add(extrudeRing(site.localRing, 0, 5, WHITE))
   g.add(slab(w, h, d, 0, WHITE))
   g.add(slab(w * 0.94, h - 6, d * 0.94, 3, 0x5b6d7c))
   // Balcony slabs every storey — the defining feature.
