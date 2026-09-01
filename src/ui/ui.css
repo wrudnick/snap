@@ -1051,3 +1051,24 @@ h2 {
   from { background-position: 180% 0; }
   to { background-position: -40% 0; }
 }
+
+/* Send a frame back for feedback. Quiet until wanted — it sits on every card
+   in the contact sheet and must not compete with the score. */
+.shot__share {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  color: var(--dim);
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.shot__share:hover:not(:disabled) {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+.shot__share:disabled {
+  opacity: 0.3;
+  cursor: default;
+}

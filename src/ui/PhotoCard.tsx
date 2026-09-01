@@ -1,3 +1,4 @@
+import { sharePhoto } from './sharePhoto'
 import type { Photo } from '@/game/state'
 
 /**
@@ -68,6 +69,29 @@ export function PhotoCard({
           </div>
         </div>
         <div className="row" style={{ gap: '0.5rem' }}>
+          {/*
+            Send this frame back with a note.
+
+            Deliberately the game's own capture rather than a screenshot of the
+            phone: it is the picture without the HUD across it, and it travels
+            with the route position, the look angles and the build, which is
+            everything needed to stand the same frame up again afterwards.
+
+            `stopPropagation` because the card itself toggles whether the shot
+            is kept, and sharing one should not also throw it away.
+          */}
+          <button
+            type="button"
+            className="shot__share"
+            aria-label="Share this shot"
+            disabled={!photo.url}
+            onClick={(e) => {
+              e.stopPropagation()
+              void sharePhoto(photo)
+            }}
+          >
+            ↑
+          </button>
           <span className="pts">{score.total.toLocaleString()}</span>
           <span className={`grade ${score.grade === 'D' ? 'd' : ''}`}>{score.grade}</span>
         </div>

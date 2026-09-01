@@ -36,6 +36,18 @@ export interface PhotoSnapshot {
   t: number
   /** Viewport aspect ratio, used to correct centroid distance for wide frames. */
   aspect: number
+  /**
+   * Where the camera was looking, so a shot can be reproduced exactly.
+   *
+   * Scoring ignores this — everything it needs is already projected into the
+   * observations. It is here because it travels with the photograph, and a
+   * screenshot sent back as feedback is only useful if the frame it shows can
+   * be stood up again after the fix.
+   *
+   * Optional so the hand-built snapshot literals the scoring tests are written
+   * against stay valid; they are about framing, not about where the camera was.
+   */
+  view?: { yaw: number; pitch: number; fov: number; build: string }
   subjects: SubjectObservation[]
 }
 

@@ -75,6 +75,18 @@ export function Shutter({ routeId }: { routeId: string }) {
       camera,
       occluders: scene.children,
     })
+    /**
+     * Stamped on after the fact, so `buildSnapshot` stays about the subjects.
+     *
+     * Carried with the photograph so a shot sent back as feedback can be stood
+     * up again exactly — same place on the route, same look, same build.
+     */
+    snapshot.view = {
+      yaw: runtime.yaw,
+      pitch: runtime.pitch,
+      fov: runtime.targetFov,
+      build: __BUILD__,
+    }
     const score = scorePhoto(snapshot, SPECIES_INDEX, DEFAULT_SCORING_CONFIG)
 
     const height = Math.round(PHOTO_WIDTH / aspect)

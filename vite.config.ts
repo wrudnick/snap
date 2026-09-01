@@ -3,7 +3,26 @@ import { fileURLToPath, URL } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
+import { execSync } from 'node:child_process'
+
 import { routeDraft } from './src/dev/routeDraftPlugin'
+
+/**
+ * Which build is running, stamped in at compile time.
+ *
+ * Feedback comes back from a phone, and a phone caches aggressively. Twice now
+ * a bug has been reported against a build that predated its fix, and there was
+ * no way to tell from the report. Every shared shot carries this.
+ */
+const build = (() => {
+  try {
+    const sha = execSync('git rev-parse --short HEAD').toString().trim()
+    const dirty = execSync('git status --porcelain').toString().trim() ? '+' : ''
+    return `${sha}${dirty}`
+  } catch {
+    return 'unknown'
+  }
+})()
 
 // `base` must match the GitHub Pages repo path. Override with BASE_PATH=/ for
 // local production smoke-testing.
@@ -11,6 +30,7 @@ const base = process.env.BASE_PATH ?? '/snap/'
 
 export default defineConfig({
   base,
+  define: { __BUILD__: JSON.stringify(build) },
   plugins: [react(), routeDraft()],
   resolve: {
     alias: {
