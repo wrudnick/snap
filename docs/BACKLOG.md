@@ -49,47 +49,57 @@ container. And a hidden browser pane stops `requestAnimationFrame`, so every
 `useFrame` silently does nothing: an hour went into three components that
 appeared broken and were not. Verify in Playwright.
 
-## Slice 2 — buildings are subjects
+## Slice 2 — buildings are subjects — **done**
 
-Fit, Fill, Clear, Level, Face, and Light as a multiplier.
+Fit, Fill, Clear, Level, Face, with Light as a multiplier.
 
-Fifty-two hand-modelled landmarks currently score nothing. This is the slice that
-makes the biggest existing investment in the repository into content.
+**Fit gates the other four** rather than averaging with them — the same rule
+actors follow, where presence gates craft. It was going to be a weighted term at
+0.3 until a test caught that a building with a quarter cut off lost only
+seventeen percent of its quality, so golden hour paid for the mistake and a
+clipped tower at dawn beat a whole one at midday.
 
-**What you will find.** `SubjectInstance` in `game/capture/registry.ts` has a
-`species` and no notion of kind, so there is nowhere for a structure to live yet.
-That interface is the first thing to change, and `buildSnapshot` walks it.
+**Outlines come from the real geometry, not the footprint.** A prism over the
+plan would report the whole building in frame while its spire was out of shot —
+measured, the Hancock's outline reaches 443 m against a 343 m roof. Rendering
+keeps the landmarks merged; observation takes support points before the merge.
+No draw calls added, 92 ms once at load, 7.8 KB total.
 
-- Structures register as observable subjects with a silhouette.
-- Silhouette sampling for Fit and Clear — the BVH added for occlusion already
-  makes this affordable.
-- Level penalty scaled by angular height. This is the rule everything in the shop
-  later exists to answer, so it has to be in before the shop.
+**Two occlusion bugs, both found by printing numbers.** Sample points pulled
+toward a building's centre sit *inside the solid*, so every building on a clear
+street reported itself fully blocked. And the outline wraps the whole building,
+so half its corners are round the back where the building's own front correctly
+blocks them. 0% → 40% → 55%.
 
-*Playable at the end:* you can photograph a building and be told why it was good.
+The keystone rule fires where the design said: tilting half a radian up on
+Michigan puts convergence at 0.46 against a ruinous 0.35.
 
-## Slice 3 — scenes
+## Slice 3 — scenes — **done, inside Slice 2**
 
-Cluster, rank, decay, named composition bonuses. Grade from the primary alone.
+Cluster, rank, decay and the named composition bonuses all arrived with the
+scene assembly, so this was never a separate piece of work. A composed handful
+beating a crowd is a test now rather than an intention.
 
-- Same-species clustering with `1 + 0.35·ln(N)`.
-- Rank decay `points / (D · n)`, `D` from the lens, default 5.
-- Scale, Context, Life, Depth.
-- Tune until a composed four-subject photograph beats a twenty-eight-subject
-  crowd. That relationship is the acceptance test.
+## Slice 4 — money and one other lens — **done**
 
-*Playable at the end:* composition beats standing in a busy place.
+The rack holds one card per slot and a better one pays only the difference, so
+every slot pays out the same total however you got there — which is what makes
+the money in the game a sum you can write down.
 
-## Slice 4 — money and one other lens
+Two numbers per slot: what has been *paid* is a ratchet and follows the money;
+the *points* belong to the card on display and follow the portfolio. An S with a
+dull background has already banked while a scene-rich A pays nothing and scores
+higher, so which one hangs there is a real choice.
 
-The shop, priced against a single currency, with exactly one alternative lens.
+The wide 28 answers a complaint the 45 creates, and scores scenes differently —
+supporting cast counts for more through wide glass. The scoring config is
+composed per shot from the body, so the divisor is a property of the glass
+rather than a global constant.
 
-One is enough to prove the interesting claim: that a different scene divisor
-changes what kind of photograph you are taking. If that does not feel different
-in play, the whole equipment tree needs rethinking, and it is far better to learn
-that from one lens than from six.
-
-*Playable at the end:* you can earn something and it changes how you shoot.
+**Still open here.** Prices are guesses against an ~$11,000 supply and want
+playing against. `LandmarkBuilding.rarity` is still unset, which is half the
+money supply. And the e2e suite has not been run since the scene assembly
+landed.
 
 ## Slice 5 — the map and the Playpen
 
