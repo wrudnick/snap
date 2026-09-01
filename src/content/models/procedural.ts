@@ -529,6 +529,38 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
     part('earInR', BOX, shadeOf(a, 0.68), [0.13, 0.17, 0.015], [0.055, 0.1, 0.03]),
     part('brow', BOX, shadeOf(c, 0.82), [0, 0.15, -0.12], [0.34, 0.06, 0.14]),
   )
+
+  /**
+   * Whiskers, on the cat only.
+   *
+   * Three a side, swept forward and fanned by height rather than by rotating
+   * each one about Z — a Z tilt mirrors the wrong way across the centre line,
+   * so the two sides would splay in opposite directions and one of them would
+   * be right. Stacking them in Y and sweeping them all forward about Y is
+   * symmetric by construction.
+   *
+   * In the head group, like the rest of the face, so they go where the head
+   * goes. The dog does not get these and neither does the rat: on a rat they
+   * would be right, but its head is a quarter of this size and they would come
+   * out as three white slabs.
+   */
+  if (def.species === 'cat') {
+    const WHISKER = 0xf4f1ea
+    for (const side of [-1, 1] as const) {
+      for (const [i, lift] of [0.03, 0.0, -0.03].entries()) {
+        headGroup.add(
+          part(
+            `whisker${side < 0 ? 'L' : 'R'}${i}`,
+            BOX,
+            WHISKER,
+            [side * 0.21, -0.05 + lift, -0.25],
+            [0.26, 0.009, 0.009],
+            [0, side * (0.34 + i * 0.06), 0],
+          ),
+        )
+      }
+    }
+  }
   body.add(headGroup)
 
   /**
@@ -2178,7 +2210,17 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
      */
     new THREE.AnimationClip('lounge', 5.2, [
       num('body.rotation[x]', [0, 2.6, 5.2], [0.62, 0.58, 0.62]),
-      num('body.position[y]', [0, 5.2], [-0.62 * h * 0.5 * 2, -0.62 * h * 0.5 * 2]),
+      /*
+       * Dropped by a seventh of the figure's height, not by two thirds.
+       *
+       * Leaning back thirty-five degrees lowers the hips a little; the old
+       * −0.62·h buried everyone who lounges between half a metre and
+       * eighty-five centimetres into the pavement, on all twelve humanoids.
+       * Found by sweeping the coefficient and measuring the model's lowest
+       * point across the clip — this is the largest drop that still leaves
+       * everybody on top of the ground rather than floating over it.
+       */
+      num('body.position[y]', [0, 5.2], [-0.13 * h, -0.13 * h]),
       num('legL.rotation[x]', [0, 2.6, 5.2], [0.85, 0.8, 0.85]),
       num('legR.rotation[x]', [0, 2.6, 5.2], [0.78, 0.84, 0.78]),
       num('legR.rotation[z]', [0, 5.2], [-0.2, -0.2]),
@@ -2201,7 +2243,14 @@ function buildHumanoid(def: SubjectDef, seed: number): BuiltModel {
      */
     new THREE.AnimationClip('sunbathe', 6.4, [
       num('body.rotation[x]', [0, 3.2, 6.4], [1.5, 1.52, 1.5]),
-      num('body.position[y]', [0, 6.4], [h * 0.09, h * 0.09]),
+      /*
+       * Lying flat needs the body raised most of a hip's height, not a tenth.
+       *
+       * `body.rotation[x]` of 1.5 rad swings the whole figure down about its
+       * pivot, so without a matching lift a sunbather sinks a third of a metre.
+       * Same sweep as `lounge`: the smallest lift that clears the ground.
+       */
+      num('body.position[y]', [0, 6.4], [h * 0.37, h * 0.37]),
       num('legR.rotation[x]', [0, 3.2, 6.4], [-0.5, -0.16, -0.5]),
       num('armL.rotation[z]', [0, 6.4], [-0.62, -0.62]),
       num('armR.rotation[z]', [0, 3.2, 6.4], [0.62, 0.9, 0.62]),
