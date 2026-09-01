@@ -456,6 +456,21 @@ h2 {
 .dope-key:hover { background: #fff; }
 .dope-key-shared { background: #7fd18b; width: 10px; height: 10px; margin: -5px 0 0 -5px; }
 
+/* The slice of a clip the score pays a bonus for. Behind the keys, so it reads
+   as a region rather than competing with them. */
+.dope-peak {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(245, 197, 24, 0.16);
+  border-left: 1px solid rgba(245, 197, 24, 0.5);
+  border-right: 1px solid rgba(245, 197, 24, 0.5);
+  pointer-events: none;
+}
+.dope-pose {
+  color: #f5c518;
+}
+
 .dope-playhead {
   position: absolute;
   top: 0;
@@ -1252,4 +1267,79 @@ h2 {
   height: 3rem;
   border-radius: 50%;
   font-size: 1.2rem;
+}
+
+/* -------------------------------------------------------------------------
+   Reactions: a species' scripted answers to things thrown at it.
+   ---------------------------------------------------------------------- */
+.reactions {
+  margin-top: 1.5rem;
+}
+.reactions-none {
+  color: var(--dim);
+  font-size: 0.72rem;
+  margin: 0 0 0.4rem;
+}
+.reaction {
+  margin-bottom: 0.7rem;
+}
+.reaction-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  margin-bottom: 0.25rem;
+}
+.reaction-trigger {
+  color: #f5c518;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.reaction-meta {
+  color: var(--dim);
+}
+.reaction-step {
+  display: grid;
+  grid-template-columns: 1rem 3.6rem 4.2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  text-align: left;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.3rem;
+  margin: 0 0 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.reaction-step:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.reaction-beat {
+  color: var(--dim);
+}
+.reaction-hold {
+  color: var(--dim);
+}
+/* Worth as a bar, so the shape of the sequence reads without arithmetic. */
+.reaction-worth {
+  position: relative;
+  display: block;
+  height: 0.85rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+.reaction-worthBar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgba(245, 197, 24, 0.45);
+}
+.reaction-worthText {
+  position: relative;
+  padding-left: 0.25rem;
+  color: #fff;
+}
+.reaction-eat {
+  grid-column: 2 / -1;
+  color: #7fd1a0;
 }

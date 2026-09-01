@@ -66,11 +66,22 @@ export function DopeSheet({
   clip,
   time,
   onSeek,
+  pose,
 }: {
   clip: THREE.AnimationClip
   /** Current playhead, in seconds. */
   time: number
   onSeek: (seconds: number) => void
+  /**
+   * What this clip is worth, and when.
+   *
+   * The peak window is the single most important thing about a clip in this
+   * game — it is the slice of the animation the scoring actually rewards, and
+   * for a photograph it is the only slice that exists. Designing a reaction
+   * without seeing it is designing blind, so it is drawn on the ruler rather
+   * than left in the data.
+   */
+  pose?: { label: string; value: number; peak?: [number, number]; peakBonus?: number }
 }) {
   const rows = useMemo(() => readTracks(clip), [clip])
   const duration = clip.duration || 1
@@ -96,6 +107,16 @@ export function DopeSheet({
         <span className="dope-meta">
           t = {time.toFixed(2)}s
         </span>
+        {pose && (
+          <span className="dope-meta dope-pose">
+            {pose.label} · worth {pose.value.toFixed(2)}
+            {pose.peak
+              ? ` · peak ${Math.round(pose.peak[0] * 100)}–${Math.round(pose.peak[1] * 100)}%${
+                  pose.peakBonus ? ` (+${pose.peakBonus.toFixed(2)})` : ''
+                }`
+              : ' · no peak'}
+          </span>
+        )}
       </div>
 
       {/* Shared timeline: clicking any key time steps the playhead exactly onto
@@ -103,6 +124,17 @@ export function DopeSheet({
       <div className="dope-ruler">
         <div className="dope-label">keys</div>
         <div className="dope-track">
+          {/* The window the score pays a bonus for, in clip time. */}
+          {pose?.peak && (
+            <div
+              className="dope-peak"
+              style={{
+                left: `${pose.peak[0] * 100}%`,
+                width: `${(pose.peak[1] - pose.peak[0]) * 100}%`,
+              }}
+              title={`peak ${Math.round(pose.peak[0] * 100)}–${Math.round(pose.peak[1] * 100)}%`}
+            />
+          )}
           {keyTimes.map((t) => (
             <button
               key={t}

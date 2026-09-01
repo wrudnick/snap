@@ -13,6 +13,7 @@ import { SUBJECTS } from '@/content/subjects'
 import { DAWN, toonRamp } from '@/render/palette'
 
 import { DopeSheet } from './DopeSheet'
+import { ReactionPanel } from './ReactionPanel'
 import { AngleGrid, ANGLES } from './inspectorViews'
 
 /**
@@ -368,6 +369,18 @@ export function ModelInspector() {
           <button onClick={() => setSpin((s) => !s)}>{spin ? 'Stop' : 'Spin'}</button>
         )}
 
+        {/* What this species does when something lands near it. */}
+        {entry.kind === 'subject' && SUBJECTS[entry.id] && (
+          <ReactionPanel
+            def={SUBJECTS[entry.id]!}
+            onPlayClip={(name) => {
+              setClip(name)
+              setMode('animation')
+              setScrub(null)
+            }}
+          />
+        )}
+
         {mode === 'parts' && entry.kind === 'subject' && (
           <PartPanel
             root={built.object}
@@ -433,6 +446,11 @@ export function ModelInspector() {
             clip={activeClip}
             time={(scrub ?? 0) * activeClip.duration}
             onSeek={(seconds) => setScrub(seconds / (activeClip.duration || 1))}
+            pose={
+              entry.kind === 'subject'
+                ? SUBJECTS[entry.id]?.poses[activeClip.name]
+                : undefined
+            }
           />
         )}
       </div>
