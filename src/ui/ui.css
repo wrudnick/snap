@@ -1476,3 +1476,106 @@ h2 {
   color: var(--dim);
   font-size: 0.72rem;
 }
+
+/* -------------------------------------------------------------------------
+   Selling: grouped by grade, one entry per slot.
+
+   The rack has room for one postcard of each subject-and-pose, so a run that
+   brought back six pigeons pecking is offering one postcard rather than six.
+   Choosing which is the point, the way it is at the end of a course in Snap.
+   ---------------------------------------------------------------------- */
+.tier {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.6rem;
+  align-items: start;
+}
+.tier__badge {
+  justify-self: center;
+  margin-top: 0.3rem;
+}
+.tier__slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.75rem;
+}
+
+.offer {
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+/* Held back: still visible, because you may change your mind, but plainly out. */
+.offer.out {
+  opacity: 0.42;
+}
+.offer__image {
+  border: 0;
+  padding: 0;
+  background: #05060a;
+  border-radius: 3px;
+  overflow: hidden;
+  cursor: zoom-in;
+  aspect-ratio: 3 / 2;
+}
+.offer__image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.offer__name {
+  font-size: 0.82rem;
+}
+.offer__sub {
+  color: var(--dim);
+  font-size: 0.72rem;
+}
+
+/* The roll: every shot of this slot from the run, by grade. */
+.offer__roll {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+.offer__roll button {
+  padding: 0.05rem 0.4rem;
+  font-size: 0.66rem;
+  border-radius: 2px;
+  letter-spacing: 0.04em;
+}
+.offer__roll button.on {
+  background: rgba(255, 255, 255, 0.82);
+  color: #14171c;
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.offer__money {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.74rem;
+}
+.offer__earns {
+  color: var(--good);
+  font-variant-numeric: tabular-nums;
+}
+/* The ratchet, said out loud. A slot already sold at this grade pays nothing,
+   and the player should learn that before submitting rather than after. */
+.offer__nothing,
+.offer__held {
+  color: var(--dim);
+  font-size: 0.68rem;
+}
+.offer__pts {
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.offer__drop {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.62rem;
+}

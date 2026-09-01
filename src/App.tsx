@@ -7,7 +7,7 @@ import { Hud } from '@/ui/Hud'
 import { Stage } from '@/ui/Stage'
 import { Menu } from '@/ui/Menu'
 import { Results } from '@/ui/Results'
-import { Review } from '@/ui/Review'
+import { Sell } from '@/ui/Sell'
 
 import { MapView } from './dev/MapView'
 import { ModelInspector } from './dev/ModelInspector'
@@ -81,7 +81,7 @@ function GameApp() {
         </>
       )}
       {phase === 'menu' && <Menu />}
-      {phase === 'review' && <Review />}
+      {phase === 'review' && <Sell />}
       {phase === 'results' && <Results />}
     </Stage>
   )

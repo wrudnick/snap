@@ -31,18 +31,20 @@ const POST_ENABLED =
  * distraction and, at eye level, right where the street is.
  */
 const PERF_ENABLED = (() => {
-  if (typeof window === 'undefined') return true
-  const flag = new URLSearchParams(window.location.search).get('perf')
-  if (flag !== null) return flag !== '0'
+  if (typeof window === 'undefined') return false
   /**
-   * Off by default on a phone.
+   * Opt-in, everywhere. `?perf=1` to profile.
    *
-   * The r3f-perf overlay is anchored bottom-left and sits directly on top of
-   * the touch controls — it swallowed every tap on the shutter, which on a
-   * device with no keyboard means the game cannot be played at all. Opt back in
-   * with `?perf=1` when profiling on a real device.
+   * It was on by default on anything with a mouse, and it is an overlay that
+   * accepts pointer events — so it swallowed every tap on the shutter on a
+   * phone, and then swallowed the Sell button on a desk, because it is anchored
+   * bottom-left and the buttons that end a run are at the bottom of the screen.
+   * A readout that eats the controls is worse than no readout.
+   *
+   * It also sits over the corner of every screenshot, and screenshots are how
+   * this game gets reviewed.
    */
-  return !prefersTouch()
+  return new URLSearchParams(window.location.search).get('perf') === '1'
 })()
 
 /**

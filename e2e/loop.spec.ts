@@ -144,7 +144,7 @@ test.describe('gameplay loop', () => {
     const total = await page.evaluate(
       () => Object.keys((window as any).__snap.subjectRegistry ?? {}).length,
     )
-    await expect(page.getByText(/0 of \d+ subjects photographed/i)).toBeVisible()
+    await expect(page.getByText(/0 postcards on the rack/i)).toBeVisible()
     expect(total).toBeGreaterThanOrEqual(0)
     await expect(page.getByText(/nothing yet/i)).toBeVisible()
   })
@@ -305,25 +305,35 @@ test.describe('gameplay loop', () => {
     }
   })
 
-  test('finishing the route opens the contact sheet', async ({ page }) => {
+  test('finishing the route opens the sell screen', async ({ page }) => {
     await boot(page)
     await startRun(page)
     await shootAnywhere(page)
 
     await page.evaluate(() => (window as any).__snap.finish())
 
-    await expect(page.getByRole('heading', { name: /contact sheet/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /sell your shots/i })).toBeVisible()
 
-    // shootAnywhere may fire more than once while scanning for a subject, so
-    // assert the sheet matches the store rather than a hardcoded count.
-    const taken = await page.evaluate(
-      () => (window as any).__snap.store.getState().photos.length,
-    )
-    expect(taken).toBeGreaterThan(0)
-    await expect(page.locator('.shot')).toHaveCount(taken)
+    /**
+     * One offer per *slot*, not per photograph.
+     *
+     * The rack holds one postcard of each subject and pose, so a run that came
+     * back with six pigeons pecking is offering one postcard rather than six.
+     * Counted off the store rather than hardcoded, since `shootAnywhere` may
+     * fire more than once while it scans for something to point at.
+     */
+    const slots = await page.evaluate(() => {
+      const photos = (window as any).__snap.store.getState().photos
+      const keys = photos
+        .map((p: any) => p.score.scene[0]?.slot)
+        .filter(Boolean)
+      return new Set(keys).size
+    })
+    expect(slots).toBeGreaterThan(0)
+    await expect(page.locator('.offer')).toHaveCount(slots)
   })
 
-  test('developing puts the best shot of each subject into the album', async ({ page }) => {
+  test('selling puts one postcard per slot on the rack', async ({ page }) => {
     await boot(page)
     await startRun(page)
 
@@ -332,10 +342,14 @@ test.describe('gameplay loop', () => {
     }
 
     await page.evaluate(() => (window as any).__snap.finish())
-    await expect(page.getByRole('heading', { name: /contact sheet/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /sell your shots/i })).toBeVisible()
 
-    await page.getByRole('button', { name: /develop/i }).click()
-    await expect(page.getByRole('heading', { name: /developed/i })).toBeVisible()
+    await page.getByRole('button', { name: /^sell /i }).click()
+    await expect(page.getByRole('heading', { name: /^sold$/i })).toBeVisible()
+
+    // Selling has to pay, or the loop does not close.
+    const money = await page.evaluate(() => (window as any).__snap.store.getState().money)
+    expect(money).toBeGreaterThan(0)
 
     const album = await page.evaluate(() =>
       Object.keys((window as any).__snap.store.getState().album),
@@ -351,22 +365,20 @@ test.describe('gameplay loop', () => {
     expect(persisted.sort()).toEqual(album.sort())
   })
 
-  test('discarding a photo removes it from the run total', async ({ page }) => {
+  test('holding a postcard back takes it out of the takings', async ({ page }) => {
     await boot(page)
     await startRun(page)
     await shootAnywhere(page)
     await page.evaluate(() => (window as any).__snap.finish())
 
-    const taken = await page.evaluate(
-      () => (window as any).__snap.store.getState().photos.length,
-    )
-    expect(taken).toBeGreaterThan(0)
-    await expect(page.locator('.shot.kept')).toHaveCount(taken)
+    await expect(page.getByRole('heading', { name: /sell your shots/i })).toBeVisible()
+    const offers = await page.locator('.offer').count()
+    expect(offers).toBeGreaterThan(0)
+    await expect(page.getByText(new RegExp(`${offers} selling`, 'i'))).toBeVisible()
 
-    await page.locator('.shot').first().click()
-    await expect(page.locator('.shot.dropped')).toHaveCount(1)
-    await expect(page.locator('.shot.kept')).toHaveCount(taken - 1)
-    await expect(page.getByText(new RegExp(`${taken - 1} keeping`, 'i'))).toBeVisible()
+    await page.getByRole('button', { name: /hold back/i }).first().click()
+    await expect(page.locator('.offer.out')).toHaveCount(1)
+    await expect(page.getByText(new RegExp(`${offers - 1} selling`, 'i'))).toBeVisible()
   })
 
   test('the run is capped by the film roll', async ({ page }) => {

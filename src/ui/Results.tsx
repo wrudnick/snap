@@ -1,8 +1,6 @@
 import { useMemo } from 'react'
 
 import { GOLD_COAST } from '@/content/routes/goldcoast'
-import { SUBJECTS } from '@/content/subjects'
-import { bestPerSpecies } from '@/game/scoring/score'
 import { runTotal, useGame } from '@/game/state'
 
 import { PhotoCard } from './PhotoCard'
@@ -10,20 +8,23 @@ import { PhotoCard } from './PhotoCard'
 export function Results() {
   const photos = useGame((s) => s.photos)
   const album = useGame((s) => s.album)
+  const money = useGame((s) => s.money)
+  const lastEarned = useGame((s) => s.lastEarned)
+  const portfolio = Object.keys(album).length
   const startRun = useGame((s) => s.startRun)
   const backToMenu = useGame((s) => s.backToMenu)
 
   const kept = useMemo(() => photos.filter((p) => p.selected), [photos])
   const total = runTotal(photos)
 
-  // Which of this run's photos actually earned a place in the album.
-  const best = useMemo(() => bestPerSpecies(kept.map((p) => p.score)), [kept])
-  const highlights = useMemo(
-    () => kept.filter((p) => best.get(p.score.primary?.species ?? '')?.photoId === p.id),
-    [kept, best],
-  )
-
-  const speciesTotal = Object.keys(SUBJECTS).length
+  /**
+   * The ones that went on the rack.
+   *
+   * Exactly what was kept, because the sell screen has already chosen one shot
+   * per slot — working it out again from a best-per-species map would answer a
+   * question nobody asked and get it wrong, since the rack is keyed by slot.
+   */
+  const highlights = kept
   const found = Object.keys(album).length
 
   return (
@@ -32,18 +33,28 @@ export function Results() {
         <div className="spread" style={{ marginBottom: '2.5rem' }}>
           <div>
             <h1 className="title" style={{ fontSize: 'clamp(2rem, 6vw, 3.2rem)' }}>
-              Developed
+              Sold
             </h1>
+            {/*
+              What the run earned, and what that leaves you with.
+
+              The loop was closing silently: postcards went onto the rack and
+              the player was told a run total that buys nothing. Money is the
+              thing that connects a photograph to the next lens, so it has to be
+              said at the moment it is earned.
+            */}
             <p className="subtitle" style={{ marginBottom: 0 }}>
-              {highlights.length > 0
-                ? `Your best of each subject went into the album.`
-                : `Nothing made the album this time.`}
+              {lastEarned > 0
+                ? `${portfolio} postcards on the rack. You have $${money.toLocaleString()}.`
+                : `Nothing new to sell — the rack already had better.`}
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div className="total">{total.toLocaleString()}</div>
+            <div className="total" style={{ color: 'var(--good)' }}>
+              +${lastEarned.toLocaleString()}
+            </div>
             <div className="sub" style={{ color: 'var(--dim)', fontSize: '0.72rem' }}>
-              run total
+              earned · {total.toLocaleString()} points shot
             </div>
           </div>
         </div>
@@ -59,25 +70,27 @@ export function Results() {
           </>
         )}
 
-        <h2>
-          Album — {found} of {speciesTotal}
-        </h2>
+        {/*
+          The rack, keyed by slot.
+
+          This listed every species with a lookup by species name, which the
+          rack stopped answering the moment a slot became subject *and* pose —
+          so it read "not yet" against everything however full the rack was.
+        */}
+        <h2>The rack — {found}</h2>
         <div className="album" style={{ marginBottom: '3rem' }}>
-          {Object.values(SUBJECTS).map((subject) => {
-            const entry = album[subject.species]
-            return (
-              <div
-                className="entry"
-                key={subject.species}
-                style={{ opacity: entry ? 1 : 0.42 }}
-              >
-                <div className="n">{subject.displayName}</div>
+          {Object.values(album)
+            .sort((a, b) => b.best - a.best)
+            .slice(0, 24)
+            .map((entry) => (
+              <div className="entry" key={entry.slot}>
+                <div className="n">{entry.displayName}</div>
+                <div className="p">{entry.sublabel}</div>
                 <div className="s">
-                  {entry ? `${entry.best.toLocaleString()} · ${entry.grade}` : 'not yet'}
+                  {entry.best.toLocaleString()} · {entry.grade}
                 </div>
               </div>
-            )
-          })}
+            ))}
         </div>
 
         <div className="row">

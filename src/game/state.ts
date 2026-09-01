@@ -152,6 +152,15 @@ interface GameStore {
   attachImage: (id: string, url: string) => void
   endRun: () => void
   toggleSelected: (id: string) => void
+  /**
+   * Keep exactly these photographs and drop the rest.
+   *
+   * The sell screen chooses one shot per slot, so it needs to set the whole
+   * selection at once rather than toggling its way there — toggling would leave
+   * two photographs of the same slot selected in between, and the rack only has
+   * room for one.
+   */
+  setSelection: (ids: string[]) => void
   submit: () => void
   backToMenu: () => void
 }
@@ -217,6 +226,11 @@ export const useGame = create<GameStore>((set, get) => ({
   equip: (id) => {
     if (!get().owned.includes(id)) return
     set({ cameraBody: id })
+  },
+
+  setSelection: (ids) => {
+    const keep = new Set(ids)
+    set((s) => ({ photos: s.photos.map((p) => ({ ...p, selected: keep.has(p.id) })) }))
   },
 
   submit: () => {
