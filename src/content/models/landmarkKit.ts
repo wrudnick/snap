@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 import { toonRamp } from '@/render/palette'
 import { toonMaterial } from '@/render/toonPatch'
+import type { LandmarkSite } from './landmarkSites'
 
 /**
  * Massing parts, shared by every hand-authored building.
@@ -130,13 +131,23 @@ export function floorBands(
   y: number,
   spacing: number,
   color: number,
+  /**
+   * How far each course stands out from the wall.
+   *
+   * A string course on a masonry building is a few centimetres. A balcony on a
+   * post-war slab is well over a metre, and at that depth the course stops
+   * being a line on the wall and becomes the building's whole relief — so it
+   * has to be settable rather than fixed at the masonry value.
+   */
+  overhang = 0.16,
+  thickness = 0.3,
 ): THREE.Group {
   const group = new THREE.Group()
   const rows = Math.floor(height / spacing)
   for (let i = 1; i <= rows; i++) {
     const at = y + i * spacing
     if (at > y + height - spacing * 0.5) break
-    group.add(band(width, depth, at, 0.3, 0.16, color))
+    group.add(band(width, depth, at, thickness, overhang, color))
   }
   return group
 }
@@ -475,4 +486,50 @@ export function addFacadeAttributes(geometry: THREE.BufferGeometry, seed: number
 
   geometry.setAttribute('aFacade', new THREE.BufferAttribute(facade, 2))
   geometry.setAttribute('aMeta', new THREE.BufferAttribute(meta, 3))
+}
+
+/**
+ * Mount something on the wall that faces the street.
+ *
+ * Two things kept going wrong independently, and this fixes both. Features were
+ * measured off `size` — the rectangle that fits *inside* the outline — while
+ * the mass is extruded from the real footprint, which is wider, so the feature
+ * ended up buried in its own building. And "the front" was taken to be local
+ * +Z, which is only the street side for about a quarter of the landmarks,
+ * because `heading` follows the longest edge of the plot rather than its
+ * frontage.
+ *
+ * So: extent comes from `bounds`, and the wall comes from `streetFace`. The
+ * caller thinks in facade terms — how wide along the wall, how far it stands
+ * out — and never in local axes.
+ */
+export function onFace(
+  site: LandmarkSite,
+  o: {
+    /** Width along the facade. */
+    across: number
+    height: number
+    /** How far it projects from the wall. */
+    out: number
+    /** Height of its underside above grade. */
+    y: number
+    color: number
+    /** Sideways offset along the facade, from centred. */
+    along?: number
+    /** Gap between the wall and the near edge; negative buries it slightly. */
+    gap?: number
+  },
+): THREE.Mesh {
+  const [fx, fz] = site.streetFace
+  const [fullW, fullD] = site.bounds
+  const along = o.along ?? 0
+  // A small negative default so the part meets the wall rather than hovering
+  // a hair off it, which shows as a seam at grazing angles.
+  const gap = o.gap ?? -0.4
+  const wall = (Math.abs(fx) > 0 ? fullW : fullD) / 2
+  const centre = wall + gap + o.out / 2
+
+  return Math.abs(fx) > 0
+    ? slab(o.out, o.height, o.across, o.y, o.color, [fx * centre, along])
+    : slab(o.across, o.height, o.out, o.y, o.color, [along, fz * centre])
 }

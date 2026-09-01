@@ -501,11 +501,19 @@ function newberryPlaza(site: LandmarkSite): THREE.Object3D {
   const h = site.height
   const CONCRETE = 0x8a8880
 
+  /**
+   * The glazing is the shaft; the concrete stands in front of it.
+   *
+   * Built the other way round — a solid concrete block with a glass box
+   * hidden inside it — the glass drew nothing at all and the tower was a
+   * blank slab. A recessed bay has to actually be recessed.
+   */
   g.add(extrudeRing(site.localRing, 0, 5, CONCRETE))
-  g.add(slab(w, h, d, 0, CONCRETE))
-  // Recessed glazed bays between the concrete piers.
-  g.add(slab(w * 0.92, h - 8, d * 0.92, 4, GLASS))
-  g.add(piers(w, h - 6, d, 3, Math.max(5, Math.round(w / 4.5)), CONCRETE, 0.7))
+  g.add(slab(w * 0.93, h - 5, d * 0.93, 5, GLASS))
+  g.add(piers(w * 0.93, h - 8, d * 0.93, 5, Math.max(5, Math.round(w / 4.5)), CONCRETE, 0.9))
+  for (const sx of [-1, 1]) {
+    g.add(slab(w * 0.08, h - 5, d, 5, CONCRETE, [(sx * w * 0.95) / 2, 0]))
+  }
   g.add(band(w, d, h - 2, 2, 0.8, CONCRETE))
   return g
 }
@@ -533,9 +541,12 @@ function lakeShorePlaza(site: LandmarkSite): THREE.Object3D {
    * lakefront tower from another.
    */
   g.add(extrudeRing(site.localRing, 0, 6, WHITE))
-  g.add(slab(w, h, d, 0, WHITE))
-  g.add(slab(w * 0.93, h - 9, d * 0.93, 6, 0x55677a))
-  g.add(piers(w, h - 10, d, 6, Math.max(6, Math.round(w / 3.2)), WHITE, 0.55))
+  // The window slots are the shaft, and the piers stand proud of them.
+  g.add(slab(w * 0.94, h - 6, d * 0.94, 6, 0x55677a))
+  g.add(piers(w * 0.94, h - 9, d * 0.94, 6, Math.max(6, Math.round(w / 3.2)), WHITE, 0.8))
+  for (const sx of [-1, 1]) {
+    g.add(slab(w * 0.07, h - 6, d, 6, WHITE, [(sx * w * 0.96) / 2, 0]))
+  }
   g.add(band(w, d, h - 2, 2, 0.7, WHITE))
   return g
 }

@@ -7,7 +7,7 @@ import {
   LIMESTONE_SHADE,
   RED_BRICK,
 } from './landmarkArchetypes'
-import { band, extrudeRing, floorBands, gable, mat, piers, slab, taperedSlab } from './landmarkKit'
+import { band, extrudeRing, floorBands, gable, mat, onFace, piers, slab, taperedSlab } from './landmarkKit'
 import type { LandmarkSite } from './landmarkSites'
 
 /**
@@ -165,35 +165,60 @@ export function quigley(site: LandmarkSite): THREE.Object3D {
  */
 export function esquire(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
-  const [w, d] = site.size
-  const h = Math.max(site.height, 12)
+  const [fullW, fullD] = site.bounds
+  const h = Math.max(site.height, 14)
 
   g.add(extrudeRing(site.localRing, 0, h, 0xe0d8c4))
+  /**
+   * The auditorium stands taller than the shops flanking it, so the front is a
+   * raised centre bay rather than one flat parapet. On a lot this wide a single
+   * extrusion reads as a pancake no matter what is stuck to the front of it.
+   */
+  g.add(slab(fullW * 0.46, h * 0.38, fullD * 0.88, h, 0xe0d8c4))
+  g.add(band(fullW * 0.46, fullD * 0.88, h + h * 0.38, 0.6, 0.5, 0xc0b49c))
+
   // Streamline banding, horizontal and shallow.
-  for (const y of [h * 0.55, h * 0.62, h * 0.69]) {
-    g.add(band(w, d, y, 0.4, 0.25, 0xc0b49c))
+  for (const y of [h * 0.6, h * 0.68, h * 0.76]) {
+    g.add(band(fullW, fullD, y, 0.4, 0.3, 0xc0b49c))
   }
   /**
-   * A cinema is its signage.
+   * A cinema is its signage, and signage has to sit on the outside of the wall
+   * that faces the street.
    *
-   * The marquee is a deep slab over the pavement with a lit underside — that
-   * glow is the thing you see at dusk, and the route passes here after dark —
-   * and the blade is fluted and runs well past the parapet with the name down
-   * it. Both are deliberately oversized: at street scale a marquee modelled to
-   * its real depth reads as a shelf.
+   * Both halves of that were wrong. The marquee was measured off `size` — the
+   * rectangle that fits inside the outline — while the mass is extruded from
+   * the real footprint five metres deeper, so it was buried in the building and
+   * the blade showed only as a stub standing on the roof. And it was hung off
+   * local +Z, which for this building is the back: its street side is -Z. It
+   * was an invisible marquee on the wrong wall. `onFace` knows both.
    */
   const MARQUEE = 0xb8332f
-  g.add(slab(w * 0.72, 1.8, 4.0, h * 0.32, MARQUEE, [0, d / 2 + 1.8]))
-  g.add(slab(w * 0.68, 0.45, 3.6, h * 0.32 - 0.6, 0xffe6b4, [0, d / 2 + 1.8]))
-  g.add(slab(w * 0.72, 0.4, 4.2, h * 0.32 + 1.8, 0xe8d9b8, [0, d / 2 + 1.8]))
+  const lip = h * 0.3
+  g.add(onFace(site, { across: fullW * 0.6, height: 2.0, out: 3.4, y: lip, color: MARQUEE }))
+  g.add(onFace(site, { across: fullW * 0.56, height: 0.5, out: 3.0, y: lip - 0.7, color: 0xffe6b4 }))
+  g.add(onFace(site, { across: fullW * 0.6, height: 0.45, out: 3.8, y: lip + 2.0, color: 0xe8d9b8 }))
 
-  const blade = h * 1.05
-  g.add(slab(1.8, blade, 3.6, h * 0.3, MARQUEE, [0, d / 2 + 2.0]))
-  // Flutes down the blade, which is what makes it Deco rather than a plank.
+  /**
+   * The blade carries the name, and it has to clear the raised centre bay —
+   * a vertical sign that stops below the parapet behind it is just a pilaster.
+   */
+  const bladeY = h * 0.34
+  const bladeTop = h + h * 0.38 + 5
+  g.add(onFace(site, { across: 2.0, height: bladeTop - bladeY, out: 2.6, y: bladeY, color: MARQUEE }))
   for (const sx of [-1, 0, 1]) {
-    g.add(slab(0.3, blade * 0.92, 3.8, h * 0.32, 0xe8d9b8, [sx * 0.55, d / 2 + 2.0]))
+    g.add(
+      onFace(site, {
+        across: 0.34,
+        height: (bladeTop - bladeY) * 0.94,
+        out: 2.9,
+        y: bladeY,
+        color: 0xe8d9b8,
+        along: sx * 0.6,
+      }),
+    )
   }
-  g.add(slab(2.4, 1.2, 4.0, h * 0.3 + blade, 0xe8d9b8, [0, d / 2 + 2.0]))
+  g.add(onFace(site, { across: 2.6, height: 1.3, out: 3.0, y: bladeTop, color: 0xe8d9b8 }))
+
   return g
 }
 
@@ -353,22 +378,31 @@ export function carlyle(site: LandmarkSite): THREE.Object3D {
   const [w, d] = site.size
   const h = site.height
   const WHITE = 0xdad6c9
+  const GLASS = 0x55677a
 
   /**
-   * A white 1963 slab, and its whole character is the balcony grid.
+   * A white 1963 slab whose entire character is the depth of its balcony grid.
    *
-   * Every floor projects a continuous white slab and every bay is divided by a
-   * fin, so the face is a deep waffle rather than a flat wall with lines drawn
-   * on it. That depth is what the outline pass needs to make it read as
-   * anything at all from the underpass, which is the one place it is seen from.
+   * The first attempt had it backwards. It built a white shaft and then put a
+   * dark core *inside* it — geometry sealed within a solid box, drawing
+   * nothing — and set the fins flush with the face, so the waffle had no
+   * relief at all and the tower came out a blank white board with a faint grid
+   * printed on it. The shaft has to be the dark glass, with the floor slabs and
+   * fins standing well proud of it. On this building the relief is the design;
+   * a balcony that projects a few centimetres is a pencil line, not a balcony.
    */
   g.add(extrudeRing(site.localRing, 0, 5, WHITE))
-  g.add(slab(w * 0.96, h - 5, d * 0.96, 5, WHITE))
-  g.add(slab(w * 0.88, h - 12, d * 0.88, 6, 0x55677a))
-  g.add(floorBands(w * 0.98, h - 10, d * 0.98, 5, 3.6, WHITE))
-  // Vertical fins between the bays, so the balconies read as a grid.
-  g.add(piers(w * 0.96, h - 12, d * 0.96, 6, Math.max(4, Math.round(w / 4)), WHITE, 0.5))
-  g.add(band(w * 0.96, d * 0.96, h - 2, 2, 0.8, WHITE))
+  g.add(slab(w * 0.9, h - 5, d * 0.9, 5, GLASS))
+  g.add(floorBands(w * 0.9, h - 9, d * 0.9, 5, 3.4, WHITE, 1.3, 0.45))
+  g.add(piers(w * 0.9, h - 9, d * 0.9, 5, Math.max(4, Math.round(w / 4)), WHITE, 1.2))
+  /**
+   * The end walls are solid concrete — the balconies stop short of them, which
+   * is what gives the slab its framed look from the side.
+   */
+  for (const sx of [-1, 1]) {
+    g.add(slab(1.8, h - 5, d * 0.98, 5, WHITE, [(sx * w * 0.9) / 2, 0]))
+  }
+  g.add(band(w * 0.94, d * 0.94, h - 2.5, 2.5, 1.0, WHITE))
   return g
 }
 

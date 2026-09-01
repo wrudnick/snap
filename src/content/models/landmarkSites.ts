@@ -1,3 +1,4 @@
+import { GOLD_COAST } from '../routes/goldcoast'
 import { CITY, type CityBuilding } from './city'
 
 /**
@@ -65,6 +66,21 @@ export interface LandmarkSite {
    * the same transform, and any one of them could get it wrong.
    */
   localRing: Array<[number, number]>
+  /**
+   * The local direction that faces the route, as a unit axis [x, z].
+   *
+   * `heading` is the longest edge of the footprint, which is the side lot line
+   * as often as it is the frontage, so local +Z is *not* the front. Measured
+   * against the route, the fifty-two landmarks face +Z, -Z, +X and -X in
+   * roughly the proportions 18/18/12/4 — meaning any builder that hangs a
+   * marquee or a shopfront off `+d / 2` is putting it on the right wall about
+   * a quarter of the time. The Esquire's marquee ended up on the back of the
+   * building facing an alley.
+   *
+   * Anything mounted on the facade should be placed through `onFace`, which
+   * reads this.
+   */
+  streetFace: [number, number]
   height: number
   /** Storeys, where OSM has them. */
   levels?: number
@@ -312,6 +328,55 @@ function centroid(ring: Array<[number, number]>): [number, number] {
   return [cx / (6 * area), cz / (6 * area)]
 }
 
+
+/**
+ * Which way is the street?
+ *
+ * The nearest point on the route, expressed in the building's own frame and
+ * snapped to whichever local axis dominates. Snapped rather than kept as a
+ * free direction because facades are flat and a marquee hung at eleven degrees
+ * to its own wall looks like a mistake, which it would be.
+ */
+function faceToRoute(center: [number, number], heading: number): [number, number] {
+  let best = Infinity
+  let px = 0
+  let pz = 0
+  const w = GOLD_COAST.waypoints
+  for (let i = 0; i + 1 < w.length; i++) {
+    const ax = w[i]![0]
+    const az = w[i]![2]
+    const dx = w[i + 1]![0] - ax
+    const dz = w[i + 1]![2] - az
+    const len2 = dx * dx + dz * dz || 1
+    const t = Math.max(0, Math.min(1, ((center[0] - ax) * dx + (center[1] - az) * dz) / len2))
+    const qx = ax + dx * t
+    const qz = az + dz * t
+    const dd = (qx - center[0]) ** 2 + (qz - center[1]) ** 2
+    if (dd < best) {
+      best = dd
+      px = qx
+      pz = qz
+    }
+  }
+  /**
+   * Inverse of the scene's `rotation.y = heading`.
+   *
+   * Which is `[c, -s; s, c]` with the *unnegated* angle, not a forward rotation
+   * by the negated one — those differ by a reflection, and the first version
+   * used the second. It read as correct on every plot whose heading was near a
+   * right angle and silently mirrored the other half, putting nine buildings'
+   * frontage on the wrong side.
+   */
+  const wx = px - center[0]
+  const wz = pz - center[1]
+  const c = cosOf(heading)
+  const sn = sinOf(heading)
+  const lx = wx * c - wz * sn
+  const lz = wx * sn + wz * c
+  if (Math.abs(lx) > Math.abs(lz)) return [lx > 0 ? 1 : -1, 0]
+  return [0, lz > 0 ? 1 : -1]
+}
+
 export function siteOf(building: CityBuilding): LandmarkSite {
   const heading = longestEdge(building.r)
   const bounds = extent(building.r, centroid(building.r), heading)
@@ -324,6 +389,7 @@ export function siteOf(building: CityBuilding): LandmarkSite {
     size: fitted.size,
     bounds: extent(building.r, fitted.center, heading),
     ring: building.r,
+    streetFace: faceToRoute(fitted.center, heading),
     localRing: building.r.map(([x, z]) => {
       const dx = x - fitted.center[0]
       const dz = z - fitted.center[1]
