@@ -5,6 +5,7 @@ import { Perf } from 'r3f-perf'
 import { useEffect, useState } from 'react'
 
 import { resetRuntime, runtime } from '@/game/runtime'
+import { BODIES, COMPACT } from '@/content/cameras'
 import { useGame } from '@/game/state'
 import { useRouteBundle } from '@/game/useRoute'
 import { PointerKeyboardAdapter, TouchAdapter, prefersTouch } from '@/input'
@@ -134,6 +135,9 @@ function RunController({ fov, duration }: { fov: number; duration: number }) {
 
 export function Game() {
   const routeId = useGame((s) => s.routeId)
+  // The camera in the player's hands. It decides the frame everything else
+  // composes in, captures at and is scored against.
+  const body = BODIES[useGame((s) => s.cameraBody)] ?? COMPACT
   const { route, rail, resolved } = useRouteBundle(routeId)
 
   // Waypoint indices → route progress. Done once, because Catmull-Rom control
@@ -165,12 +169,13 @@ export function Game() {
       </World>
 
       <Rig
+        body={body}
         route={route}
         rail={rail}
         sections={resolved.sections}
         checkpoints={resolved.checkpoints}
       />
-      <Shutter routeId={route.id} rail={rail} />
+      <Shutter routeId={route.id} rail={rail} body={body} />
       <Items />
       <RunController fov={route.fov.default} duration={route.durationSeconds} />
       <InputBinding />

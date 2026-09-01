@@ -211,15 +211,22 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
     'recentring adopts the pose you are holding',
   ).toBeCloseTo(0, 2)
 
-  /** Zoom latches on and off. */
+  /**
+   * The camera latches up and down.
+   *
+   * Was a zoom toggle. The starting body has a fixed lens, so this raises the
+   * camera to your eye rather than magnifying — the view still narrows, because
+   * an eye and a forty-millimetre lens do not take in the same amount, but the
+   * player never chose a number.
+   */
   const wide = await page.evaluate(() => (window as any).__snap.runtime.targetFov)
-  const zoom = page.getByRole('button', { name: 'Zoom' })
+  const zoom = page.getByRole('button', { name: 'Raise camera' })
 
   await zoom.tap()
   await page.waitForTimeout(300)
   expect(
     await page.evaluate(() => (window as any).__snap.runtime.targetFov),
-    'tapping zoom narrows the lens',
+    'raising the camera narrows the view',
   ).toBeLessThan(wide)
   await expect(zoom).toHaveAttribute('aria-pressed', 'true')
 
@@ -229,7 +236,7 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
   await page.waitForTimeout(300)
   expect(
     await page.evaluate(() => (window as any).__snap.runtime.targetFov),
-    'tapping again returns to the wide lens',
+    'lowering it opens back up',
   ).toBe(wide)
   await expect(zoom).toHaveAttribute('aria-pressed', 'false')
 

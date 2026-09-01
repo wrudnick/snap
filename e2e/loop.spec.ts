@@ -69,7 +69,7 @@ async function shootNearestAhead(page: Page, t: number): Promise<Shot | null> {
 
     const target = candidates[0]
     h.lookAt(...target.position)
-    h.input.zoom = true
+    h.input.raise = true
     await wait(500)
     h.lookAt(...target.position)
     await wait(150)
@@ -82,7 +82,7 @@ async function shootNearestAhead(page: Page, t: number): Promise<Shot | null> {
       if (h.store.getState().photos.length > before) break
       await wait(50)
     }
-    h.input.zoom = false
+    h.input.raise = false
 
     const photos = h.store.getState().photos
     if (photos.length === before) return null

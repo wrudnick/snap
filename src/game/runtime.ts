@@ -16,7 +16,9 @@ export interface Runtime {
   /** Player look offsets, radians, relative to the rail's heading. */
   yaw: number
   pitch: number
-  /** Current and target field of view, for smooth zoom. */
+  /** True while the camera is up at your eye and the finder is framing. */
+  raised: boolean
+  /** Current and target field of view, eased between held and raised. */
   fov: number
   targetFov: number
   /** Rail segment the camera is currently in. Drives content gating. */
@@ -56,6 +58,7 @@ export const runtime: Runtime = {
   elapsed: 0,
   yaw: 0,
   pitch: 0,
+  raised: false,
   fov: 60,
   targetFov: 60,
   segment: 0,

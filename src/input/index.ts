@@ -13,8 +13,15 @@ export interface InputState {
   /** Accumulated look delta in pixels since the last frame. Consumed each frame. */
   aimX: number
   aimY: number
-  /** True while the zoom control is held. */
-  zoom: boolean
+  /**
+   * True while the camera is up at your eye.
+   *
+   * Was `zoom`, and the rename is the point rather than tidying. The starting
+   * body has a fixed lens: raising it narrows the view because your eye and a
+   * forty-millimetre lens do not take in the same amount, not because the player
+   * asked for magnification. Zoom arrives later, with glass that has some.
+   */
+  raise: boolean
   /** Set on a shutter press; the game loop clears it after handling. */
   shutter: boolean
   /** Set on a throw; the game loop clears it after handling. */
@@ -51,7 +58,7 @@ export interface InputState {
 export const input: InputState = {
   aimX: 0,
   aimY: 0,
-  zoom: false,
+  raise: false,
   shutter: false,
   toss: false,
   speedUp: false,
@@ -121,13 +128,13 @@ export class PointerKeyboardAdapter implements InputAdapter {
   }
 
   private onContextMenu = (e: Event): void => {
-    // Right-drag is zoom; the menu would interrupt it.
+    // Right-drag raises the camera; the menu would interrupt it.
     e.preventDefault()
   }
 
   private onPointerDown = (e: PointerEvent): void => {
     if (e.button === 2) {
-      input.zoom = true
+      input.raise = true
       return
     }
     if (e.button !== 0) return
@@ -153,7 +160,7 @@ export class PointerKeyboardAdapter implements InputAdapter {
   }
 
   private onPointerUp = (e: PointerEvent): void => {
-    if (e.button === 2) input.zoom = false
+    if (e.button === 2) input.raise = false
     if (e.button === 0) this.dragging = false
   }
 
@@ -162,7 +169,7 @@ export class PointerKeyboardAdapter implements InputAdapter {
       e.preventDefault()
       input.shutter = true
     }
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.zoom = true
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.raise = true
 
     // Review controls.
     if (e.code === 'BracketRight') input.speedUp = true
@@ -176,7 +183,7 @@ export class PointerKeyboardAdapter implements InputAdapter {
   }
 
   private onKeyUp = (e: KeyboardEvent): void => {
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.zoom = false
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.raise = false
   }
 }
 
@@ -186,7 +193,7 @@ export class PointerKeyboardAdapter implements InputAdapter {
  * The pointer/keyboard adapter is unusable on a phone and not in an obvious
  * way: `pointerdown` fires for a finger, so look *almost* works, but the
  * shutter is gated on `this.locked` and Pointer Lock does not exist on iOS — so
- * the game runs, pans, and can never take a photograph. Everything else (zoom,
+ * the game runs, pans, and can never take a photograph. Everything else (raise,
  * pause, checkpoints) is on keys that no phone has.
  *
  * So this is a whole adapter rather than a branch in that one. The split is
@@ -194,7 +201,7 @@ export class PointerKeyboardAdapter implements InputAdapter {
  * action is a button the HUD draws. Buttons write straight into `input`, which
  * is why they need no adapter of their own.
  *
- * Two-finger pinch is zoom, because on a phone the alternative — holding a
+ * Two-finger pinch raises the camera, because on a phone the alternative — holding a
  * button with one thumb while framing with the other — is how you get a blurry
  * photograph of your own hand.
  */
@@ -204,15 +211,15 @@ export class TouchAdapter implements InputAdapter {
   private readonly points = new Map<number, { x: number; y: number }>()
   private pinchDistance = 0
   /**
-   * Whether the current zoom was set by a pinch.
+   * Whether the camera was raised by a pinch.
    *
-   * Releasing a pinch used to clear `input.zoom` on any pointerup at all, which
-   * was invisible while the zoom button was press-and-hold — the button set it
-   * again on the very next frame. Once the button became a toggle, tapping it
-   * armed the zoom and the tap's own pointerup immediately disarmed it, so the
-   * control did nothing. A pinch may only take back what a pinch gave.
+   * Releasing a pinch used to clear the flag on any pointerup at all, which was
+   * invisible while the control was press-and-hold — the button set it again on
+   * the very next frame. Once the button became a toggle, tapping it armed the
+   * camera and the tap's own pointerup immediately disarmed it, so the control
+   * did nothing. A pinch may only take back what a pinch gave.
    */
-  private pinchOwnsZoom = false
+  private pinchOwnsRaise = false
 
   /** Last accepted absolute yaw, and how many readings have been thrown away. */
   private lastYaw: number | null = null
@@ -250,8 +257,8 @@ export class TouchAdapter implements InputAdapter {
     this.lastYaw = null
     this.rejected = 0
     this.north.reset()
-    this.pinchOwnsZoom = false
-    input.zoom = false
+    this.pinchOwnsRaise = false
+    input.raise = false
     input.absoluteYaw = null
     input.absolutePitch = null
     this.element = null
@@ -341,19 +348,23 @@ export class TouchAdapter implements InputAdapter {
 
     if (this.points.size >= 2) {
       /**
-       * Pinch. Held rather than proportional, because `input.zoom` is a
-       * boolean the rig lerps toward — matching the Shift key it replaces.
-       * Spreading zooms in and stays there until the fingers come back.
+       * Pinch to bring the camera up, because people will try it.
+       *
+       * Held rather than proportional: `input.raise` is a boolean the rig lerps
+       * toward, matching the Shift key it mirrors. Spreading raises the camera
+       * and it stays up until the fingers come back together. There is nothing
+       * proportional to control on a fixed lens, and when a zoom lens exists it
+       * wants its own continuous value rather than this.
        */
       const now = this.spread()
       if (this.pinchDistance > 0) {
         if (now - this.pinchDistance > 24) {
-          input.zoom = true
-          this.pinchOwnsZoom = true
+          input.raise = true
+          this.pinchOwnsRaise = true
         }
         if (this.pinchDistance - now > 24) {
-          input.zoom = false
-          this.pinchOwnsZoom = false
+          input.raise = false
+          this.pinchOwnsRaise = false
         }
       }
       return
@@ -372,9 +383,9 @@ export class TouchAdapter implements InputAdapter {
     this.points.delete(e.pointerId)
     if (this.points.size < 2) {
       this.pinchDistance = 0
-      if (this.pinchOwnsZoom) {
-        input.zoom = false
-        this.pinchOwnsZoom = false
+      if (this.pinchOwnsRaise) {
+        input.raise = false
+        this.pinchOwnsRaise = false
       }
     }
   }

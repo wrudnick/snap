@@ -7,6 +7,7 @@ import { capturePhotoImage, warmCapturePipeline } from '@/game/capture/image'
 import { prepareOccluders } from '@/render/raycastAcceleration'
 import { buildSnapshot } from '@/game/capture/snapshot'
 import { captureWorldState } from '@/game/capture/world'
+import { frameCrop, type CameraBody } from '@/content/cameras'
 import type { Rail } from '@/game/rail'
 import { runtime } from '@/game/runtime'
 import { DEFAULT_SCORING_CONFIG } from '@/game/scoring/config'
@@ -32,7 +33,15 @@ let photoCounter = 0
  * Reads store state via `getState()` rather than the hook, so this component
  * never subscribes and never re-renders during play.
  */
-export function Shutter({ routeId, rail }: { routeId: string; rail: Rail }) {
+export function Shutter({
+  routeId,
+  rail,
+  body,
+}: {
+  routeId: string
+  rail: Rail
+  body: CameraBody
+}) {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
   const camera = useThree((s) => s.camera)
@@ -54,8 +63,11 @@ export function Shutter({ routeId, rail }: { routeId: string; rail: Rail }) {
 
   /** Compile the capture pipeline now rather than on the first photograph. */
   useEffect(() => {
-    warmCapturePipeline(gl, PHOTO_WIDTH, Math.round(PHOTO_WIDTH / (size.width / size.height)))
-  }, [gl, size.width, size.height])
+    // The body's frame, not the viewport's — otherwise the warmed target is the
+    // wrong size and the first real capture allocates another one, which is the
+    // stall this exists to prevent.
+    warmCapturePipeline(gl, PHOTO_WIDTH, Math.round(PHOTO_WIDTH / body.aspect))
+  }, [gl, body.aspect])
 
   useFrame(() => {
     if (!input.shutter) return
@@ -66,7 +78,16 @@ export function Shutter({ routeId, rail }: { routeId: string; rail: Rail }) {
 
     busy.current = true
     const id = `photo-${++photoCounter}`
-    const aspect = size.width / size.height
+    /**
+     * The photograph is the finder's frame, not the viewport.
+     *
+     * Both of these used to be the canvas: the snapshot reported the viewport's
+     * aspect to scoring and the capture derived its height from it. A player
+     * composing inside a 3:2 bright-line finder on a 16:9 screen would have been
+     * judged on a rectangle they were never shown.
+     */
+    const aspect = body.aspect
+    const crop = frameCrop(size.width / size.height, body.aspect)
 
     // Synchronous: the world is frozen at this exact instant.
     const snapshot = buildSnapshot({
@@ -132,6 +153,7 @@ export function Shutter({ routeId, rail }: { routeId: string; rail: Rail }) {
       camera,
       width: PHOTO_WIDTH,
       height,
+      crop,
       composer: activeComposer.current,
     })
       .then((blob) => {

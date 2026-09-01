@@ -71,10 +71,62 @@ button:disabled {
   height: 34px;
   border: 2px solid rgba(255, 255, 255, 0.5);
 }
-.corner.tl { top: 5%; left: 5%; border-right: 0; border-bottom: 0; }
-.corner.tr { top: 5%; right: 5%; border-left: 0; border-bottom: 0; }
-.corner.bl { bottom: 5%; left: 5%; border-right: 0; border-top: 0; }
-.corner.br { bottom: 5%; right: 5%; border-left: 0; border-top: 0; }
+/* Pulled to the frame's own edges rather than the screen's — the corners mark
+   the photograph, and the photograph is the finder's rectangle. */
+.corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
+/* -------------------------------------------------------------------------
+   The viewfinder.
+
+   Held at your side the frame is a faint guide inside a wider view; raised, the
+   world outside it goes dark because there is a finder against your eye. The
+   rectangle is the same one the capture crops to and the same one scoring is
+   told about, so what you compose is what you are judged on.
+   ---------------------------------------------------------------------- */
+.finder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+/* Sized from `frameCrop`, in JS, not from `aspect-ratio` here.
+
+   Expressing "the largest 3:2 that fits" in CSS is a one-liner that does not
+   work: `aspect-ratio` with `width: 100%` and `max-height: 100%` produced a
+   1282x855 frame in a 1280x720 viewport, because the max did not clamp back
+   through the ratio. It also meant two implementations of the same rectangle,
+   and the entire reason `frameCrop` exists is that the mask, the capture and
+   the snapshot have to agree exactly. So the width and height come from that
+   one function and this only styles them. */
+.finder__frame {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  transition: border-color 160ms ease, box-shadow 200ms ease;
+}
+
+/* Raised: mask everything outside the frame. One enormous spread shadow is the
+   cheapest way to darken an arbitrary outside without four positioned bars. */
+.finder.up .finder__frame {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 100vmax rgba(4, 5, 7, 0.82);
+}
+
+.finder .corner {
+  opacity: 0.35;
+  transition: opacity 160ms ease;
+}
+.finder.up .corner {
+  opacity: 1;
+}
+
+/* The reticle is a framing aid, not a gunsight — only up when you are framing. */
+.finder .reticle { opacity: 0; transition: opacity 160ms ease; }
+.finder.up .reticle { opacity: 1; }
 
 .reticle {
   position: absolute;

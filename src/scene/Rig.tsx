@@ -6,6 +6,7 @@ import { lookOffset } from '@/lib/deviceOrientation'
 import type { RouteDef } from '@/content/routes/types'
 import { bridge } from '@/dev/harness'
 import { clamp, type Rail } from '@/game/rail'
+import type { CameraBody } from '@/content/cameras'
 import { runtime } from '@/game/runtime'
 import {
   sectionAt,
@@ -36,11 +37,13 @@ export function Rig({
   rail,
   sections,
   checkpoints,
+  body,
 }: {
   route: RouteDef
   rail: Rail
   sections: ResolvedSection[]
   checkpoints: ResolvedCheckpoint[]
+  body: CameraBody
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const ended = useRef(false)
@@ -180,7 +183,16 @@ export function Rig({
     consumeAim()
 
     // Zoom, eased rather than snapped — a hard FOV cut reads as a glitch.
-    runtime.targetFov = input.zoom ? route.fov.zoomed : route.fov.default
+    /**
+     * Raising the camera settles the view into the lens's own framing.
+     *
+     * The endpoints come from the body, not the route: a fixed-lens compact
+     * takes in a fixed amount and that is a property of the camera you are
+     * holding, not of the street you are on. The route's own `fov` remains the
+     * starting value and the fallback.
+     */
+    runtime.raised = input.raise
+    runtime.targetFov = runtime.raised ? body.fovRaised : body.fovHeld
     runtime.fov += (runtime.targetFov - runtime.fov) * Math.min(1, dt * 12)
 
     rail.positionAt(runtime.t, camera.position)

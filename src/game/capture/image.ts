@@ -79,6 +79,16 @@ export interface CaptureOptions {
    * a plain `gl.render` here would save an un-inked image of a cel-shaded game.
    */
   composer?: EffectComposer | null
+  /**
+   * The finder's frame within the rendered view, as fractions.
+   *
+   * The scene renders at the viewport's aspect and the photograph is a crop of
+   * it, because that is what a bright-line finder is: a rectangle drawn inside a
+   * wider view. Must be the same rectangle the HUD masks to and the same one the
+   * snapshot reports, or the player composes against one frame and is judged on
+   * another.
+   */
+  crop?: { width: number; height: number; x: number; y: number }
 }
 
 /**
@@ -96,8 +106,8 @@ export async function capturePhotoImage(opts: CaptureOptions): Promise<Blob> {
   const composed = composer ? renderThroughComposer(composer) : null
 
   const rt = composed
-    ? blitToTarget(gl, composed, width, height)
-    : renderOffscreen(gl, scene, camera, width, height)
+    ? blitToTarget(gl, composed, width, height, opts.crop)
+    : renderOffscreen(gl, scene, camera, width, height, opts.crop)
 
   const buffer = getBuffer(width * height * 4)
 
@@ -127,16 +137,35 @@ function blitToTarget(
   source: THREE.WebGLRenderTarget,
   width: number,
   height: number,
+  crop?: { width: number; height: number; x: number; y: number },
 ): THREE.WebGLRenderTarget {
   const rt = getTarget(width, height)
   const { scene, camera, material } = getBlit()
 
   material.map = source.texture
+  /**
+   * Cropping by texture transform rather than by a scissor.
+   *
+   * The composed frame is already a canvas-sized texture, so taking the finder's
+   * rectangle out of it is two numbers on the sampler and costs nothing. A
+   * scissored re-render would be a second full pass for a rectangle we already
+   * have.
+   */
+  if (crop && source.texture) {
+    source.texture.repeat.set(crop.width, crop.height)
+    source.texture.offset.set(crop.x, crop.y)
+    source.texture.needsUpdate = true
+  }
 
   const previous = gl.getRenderTarget()
   gl.setRenderTarget(rt)
   gl.render(scene, camera)
   gl.setRenderTarget(previous)
+  // Left as found: the composer reuses this texture for the live view.
+  if (crop && source.texture) {
+    source.texture.repeat.set(1, 1)
+    source.texture.offset.set(0, 0)
+  }
 
   // Don't hold a reference to a composer buffer between shots.
   material.map = null
@@ -150,8 +179,24 @@ function renderOffscreen(
   camera: THREE.Camera,
   width: number,
   height: number,
+  crop?: { width: number; height: number; x: number; y: number },
 ): THREE.WebGLRenderTarget {
   const rt = getTarget(width, height)
+  /**
+   * Without the post chain there is no texture to crop, so the frame has to come
+   * from the projection instead: narrow the camera to the finder's rectangle for
+   * one render and put it back. `setViewOffset` states it exactly — this is the
+   * sub-rectangle of a larger view — and restoring is `clearViewOffset`.
+   */
+  const perspective = camera as THREE.PerspectiveCamera
+  const croppable = crop && perspective.isPerspectiveCamera
+  if (croppable) {
+    perspective.setViewOffset(
+      1 / crop.width, 1 / crop.height,
+      crop.x / crop.width, crop.y / crop.height,
+      1, 1,
+    )
+  }
   const previous = gl.getRenderTarget()
   gl.setRenderTarget(rt)
   gl.render(scene, camera)

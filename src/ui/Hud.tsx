@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { BODIES, COMPACT, frameCrop } from '@/content/cameras'
 
 import { runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
@@ -87,8 +88,8 @@ function TouchControls() {
   const zoomRef = useRef<HTMLButtonElement>(null)
   const toggleZoom = useMemo(
     () => () => {
-      input.zoom = !input.zoom
-      zoomRef.current?.setAttribute('aria-pressed', String(input.zoom))
+      input.raise = !input.raise
+      zoomRef.current?.setAttribute('aria-pressed', String(input.raise))
     },
     [],
   )
@@ -101,7 +102,7 @@ function TouchControls() {
           ref={zoomRef}
           type="button"
           className="touch__zoom"
-          aria-label="Zoom"
+          aria-label="Raise camera"
           aria-pressed="false"
           onPointerDown={toggleZoom}
         >
@@ -178,6 +179,66 @@ export function Hud() {
   const touch = useMemo(() => prefersTouch(), [])
   const filmRemaining = useGame((s) => s.filmRemaining)
   const shutterTick = useGame((s) => s.shutterTick)
+  const body = BODIES[useGame((s) => s.cameraBody)] ?? COMPACT
+
+  /**
+   * The finder follows `runtime.raised`, polled rather than subscribed.
+   *
+   * It changes on a keypress in the middle of a run, and the one rule this HUD
+   * has is that nothing in it re-renders during play — the progress bar is
+   * animated through a ref for the same reason. A class on a ref is the whole
+   * change; React never hears about it.
+   */
+  const finderRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * The frame, sized from the same function the capture crops by.
+   *
+   * Not from CSS. `aspect-ratio` with a max on the other axis does not clamp
+   * back through the ratio — it produced a 1282x855 frame inside a 1280x720
+   * viewport — and more importantly it would be a second implementation of a
+   * rectangle that three places have to agree on exactly.
+   */
+  const frameRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const host = finderRef.current
+    const el = frameRef.current
+    if (!host || !el) return
+
+    /**
+     * Measured from the finder's own box, not from `window`.
+     *
+     * The first attempt read `window.innerWidth` on mount and got zero, because
+     * it ran before layout — which sized the frame to nothing. An element's own
+     * rect cannot be asked before it exists, and a `ResizeObserver` fires once
+     * on observe, so this is both correct at startup and correct on rotation,
+     * without a listener for each way the page can change size.
+     */
+    const fit = () => {
+      const { width, height } = host.getBoundingClientRect()
+      if (width <= 0 || height <= 0) return
+      const crop = frameCrop(width / height, body.aspect)
+      el.style.width = `${crop.width * 100}%`
+      el.style.height = `${crop.height * 100}%`
+    }
+
+    const observer = new ResizeObserver(fit)
+    observer.observe(host)
+    return () => observer.disconnect()
+  }, [body.aspect])
+
+  useEffect(() => {
+    let frame = 0
+    let was: boolean | null = null
+    const tick = () => {
+      frame = requestAnimationFrame(tick)
+      if (runtime.raised === was) return
+      was = runtime.raised
+      finderRef.current?.classList.toggle('up', was)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [])
 
   const barRef = useRef<HTMLDivElement>(null)
   const flashRef = useRef<HTMLDivElement>(null)
@@ -232,11 +293,28 @@ export function Hud() {
         <div className="bar" ref={barRef} />
       </div>
 
-      <div className="corner tl" />
-      <div className="corner tr" />
-      <div className="corner bl" />
-      <div className="corner br" />
-      <div className="reticle" />
+      {/*
+        The frame, always drawn, masked only when the camera is up.
+
+        A bright-line finder shows a rectangle inside a wider view, and that is
+        exactly what this is: held at your side you see the street around the
+        frame and the frame is only a guide, and raised the world outside it goes
+        dark because you have a finder against your eye. The rectangle is the
+        same one the capture crops to and the same one scoring is told about —
+        it is the whole point that the player composes against the real frame.
+
+        Driven off a ref rather than React state: it changes on a keypress
+        mid-run and nothing else in the HUD may re-render during play.
+      */}
+      <div className="finder" ref={finderRef} data-finder="brightline">
+        <div className="finder__frame" ref={frameRef}>
+          <div className="corner tl" />
+          <div className="corner tr" />
+          <div className="corner bl" />
+          <div className="corner br" />
+          <div className="reticle" />
+        </div>
+      </div>
 
       <div className="section" ref={sectionRef} />
       <div className="paused" ref={pausedRef} />

@@ -75,6 +75,7 @@ function saveAlbum(album: Record<string, AlbumEntry>): void {
 interface GameStore {
   phase: Phase
   routeId: string
+  cameraBody: string
   filmRemaining: number
   photos: Photo[]
   album: Record<string, AlbumEntry>
@@ -94,6 +95,14 @@ interface GameStore {
 export const useGame = create<GameStore>((set, get) => ({
   phase: 'menu',
   routeId: 'goldcoast',
+  /**
+   * The camera you own. One for now; the shop replaces this.
+   *
+   * Lives in the store rather than in a route or a component because it is a
+   * property of the player, and it decides the frame every photograph is
+   * composed in, captured at and scored against.
+   */
+  cameraBody: 'compact',
   filmRemaining: 0,
   photos: [],
   album: loadAlbum(),
