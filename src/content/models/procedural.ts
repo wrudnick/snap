@@ -462,8 +462,6 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
   body.add(
     part('bodyShell', BOX, c, [0, 0.5, 0.06], [0.44, 0.42, 0.8]),
     part('chest', BOX, c, [0, 0.55, -0.34], [0.46, 0.44, 0.34]),
-    // A short neck sets the head forward and clear of the shoulders.
-    part('neck', BOX, c, [0, 0.66, -0.53], [0.24, 0.24, 0.16]),
     part('tail', BOX, a, [0, 0.62, 0.44], [0.1, 0.1, 0.4]),
   )
 
@@ -486,6 +484,20 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
   headGroup.position.set(0, 0.79, -0.67)
   headGroup.add(
     part('skull', BOX, c, [0, 0, 0], [0.4, 0.36, 0.38]),
+    /**
+     * The neck travels with the head, not with the shoulders.
+     *
+     * It used to sit on the body, which was fine while the head was a sibling
+     * that only ever rotated in place. Once the head became a group that clips
+     * can *move* — sniffing drops it thirty-five centimetres and pushes it
+     * forward — the neck stayed where it was and hung in the air above the
+     * lowered head, reading as a block floating off the dog.
+     *
+     * Carrying it means the join to the chest opens slightly at the extremes,
+     * which is a far smaller lie than a detached cube, and at this size it
+     * reads as the neck extending.
+     */
+    part('neck', BOX, c, [0, -0.13, 0.14], [0.26, 0.26, 0.2]),
     // Muzzle kept low and small so it reads as a snout rather than a second
     // head, and so it leaves the brow clear for the eyes.
     part('snout', BOX, a, [0, -0.08, -0.22], [0.18, 0.14, 0.14]),
@@ -500,6 +512,22 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
     // Ears: prominent, but a cat, not a rabbit.
     part('earL', BOX, a, [-0.13, 0.18, 0.04], [0.1, 0.15, 0.05]),
     part('earR', BOX, a, [0.13, 0.18, 0.04], [0.1, 0.15, 0.05]),
+    /**
+     * The rest of the face, which a later detail pass used to add to the body.
+     *
+     * Inner ears and brow sat at y ≈ 1.1 on the torso. The head only ever
+     * rotated in place, so nothing gave that away — until it became a group
+     * that clips can move, and sniffing dropped the head thirty-five
+     * centimetres while the ear linings and eyebrows stayed at shoulder height,
+     * hanging in the air above the dog as a detached bar.
+     *
+     * The collar and tag stay on the body on purpose: a collar sits on the
+     * neck where it meets the shoulders and does not follow a nose to the
+     * pavement.
+     */
+    part('earInL', BOX, shadeOf(a, 0.68), [-0.13, 0.17, 0.015], [0.055, 0.1, 0.03]),
+    part('earInR', BOX, shadeOf(a, 0.68), [0.13, 0.17, 0.015], [0.055, 0.1, 0.03]),
+    part('brow', BOX, shadeOf(c, 0.82), [0, 0.15, -0.12], [0.34, 0.06, 0.14]),
   )
   body.add(headGroup)
 
@@ -519,9 +547,6 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
     part('belly', BOX, shadeOf(c, 1.25), [0, 0.32, 0.02], [0.36, 0.1, 0.72]),
     part('bib', BOX, shadeOf(c, 1.25), [0, 0.44, -0.48], [0.22, 0.2, 0.08]),
     // Ear interiors, a shade in from the edge so a rim of ear remains.
-    part('earInL', BOX, shadeOf(a, 0.68), [-0.13, 0.96, -0.655], [0.055, 0.1, 0.03]),
-    part('earInR', BOX, shadeOf(a, 0.68), [0.13, 0.96, -0.655], [0.055, 0.1, 0.03]),
-    part('brow', BOX, shadeOf(c, 0.82), [0, 0.94, -0.79], [0.34, 0.06, 0.14]),
     part('tailTip', BOX, shadeOf(a, 1.3), [0, 0.62, 0.62], [0.095, 0.095, 0.1]),
     // Collar. Reads as a pet rather than a stray, and adds the one saturated
     // note on an otherwise single-hue animal.
@@ -580,12 +605,40 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
      * the rear drops further and the tilt is stronger.
      */
     new THREE.AnimationClip('sit', 3.0, [
-      vec('body.position', [0, 3.0], [0, -0.16, 0.06, 0, -0.16, 0.06]),
+      vec('body.position', [0, 3.0], [0, -0.09, 0.06, 0, -0.09, 0.06]),
       num('body.rotation[x]', [0, 3.0], [0.42, 0.42]),
-      num('legFL.rotation[x]', [0, 3.0], [-0.42, -0.42]),
-      num('legFR.rotation[x]', [0, 3.0], [-0.42, -0.42]),
-      num('legBL.rotation[x]', [0, 3.0], [-1.25, -1.25]),
-      num('legBR.rotation[x]', [0, 3.0], [-1.25, -1.25]),
+      /*
+       * Front legs braced forward, paws just clear of the ground.
+       *
+       * Cancelling the body's tilt stood them dead vertical, which drove the
+       * paws two or three centimetres under the pavement and read as the dog
+       * standing on stilts pushed into it. Angling them forward instead lays
+       * the paw flatter and carries it out in front, which is where a sitting
+       * dog braces — and lifts it just over the ground rather than just under.
+       */
+      num('legFL.rotation[x]', [0, 3.0], [0.15, 0.15]),
+      num('legFR.rotation[x]', [0, 3.0], [0.15, 0.15]),
+      /*
+       * Hind legs tucked forward under the hips, and the whole dog lifted.
+       *
+       * The original −1.25 swung them out *behind* and drove the hind paws
+       * thirty-nine centimetres through the pavement, with the front pair
+       * eleven below — the animal was simply sunk into the ground, which is
+       * what showed as "stretched below the surface".
+       *
+       * Standing them vertically was not enough on its own: the legs are
+       * children of the body and the body is tilted nose-up, so the hips sit
+       * twenty-eight centimetres lower than the shoulders and a vertical hind
+       * leg still reaches through the floor. Positive rotation swings the paw
+       * forward and up, under the body, which is both what a sitting dog does
+       * and what gets the foot out of the pavement.
+       *
+       * Found by sweeping tilt, lift and leg angle and measuring the lowest
+       * point of each paw, rather than by eye: at these values the front paws
+       * sit 2 cm under and the hind 3 cm over, against −0.39 before.
+       */
+      num('legBL.rotation[x]', [0, 3.0], [0.9, 0.9]),
+      num('legBR.rotation[x]', [0, 3.0], [0.9, 0.9]),
       num('tail.rotation[y]', [0, 0.75, 1.5, 2.25, 3.0], [0, 0.5, 0, -0.5, 0]),
       num('head.rotation[y]', [0, 1.5, 3.0], [-0.2, 0.25, -0.2]),
     ]),
