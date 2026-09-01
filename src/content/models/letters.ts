@@ -58,6 +58,48 @@ export const GLYPHS: Record<string, readonly Rect[]> = {
   A: [[0.02, 0.0, STEM, 0.78], [0.74, 0.0, STEM, 0.78], [0.02, 0.8, 0.96, 0.2], [0.02, 0.4, 0.96, 0.16]],
   L: [[0.1, 0.0, STEM, 1.0], [0.1, 0.0, 0.8, 0.18]],
   ' ': [],
+
+  /**
+   * Lower case, because the sign it is for is not shouting.
+   *
+   * The Drake's roof sign reads "The Drake" with two capitals and the rest
+   * lower case, in a serif — set in block capitals it reads as a motel. The
+   * x-height is 0.62 and the ascenders run to the cap line, which is the
+   * proportion that makes the two sit together.
+   */
+  h: [[0.08, 0.0, STEM, 1.0], [0.08, 0.46, 0.56, 0.16], [0.58, 0.0, STEM, 0.58]],
+  e: [
+    [0.06, 0.06, 0.2, 0.42], [0.06, 0.46, 0.76, 0.16], [0.06, 0.0, 0.76, 0.16],
+    [0.06, 0.26, 0.66, 0.13], [0.64, 0.3, 0.2, 0.18],
+  ],
+  o: [[0.06, 0.06, 0.2, 0.42], [0.66, 0.06, 0.2, 0.42], [0.06, 0.46, 0.8, 0.16], [0.06, 0.0, 0.8, 0.16]],
+  r: [[0.1, 0.0, STEM, 0.62], [0.1, 0.46, 0.46, 0.16], [0.52, 0.32, 0.2, 0.16]],
+  k: [
+    [0.08, 0.0, STEM, 1.0],
+    ...diagonal(0.32, 0.3, 0.76, 0.58, 4, 0.19),
+    ...diagonal(0.32, 0.28, 0.78, 0.02, 4, 0.19),
+  ],
+  a: [[0.08, 0.0, 0.2, 0.48], [0.68, 0.0, 0.2, 0.62], [0.08, 0.46, 0.7, 0.16], [0.08, 0.0, 0.7, 0.16], [0.08, 0.22, 0.7, 0.13]],
+  t: [[0.3, 0.0, STEM, 0.86], [0.06, 0.5, 0.7, 0.14], [0.3, 0.0, 0.5, 0.15]],
+  l: [[0.34, 0.0, STEM, 1.0]],
+}
+
+/**
+ * Slab serifs, added to the feet and heads of a glyph's vertical stems.
+ *
+ * The one thing that separates a hotel sign of the 1920s from a modern one at
+ * any distance where the letterform itself is three pixels wide. Applied by
+ * widening the ends of anything tall and narrow, rather than by drawing each
+ * serif by hand into forty glyph definitions.
+ */
+export function serifed(glyph: readonly Rect[], amount = 0.12): Rect[] {
+  const out: Rect[] = [...glyph]
+  for (const [x, y, w, h] of glyph) {
+    if (w > 0.3 || h < 0.45) continue
+    out.push([x - amount / 2, y, w + amount, 0.08])
+    if (h > 0.8) out.push([x - amount / 2, y + h - 0.08, w + amount, 0.08])
+  }
+  return out
 }
 
 /**
@@ -73,14 +115,18 @@ export function buildWord(
   depth: number,
   material: THREE.Material,
   tracking = 0.16,
+  serif = false,
 ): THREE.Group {
   const group = new THREE.Group()
   const advance = 1 + tracking
   const width = (text.length * advance - tracking) * size
 
   text.split('').forEach((character, index) => {
-    const glyph = GLYPHS[character.toUpperCase()]
-    if (!glyph) return
+    // Case-sensitive: the lower-case forms are their own glyphs, and falling
+    // back to the capital would silently set the whole word in caps.
+    const raw = GLYPHS[character] ?? GLYPHS[character.toUpperCase()]
+    if (!raw) return
+    const glyph = serif ? serifed(raw) : raw
     const left = index * advance * size - width / 2
     for (const [x, y, w, h] of glyph) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w * size, h * size, depth), material)

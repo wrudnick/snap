@@ -299,39 +299,60 @@ function drakeHotel(site: LandmarkSite): THREE.Object3D {
   g.add(band(w, d, h, 1.2, 1.2, LIMESTONE_SHADE))
 
   /**
-   * The rooftop sign, with the name actually on it.
+   * The rooftop sign, from a photograph rather than from memory.
    *
-   * It was two red slabs standing on the parapet, which from the street is a
-   * hotel with two blank billboards. The sign is the building's whole
-   * signature — it is the thing you can read from Oak Street Beach — so it
-   * carries letters, built from boxes like everything else here. See
-   * `letters.ts` for why that is a font rather than a texture.
+   * The first attempt was white block capitals on a solid red billboard, which
+   * is a motel. The real one is "The Drake" in mixed case with serifs, in red
+   * letters standing on an open steel lattice — you see the sky straight
+   * through it, and at night the letters glow and the frame disappears. Since
+   * the route passes at dusk, the frame vanishing is most of what it looks
+   * like.
    *
-   * On both long faces, because it is legible coming up Michigan and going
-   * back down it.
+   * So: no board. A frame, and letters standing proud of it.
    */
-  const SIGN_RED = 0xc23a35
-  const SIGN_LETTER = 0xf6efe2
-  const WORD = 'THE DORKE'
-  const boardW = w * 0.86
-  const letter = Math.min(boardW / (WORD.length * 1.16), 5.2)
-  const boardH = letter * 2.1
+  const SIGN_RED = 0xd0342c
+  const FRAME = 0x3f3a34
+  const WORD = 'The Dorke'
+  const frameW = w * 0.8
+  const letter = Math.min(frameW / (WORD.length * 1.24), 5.4)
+  const frameH = letter * 1.9
+  const baseY = h + 1.0
 
-  for (const side of [1, -1]) {
-    const z = side * (d / 2 + 0.6)
-    // Legs, so it stands on the roof rather than growing out of it.
-    for (const lx of [-boardW * 0.34, boardW * 0.34]) {
-      g.add(slab(0.5, 2.2, 0.5, h + 1.2, 0x4a4038, [lx, z]))
-    }
-    g.add(slab(boardW, boardH, 0.6, h + 3.0, SIGN_RED, [0, z]))
-    g.add(band(boardW, 0.9, h + 3.0, 0.35, 0.25, 0x8d2a26).translateZ(z))
+  /**
+   * One sign, on the face the street sees.
+   *
+   * Built on both long faces first, and because the frame is open you saw
+   * straight through to the far one — its letters mirrored and half a building
+   * behind, so head-on the two sets overlapped into nonsense. The real building
+   * carries one, and one is also the only honest answer to a frame you can see
+   * through.
+   */
+  const [fx, fz] = site.streetFace
+  const onX = Math.abs(fx) > 0
+  const { minX, maxX, minZ, maxZ } = site.extent
+  const edge = onX ? (fx > 0 ? maxX : minX) : fz > 0 ? maxZ : minZ
 
-    const word = buildWord(WORD, letter, 0.5, mat(SIGN_LETTER))
-    // Proud of the board, and facing outwards on each side.
-    word.position.set(0, h + 3.0 + (boardH - letter) / 2, z + side * 0.45)
-    word.rotation.y = side > 0 ? 0 : Math.PI
-    g.add(word)
+  const sign = new THREE.Group()
+  // The word is modelled facing −Z, so this turns it to face the street.
+  sign.rotation.y = Math.atan2(-fx, -fz)
+  sign.position.set(onX ? edge + fx * 0.8 : 0, 0, onX ? 0 : edge + fz * 0.8)
+
+  const posts = 5
+  for (let i = 0; i < posts; i++) {
+    const x = -frameW / 2 + (frameW * i) / (posts - 1)
+    sign.add(slab(0.42, frameH, 0.42, baseY, FRAME, [x, 0]))
   }
+  sign.add(slab(frameW, 0.42, 0.42, baseY, FRAME, [0, 0]))
+  sign.add(slab(frameW, 0.42, 0.42, baseY + frameH - 0.42, FRAME, [0, 0]))
+  for (const lx of [-frameW * 0.36, frameW * 0.36]) {
+    sign.add(slab(0.42, 1.4, 0.42, h - 0.4, FRAME, [lx, 0]))
+  }
+
+  const word = buildWord(WORD, letter, 0.55, mat(SIGN_RED), 0.24, true)
+  word.position.set(0, baseY + (frameH - letter) / 2, -0.5)
+  sign.add(word)
+  g.add(sign)
+
   return g
 }
 
