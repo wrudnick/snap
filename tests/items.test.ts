@@ -17,16 +17,16 @@ function fake(id: string, at: [number, number, number], answers: string[]) {
   const object = new THREE.Object3D()
   object.position.set(...at)
   object.updateMatrixWorld(true)
-  const heard: Array<{ trigger: string; from: [number, number, number] }> = []
+  const heard: Array<{ trigger: string; from: [number, number, number]; distance: number }> = []
   registerSubject({
     id,
     species: 'pigeon',
     object,
     bounds: new THREE.Box3(new THREE.Vector3(-0.1, 0, -0.1), new THREE.Vector3(0.1, 0.2, 0.1)),
     readPose: () => ({ clip: 'idle', time: 0 }),
-    react: (trigger, from) => {
+    react: (trigger, from, distance) => {
       if (!answers.includes(trigger)) return false
-      heard.push({ trigger, from: [from.x, from.y, from.z] })
+      heard.push({ trigger, from: [from.x, from.y, from.z], distance })
       return true
     },
   })
@@ -122,6 +122,31 @@ describe('thrown items', () => {
     expect(heard).toHaveLength(1)
     expect(heard[0]!.from[0]).toBeCloseTo(at.x, 1)
     expect(heard[0]!.from[2]).toBeCloseTo(at.z, 1)
+  })
+
+  /**
+   * Far-off things still get asked.
+   *
+   * The item's attract radius is what a *pigeon* notices from — nine metres. A
+   * dog smells one from thirty-four, and the hot dog has no business knowing
+   * which species is which, so everything plausibly within earshot is
+   * consulted and each answers with its own senses. Filtering on the item's
+   * radius here would have made the dog's nose unreachable no matter what its
+   * data said.
+   */
+  it('consults subjects well beyond the item\'s own radius', () => {
+    const start = new THREE.Vector3(0, 1.7, 0)
+    land(start, new THREE.Vector3(0, 0, -1))
+    const at = activeItems()[0]!.position.clone()
+    clearItems()
+
+    const nose = fake('dog', [at.x, 0, at.z + 30], ['food'])
+    const tooFar = fake('miles', [at.x, 0, at.z + 60], ['food'])
+    land(start, new THREE.Vector3(0, 0, -1))
+
+    expect(nose, 'thirty metres away, and asked').toHaveLength(1)
+    expect(nose[0]!.distance, 'told how far, so it can decide').toBeCloseTo(30, 0)
+    expect(tooFar, 'past any plausible sense').toEqual([])
   })
 
   /**

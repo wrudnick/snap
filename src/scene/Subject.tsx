@@ -5,8 +5,9 @@ import * as THREE from 'three'
 import { buildModel } from '@/content/models/procedural'
 import type { SubjectPlacement } from '@/content/routes/types'
 import { getSubject } from '@/content/subjects'
-import type { BehaviorDef } from '@/content/subjects/types'
+import type { BehaviorDef, ReactionStep } from '@/content/subjects/types'
 import { registerSubject, unregisterSubject } from '@/game/capture/registry'
+import { consumeItemAt } from '@/game/items'
 import { makeRng, range } from '@/lib/rng'
 
 /**
@@ -108,39 +109,136 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
   )
 
   /**
-   * Play a triggered behaviour, and turn towards whatever caused it.
+   * The errand a subject is currently running, if any.
    *
-   * Held for the behaviour's own duration like any other, so it hands back to
-   * the idle rotation on its own rather than needing to be cancelled — a
-   * reaction that had to be switched off would be a second piece of state to
-   * get wrong.
-   *
-   * Only the yaw is taken from the direction: a pigeon that pitches to look at
-   * something on the pavement in front of it is a pigeon lying on its side.
+   * A ref rather than state: it advances every frame and nothing outside this
+   * component looks at it. `null` means the subject is back on its own idle
+   * rotation, which is where it returns to when the last beat finishes — a
+   * reaction that had to be cancelled would be a second piece of state to get
+   * wrong.
    */
-  const play = useMemo(
-    () => (trigger: string, from: THREE.Vector3): boolean => {
-      const next = def.behaviors.find((b) => b.trigger === trigger)
-      const group = groupRef.current
-      if (!next || !group) return false
-      const action = actions.get(next.clip)
-      if (!action) return false
+  const errand = useRef<{
+    steps: ReactionStep[]
+    index: number
+    elapsed: number
+    target: THREE.Vector3
+  } | null>(null)
 
+  /** Start a clip now, crossfading from whatever was playing. */
+  const start = useMemo(
+    () => (clip: string): boolean => {
+      const action = actions.get(clip)
+      if (!action) return false
       const previous = current.current.action
       action.reset()
       action.setLoop(THREE.LoopRepeat, Infinity)
       action.enabled = true
       if (previous && previous !== action) action.crossFadeFrom(previous, 0.18, false).play()
       else action.play()
-
-      current.current = { name: next.clip, action }
-      holdFor.current = range(rng, next.minSeconds, next.maxSeconds)
-
-      // Models face local −Z, so this is the heading that puts `from` in front.
-      group.rotation.y = Math.atan2(from.x - group.position.x, from.z - group.position.z) + Math.PI
+      current.current = { name: clip, action }
       return true
     },
-    [actions, def.behaviors, rng],
+    [actions],
+  )
+
+  /**
+   * Face a point, on the yaw only.
+   *
+   * A pigeon that pitches to look at something on the pavement in front of it
+   * is a pigeon lying on its side. Models face local −Z, so this is the heading
+   * that puts the point in front.
+   */
+  const faceTowards = useMemo(
+    () => (group: THREE.Object3D, point: THREE.Vector3) => {
+      group.rotation.y = Math.atan2(point.x - group.position.x, point.z - group.position.z) + Math.PI
+    },
+    [],
+  )
+
+  /**
+   * Respond to something that happened, if this species has anything to say.
+   *
+   * A scripted reaction wins over a single-clip one, and the species decides
+   * whether it noticed at all — its own senses, not the thrower's guess.
+   */
+  const play = useMemo(
+    () => (trigger: string, from: THREE.Vector3, distance: number): boolean => {
+      const group = groupRef.current
+      if (!group) return false
+
+      const scripted = def.reactions?.find((r) => r.trigger === trigger)
+      if (scripted && distance <= scripted.senses && scripted.steps.length > 0) {
+        errand.current = {
+          steps: scripted.steps,
+          index: 0,
+          elapsed: 0,
+          target: from.clone(),
+        }
+        start(scripted.steps[0]!.clip)
+        faceTowards(group, from)
+        // Held by the errand from here; the idle timer must not cut across it.
+        holdFor.current = Number.POSITIVE_INFINITY
+        return true
+      }
+
+      const next = def.behaviors.find((b) => b.trigger === trigger)
+      if (!next || !start(next.clip)) return false
+      holdFor.current = range(rng, next.minSeconds, next.maxSeconds)
+      faceTowards(group, from)
+      return true
+    },
+    [def.behaviors, def.reactions, faceTowards, rng, start],
+  )
+
+  /**
+   * Advance the errand: walk, eat, and hand back to idling at the end.
+   *
+   * Movement is straight at the target. Over the few metres these cover, on a
+   * pavement, that is right often enough to be worth far less than what pathing
+   * would cost — and a dog that walks through the corner of a bin is a smaller
+   * problem than a dog that never reaches the hot dog.
+   */
+  const stepErrand = useMemo(
+    () => (dt: number, group: THREE.Object3D) => {
+      const run = errand.current
+      if (!run) return
+      const step = run.steps[run.index]!
+      run.elapsed += dt
+
+      if (step.speed) {
+        const dx = run.target.x - group.position.x
+        const dz = run.target.z - group.position.z
+        const gap = Math.hypot(dx, dz)
+        if (gap > 0.05) {
+          const travel = Math.min(step.speed * dt, gap)
+          group.position.x += (dx / gap) * travel
+          group.position.z += (dz / gap) * travel
+          faceTowards(group, run.target)
+        }
+      }
+
+      const arrived =
+        step.hold === 'arrive'
+          ? Math.hypot(run.target.x - group.position.x, run.target.z - group.position.z) < 0.6 ||
+            // A leg that can never finish would strand the subject mid-street.
+            run.elapsed > 12
+          : run.elapsed >= step.hold
+
+      if (!arrived) return
+
+      if (step.consume) consumeItemAt(run.target)
+
+      run.index += 1
+      run.elapsed = 0
+      const next = run.steps[run.index]
+      if (!next) {
+        errand.current = null
+        holdFor.current = 0
+        return
+      }
+      start(next.clip)
+    },
+    [faceTowards, start],
   )
 
   useEffect(() => {
@@ -169,7 +267,7 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
         const time = action ? (action.time % duration) / duration : 0
         return { clip: name, time }
       },
-      react: (trigger, from) => play(trigger, from),
+      react: (trigger, from, distance) => play(trigger, from, distance),
     })
 
     return () => unregisterSubject(placement.id)
@@ -199,8 +297,13 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
     const dt = Math.min(delta, 1 / 30)
     mixer.update(dt)
 
-    holdFor.current -= dt
-    if (holdFor.current <= 0) playNext()
+    const errandGroup = groupRef.current
+    if (errand.current && errandGroup) {
+      stepErrand(dt, errandGroup)
+    } else {
+      holdFor.current -= dt
+      if (holdFor.current <= 0) playNext()
+    }
 
     const group = groupRef.current
     if (!group) return

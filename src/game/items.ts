@@ -43,6 +43,14 @@ export interface ThrownItem {
 /** How long a landed item stays before it is cleared away. */
 const LINGER_SECONDS = 22
 
+/**
+ * The furthest anything is asked whether it noticed.
+ *
+ * Not a sense radius — that belongs to the species. This only bounds how much
+ * of the street gets consulted about a dropped hot dog.
+ */
+const NOTICE_LIMIT = 40
+
 let items: ThrownItem[] = []
 let counter = 0
 
@@ -88,7 +96,15 @@ function resolveImpact(item: ThrownItem): void {
       subject.object.getWorldPosition(at)
       return { subject, distance: at.distanceTo(item.position) }
     })
-    .filter((entry) => entry.distance <= def.attract.radius)
+    /**
+     * A generous net, and each subject decides for itself.
+     *
+     * The item's own attract radius is what a *pigeon* notices from. A dog
+     * smells one from thirty metres, and the item has no business knowing that,
+     * so this gathers everything plausibly within earshot and lets each species
+     * answer with its own senses.
+     */
+    .filter((entry) => entry.distance <= Math.max(def.attract.radius, NOTICE_LIMIT))
     .sort((a, b) => a.distance - b.distance)
 
   let reacted = 0
@@ -98,10 +114,11 @@ function resolveImpact(item: ThrownItem): void {
     // Falls back to the other reaction: a species that flees but does not eat
     // should still flee when the thing lands beside it rather than on it.
     const fired =
-      subject.react(trigger, item.position) ||
+      subject.react(trigger, item.position, distance) ||
       subject.react(
         trigger === def.startle.trigger ? def.attract.trigger : def.startle.trigger,
         item.position,
+        distance,
       )
     if (fired) reacted += 1
   }
@@ -130,4 +147,29 @@ export function stepItems(dt: number): void {
   }
 
   items = items.filter((item) => (item.restingFor ?? 0) < LINGER_SECONDS)
+}
+
+/**
+ * Something ate it.
+ *
+ * By position rather than by id: the reaction that consumes an item is several
+ * seconds and a walk across the pavement removed from the throw that created
+ * it, and threading an id through every beat of that would be bookkeeping in
+ * aid of nothing. Nearest wins, so two hot dogs a metre apart do not both
+ * vanish into one dog.
+ */
+export function consumeItemAt(at: THREE.Vector3, radius = 1.2): boolean {
+  let best: ThrownItem | null = null
+  let bestDistance = radius
+  for (const item of items) {
+    if (item.restingFor === null) continue
+    const d = item.position.distanceTo(at)
+    if (d <= bestDistance) {
+      bestDistance = d
+      best = item
+    }
+  }
+  if (!best) return false
+  items = items.filter((item) => item !== best)
+  return true
 }

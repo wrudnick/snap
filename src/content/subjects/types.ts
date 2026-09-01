@@ -99,7 +99,47 @@ export interface BehaviorDef {
   trigger?: string
 }
 
+/**
+ * One beat of a scripted response.
+ *
+ * A reaction used to be a single clip swap, which is enough for a pigeon that
+ * only has to look up and enough for nothing else. A dog that smells a hot dog
+ * thirty metres away does four things in order — notices, comes over, eats it,
+ * and is pleased about it — and the last of those is `bark`, the most valuable
+ * pose it has. Making the best photograph the *end* of a sequence the player
+ * set off is the whole reason for having throwables at all.
+ */
+export interface ReactionStep {
+  clip: string
+  /** Seconds to hold, or hold until it reaches what it is heading for. */
+  hold: number | 'arrive'
+  /** Metres per second towards the target during this beat. */
+  speed?: number
+  /** Eat it, at the end of this beat. */
+  consume?: boolean
+}
+
+export interface ReactionDef {
+  trigger: string
+  /**
+   * How far away it notices, in metres.
+   *
+   * A property of the animal rather than of the thing thrown: a dog's nose
+   * carries much further than a pigeon's eye, which is what makes throwing a
+   * second hot dog to pull in a second dog a thing worth doing.
+   */
+  senses: number
+  steps: ReactionStep[]
+}
+
 export interface SubjectDef extends SpeciesDef {
+  /**
+   * Scripted responses, beyond the single-clip ones in `behaviors`.
+   *
+   * A species with no entry here still answers a trigger with a matching
+   * `behaviors` entry, which is all a pigeon needs.
+   */
+  reactions?: ReactionDef[]
   model: ModelKind
   palette: { body: number; accent: number }
   /** Required when `model` is 'humanoid'. */

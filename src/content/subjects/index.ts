@@ -70,6 +70,49 @@ const DOG: SubjectDef = {
     { clip: 'trot', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
     { clip: 'bark', minSeconds: 1.0, maxSeconds: 1.8, weight: 1 },
   ],
+  reactions: [
+    /**
+     * The dog is the reason the reaction system stopped being a clip swap.
+     *
+     * Four beats, in the order a dog actually does them: catches the scent and
+     * casts about for it, comes over at a trot, noses at it and takes it, and
+     * is pleased about it afterwards.
+     *
+     * The payoff is deliberately at the end. `bark` is the most valuable pose a
+     * dog has and it has a peak window, so the best photograph on offer here is
+     * one the player set up and then waited for — which is a better thing to
+     * ask of them than reacting fast, and it is the shape Snap's own best
+     * moments have.
+     *
+     * Thirty-four metres is a long way to notice something from, and it is the
+     * point: a dog's nose reaches much further than a pigeon's eye, so a hot
+     * dog thrown down the block pulls one in from off-screen. Throw a second
+     * and you are gathering a pack.
+     */
+    {
+      trigger: 'food',
+      senses: 34,
+      steps: [
+        { clip: 'sniff', hold: 0.8 },
+        { clip: 'trot', hold: 'arrive', speed: 3.4 },
+        { clip: 'sniff', hold: 1.2, consume: true },
+        { clip: 'bark', hold: 2.4 },
+      ],
+    },
+    /**
+     * Landing one on a dog does not make it flee — it makes it excited, which
+     * is both what a dog does and the more useful photograph.
+     */
+    {
+      trigger: 'startle',
+      senses: 6,
+      steps: [
+        { clip: 'bark', hold: 1.4 },
+        { clip: 'sniff', hold: 1.0, consume: true },
+        { clip: 'bark', hold: 1.8 },
+      ],
+    },
+  ],
 }
 
 const CAT: SubjectDef = {
