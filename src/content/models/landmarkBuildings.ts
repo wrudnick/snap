@@ -7,13 +7,11 @@ import {
   gable,
   mat,
   piers,
-  setbackStack,
   slab,
   taperedSlab,
 } from './landmarkKit'
 import {
   BROWN_BRICK,
-  DARK_GRANITE,
   GLASS,
   LIMESTONE,
   LIMESTONE_SHADE,
@@ -138,20 +136,57 @@ function palmolive(site: LandmarkSite): THREE.Object3D {
   const [w, d] = site.size
   const h = site.height
 
-  // Base to about a third, then four setbacks to the tower.
-  const baseH = h * 0.34
-  g.add(slab(w, baseH, d, 0, LIMESTONE))
-  g.add(piers(w, baseH - 4, d, 3, Math.max(4, Math.round(w / 6)), LIMESTONE_SHADE))
-  g.add(band(w, d, baseH - 1.4, 1.4, 0.8, LIMESTONE_SHADE))
+  /**
+   * Worked from photographs, and they corrected two things.
+   *
+   * The shaft runs unbroken for about three fifths of the height rather than a
+   * third, and its piers are continuous the whole way — full-height flutes, not
+   * a banded base with a stack of boxes on top.
+   *
+   * And the setbacks cut the *corners*. The centre bays carry straight up while
+   * the corners step in, which is what gives it the buttressed, candle-like
+   * profile the building is known for. Concentric boxes shrinking uniformly —
+   * which is what this was — read as a wedding cake, which is a different
+   * building entirely.
+   */
+  const SHAFT = 0.6
+  const shaftH = h * SHAFT
+  const baseH = Math.min(h * 0.06, 9)
 
-  g.add(setbackStack(w * 0.82, d * 0.82, baseH, h - baseH, 4, 0.78, LIMESTONE))
+  g.add(slab(w, baseH, d, 0, LIMESTONE_SHADE))
+  g.add(slab(w, shaftH, d, 0, LIMESTONE))
+  g.add(piers(w, shaftH - baseH, d, baseH, Math.max(5, Math.round(w / 4.5)), LIMESTONE_SHADE, 0.6))
+  g.add(band(w, d, shaftH, 1.2, 0.7, LIMESTONE_SHADE))
 
-  // The beacon: a drum on the crown with a lit lens.
-  const drum = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 4, 8), mat(LIMESTONE_SHADE))
-  drum.position.y = h + 2
+  /**
+   * Four corner steps, each taking a bite out of the plan while the centre
+   * continues. Each tier is shorter than the last, which is what makes the
+   * profile accelerate toward the crown instead of stepping evenly.
+   */
+  let tierW = w
+  let tierD = d
+  let y = shaftH
+  let remaining = h - shaftH
+  for (let tier = 0; tier < 4; tier++) {
+    const share = remaining * (tier === 3 ? 1 : 0.42)
+    tierW *= 0.82
+    tierD *= 0.86
+    g.add(slab(tierW, share, tierD, y, LIMESTONE))
+    g.add(piers(tierW, share - 1, tierD, y, Math.max(3, Math.round(tierW / 4.5)), LIMESTONE_SHADE, 0.5))
+    g.add(band(tierW, tierD, y + share - 0.8, 0.9, 0.6, LIMESTONE_SHADE))
+    y += share
+    remaining -= share
+  }
+
+  // The crown: a slim shaft carrying the Lindbergh beacon, which swept the sky
+  // for aircraft and is the half of its identity that is not the setbacks.
+  const crownW = tierW * 0.42
+  g.add(slab(crownW, 10, crownW, h, LIMESTONE))
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(crownW * 0.34, crownW * 0.42, 4, 8), mat(LIMESTONE_SHADE))
+  drum.position.y = h + 12
   g.add(drum)
-  const lens = new THREE.Mesh(new THREE.SphereGeometry(1.7, 10, 8), mat(0xffe9b0))
-  lens.position.y = h + 5
+  const lens = new THREE.Mesh(new THREE.SphereGeometry(crownW * 0.28, 10, 8), mat(0xffe9b0))
+  lens.position.y = h + 15
   g.add(lens)
   return g
 }
@@ -175,12 +210,27 @@ function drakeHotel(site: LandmarkSite): THREE.Object3D {
   const baseH = h * 0.16
   g.add(slab(w, baseH, d, 0, LIMESTONE))
   g.add(band(w, d, baseH, 1.0, 0.6, LIMESTONE_SHADE))
-  g.add(slab(w * 0.98, h - baseH, d * 0.98, baseH, RED_BRICK))
-  g.add(floorBands(w * 0.98, h - baseH - 4, d * 0.98, baseH, 3.6, 0x8a5c46))
+  /**
+   * Buff brick, not red.
+   *
+   * Photographs settle it: the Drake is a warm cream-tan, close to its
+   * limestone base rather than contrasting with it. Modelled in red brick it
+   * read as a different and much cheaper building.
+   */
+  const DRAKE_BRICK = 0xc9b492
+  g.add(slab(w * 0.98, h - baseH, d * 0.98, baseH, DRAKE_BRICK))
+  g.add(floorBands(w * 0.98, h - baseH - 4, d * 0.98, baseH, 3.6, 0xac9878))
 
-  // The cornice, oversized on purpose — it is the whole silhouette.
-  g.add(band(w, d, h - 2.6, 2.6, 2.2, LIMESTONE))
-  g.add(band(w, d, h, 1.0, 1.0, LIMESTONE_SHADE))
+  // A light court cut into the long faces: the plan is a U, not a block.
+  g.add(slab(w * 0.34, h - baseH - 2, d * 0.42, baseH, DRAKE_BRICK, [0, d * 0.28]))
+
+  /**
+   * The cornice, oversized on purpose — it is the whole silhouette, and
+   * modelled to scale it vanishes at the distance this is looked at from. Dark
+   * rather than pale: it reads as a deep shadow under a heavy overhang.
+   */
+  g.add(band(w, d, h - 3.4, 3.4, 2.6, 0x6b5f4c))
+  g.add(band(w, d, h, 1.2, 1.2, LIMESTONE_SHADE))
 
   // Rooftop sign, both long faces.
   for (const z of [d / 2 + 0.6, -(d / 2 + 0.6)]) {
@@ -212,18 +262,34 @@ function nineHundred(site: LandmarkSite): THREE.Object3D {
   const plate = floorplate(site)
   const towerW = plate.width
   const towerD = plate.depth
+  /**
+   * Pale stone, not dark granite.
+   *
+   * The photographs are unambiguous and I had it wrong: it is a light grey-beige
+   * limestone with darker recessed window bands, which is why it reads as part
+   * of the avenue's masonry rather than as a black tower.
+   */
+  const STONE = 0xbfb8a8
   const towerH = h - podiumH
-  g.add(slab(towerW, towerH, towerD, podiumH, DARK_GRANITE))
-  g.add(floorBands(towerW, towerH - 8, towerD, podiumH, 7.2, 0x3c3c42))
+  g.add(slab(towerW, towerH, towerD, podiumH, STONE))
+  g.add(slab(towerW * 0.9, towerH - 6, towerD * 0.9, podiumH, 0x6e7480))
+  g.add(piers(towerW, towerH - 8, towerD, podiumH, Math.max(4, Math.round(towerW / 5)), STONE, 0.7))
+  g.add(floorBands(towerW, towerH - 10, towerD, podiumH, 10.8, STONE))
   // A setback near the top, then the lanterns above it.
-  g.add(band(towerW, towerD, h - 14, 2.0, 1.2, LIMESTONE_SHADE))
+  g.add(band(towerW, towerD, h - 18, 2.2, 1.4, STONE))
 
+  /**
+   * The four corner lanterns, which are what picks it out of the skyline at
+   * night — taller and heavier than the first pass had them, because at this
+   * scale a small one disappears.
+   */
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      const x = sx * (towerW / 2 - 3)
-      const z = sz * (towerD / 2 - 3)
-      g.add(slab(5.5, 16, 5.5, h - 12, DARK_GRANITE, [x, z]))
-      g.add(slab(4.2, 5, 4.2, h + 4, 0xffe2a8, [x, z]))
+      const x = sx * (towerW / 2 - 2.5)
+      const z = sz * (towerD / 2 - 2.5)
+      g.add(slab(6.5, 24, 6.5, h - 18, STONE, [x, z]))
+      g.add(slab(5.0, 7, 5.0, h + 6, 0xffe2a8, [x, z]))
+      g.add(slab(3.0, 3, 3.0, h + 13, STONE, [x, z]))
     }
   }
   return g
@@ -241,7 +307,9 @@ function oneMagnificentMile(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
   const [w, d] = site.size
   const h = site.height
-  const ROSE = 0xa8807a
+  // Rose granite, but far paler in daylight than the first pass had it — the
+  // photographs read as a warm beige-grey, not a brown.
+  const ROSE = 0xc0a89c
 
   const tube = (radius: number, height: number, x: number, z: number) => {
     const mesh = new THREE.Mesh(
@@ -258,7 +326,7 @@ function oneMagnificentMile(site: LandmarkSite): THREE.Object3D {
     for (let i = 1; i < rows; i++) {
       const ring = new THREE.Mesh(
         new THREE.CylinderGeometry(radius + 0.25, radius + 0.25, 0.4, 6, 1),
-        mat(0x8f6a66),
+        mat(0xa89086),
       )
       ring.position.set(x, i * 10, z)
       ring.rotation.y = Math.PI / 6

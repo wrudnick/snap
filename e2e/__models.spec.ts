@@ -6,9 +6,7 @@ test('inspect', async ({ page }: { page: Page }) => {
   await page.goto('/?debug=models')
   await page.waitForTimeout(2500)
   for (const name of [
-    '900 North Michigan', 'Sofitel Chicago', 'Quigley Seminary', 'Esquire Theater',
-    'Fortnightly of Chicago', 'Millennium Knickerbocker', 'The Carlyle',
-    'Michigan Place', 'The Whitehall Hotel',
+    'Palmolive Building', 'The Drake Hotel', '900 North Michigan', 'One Magnificent Mile',
   ]) {
     const b = page.getByRole('button', { name, exact: true }).first()
     if (!(await b.count())) { console.log('MISSING ' + name); continue }
