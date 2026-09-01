@@ -17,6 +17,8 @@ export interface InputState {
   zoom: boolean
   /** Set on a shutter press; the game loop clears it after handling. */
   shutter: boolean
+  /** Set on a throw; the game loop clears it after handling. */
+  toss: boolean
   /** Edge-triggered speed changes; the loop clears them after handling. */
   speedUp: boolean
   speedDown: boolean
@@ -51,6 +53,7 @@ export const input: InputState = {
   aimY: 0,
   zoom: false,
   shutter: false,
+  toss: false,
   speedUp: false,
   speedDown: false,
   absoluteYaw: null,
@@ -167,6 +170,9 @@ export class PointerKeyboardAdapter implements InputAdapter {
     if (e.code === 'Period') input.nextCheckpoint = true
     if (e.code === 'Comma') input.prevCheckpoint = true
     if (e.code === 'KeyP') input.togglePause = true
+    // Next to the shutter on the left hand, so you can throw and shoot without
+    // moving off the aim.
+    if (e.code === 'KeyE' || e.code === 'KeyF') input.toss = true
   }
 
   private onKeyUp = (e: KeyboardEvent): void => {

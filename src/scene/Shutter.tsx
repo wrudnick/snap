@@ -6,6 +6,8 @@ import { SPECIES_INDEX } from '@/content/subjects'
 import { capturePhotoImage, warmCapturePipeline } from '@/game/capture/image'
 import { prepareOccluders } from '@/render/raycastAcceleration'
 import { buildSnapshot } from '@/game/capture/snapshot'
+import { captureWorldState } from '@/game/capture/world'
+import type { Rail } from '@/game/rail'
 import { runtime } from '@/game/runtime'
 import { DEFAULT_SCORING_CONFIG } from '@/game/scoring/config'
 import { scorePhoto } from '@/game/scoring/score'
@@ -30,7 +32,7 @@ let photoCounter = 0
  * Reads store state via `getState()` rather than the hook, so this component
  * never subscribes and never re-renders during play.
  */
-export function Shutter({ routeId }: { routeId: string }) {
+export function Shutter({ routeId, rail }: { routeId: string; rail: Rail }) {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
   const camera = useThree((s) => s.camera)
@@ -87,6 +89,27 @@ export function Shutter({ routeId }: { routeId: string }) {
       fov: runtime.targetFov,
       build: __BUILD__,
     }
+
+    /**
+     * The whole world, for reading afterwards.
+     *
+     * Separate from the snapshot because the snapshot is the scoring input and
+     * is only about what was in frame. The bugs actually worth reporting are
+     * about things standing in the wrong place, and those are visible in a
+     * photograph but only diagnosable from coordinates.
+     */
+    const world = captureWorldState({
+      camera,
+      routeId,
+      section: runtime.sectionTitle,
+      t: runtime.t,
+      metres: runtime.t * rail.length,
+      yaw: runtime.yaw,
+      pitch: runtime.pitch,
+      railHeading: runtime.railHeading,
+      fov: runtime.targetFov,
+      build: __BUILD__,
+    })
     const score = scorePhoto(snapshot, SPECIES_INDEX, DEFAULT_SCORING_CONFIG)
 
     const height = Math.round(PHOTO_WIDTH / aspect)
@@ -101,7 +124,7 @@ export function Shutter({ routeId }: { routeId: string }) {
      * appeared not to respond for most of a second on a crowded street. Take
      * the photograph, then develop it.
      */
-    useGame.getState().addPhoto({ id, url: null, snapshot, score })
+    useGame.getState().addPhoto({ id, url: null, snapshot, score, world })
 
     capturePhotoImage({
       gl,

@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 
 import { activeSubjects } from '@/game/capture/registry'
+import { groundHeightAt } from '@/content/models/groundHeight'
+import { activeItems } from '@/game/items'
 import { runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
 import { input } from '@/input'
@@ -42,6 +44,14 @@ export interface SnapHarness {
   lookAt: (x: number, y: number, z: number) => boolean
   /** Every subject currently mounted, with world positions. */
   subjects: () => HarnessSubject[]
+  /** Thrown items, in flight and at rest. */
+  items: () => Array<{
+    id: string
+    at: [number, number, number]
+    velocity: [number, number, number]
+    ground: number
+    restingFor: number | null
+  }>
   /** Current camera world position, or null before the first frame. */
   cameraPosition: () => [number, number, number] | null
   /** End the route immediately. */
@@ -101,6 +111,15 @@ export function installHarness(): void {
       runtime.pitch = Math.atan2(dy, Math.hypot(dx, dz))
       return true
     },
+
+    items: () =>
+      activeItems().map((item) => ({
+        id: item.id,
+        at: [item.position.x, item.position.y, item.position.z] as [number, number, number],
+        velocity: [item.velocity.x, item.velocity.y, item.velocity.z] as [number, number, number],
+        ground: groundHeightAt(item.position.x, item.position.z, item.position.y),
+        restingFor: item.restingFor,
+      })),
 
     subjects: () =>
       activeSubjects().map((s) => {

@@ -108,6 +108,19 @@ function TouchControls() {
           <span aria-hidden="true">⌖</span>
         </button>
         {/*
+          Throw. Under the same thumb as zoom, because throwing and then
+          framing the reaction is one motion and the other hand is on the
+          shutter.
+        */}
+        <button
+          type="button"
+          className="touch__btn touch__toss"
+          aria-label="Throw"
+          onPointerDown={press('toss')}
+        >
+          <span aria-hidden="true">◍</span>
+        </button>
+        {/*
           Face forward again.
 
           On a phone the view is wherever the phone is pointing, and after

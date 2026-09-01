@@ -34,6 +34,17 @@ const PIGEON: SubjectDef = {
     { clip: 'peck', minSeconds: 1.2, maxSeconds: 2.4, weight: 3 },
     { clip: 'strut', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
     { clip: 'flap', minSeconds: 1.0, maxSeconds: 1.6, weight: 1 },
+    /**
+     * The two reactions, and the reason throwing is worth having.
+     *
+     * `flap` is the most valuable pose a pigeon has and the peak window is
+     * narrow, so catching a take-off was previously a matter of standing in the
+     * right place until the behaviour rotation happened to pick it. Now it is
+     * something you can cause — and the weights are irrelevant here, because a
+     * triggered behaviour is never chosen at random.
+     */
+    { clip: 'peck', minSeconds: 2.5, maxSeconds: 4.0, weight: 0, trigger: 'food' },
+    { clip: 'flap', minSeconds: 1.4, maxSeconds: 2.2, weight: 0, trigger: 'startle' },
   ],
 }
 
@@ -163,6 +174,15 @@ const TOURIST_MAN: SubjectDef = {
     { clip: 'walk', minSeconds: 2.5, maxSeconds: 5.0, weight: 3 },
     { clip: 'talk', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
     { clip: 'gawk', minSeconds: 2.0, maxSeconds: 3.2, weight: 2 },
+    /**
+     * People look at what lands near them.
+     *
+     * `gawk` is a tourist stopping to stare, which is exactly the posture, and
+     * it is worth more than idle — so a thrown hot dog turns a row of people
+     * who were facing away into a row of faces.
+     */
+    { clip: 'gawk', minSeconds: 1.6, maxSeconds: 2.8, weight: 0, trigger: 'food' },
+    { clip: 'gawk', minSeconds: 1.2, maxSeconds: 2.0, weight: 0, trigger: 'startle' },
   ],
 }
 
@@ -283,6 +303,15 @@ const DOORMAN: SubjectDef = {
     { clip: 'idle', minSeconds: 3.0, maxSeconds: 6.0, weight: 4 },
     { clip: 'talk', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
     { clip: 'gawk', minSeconds: 2.0, maxSeconds: 3.0, weight: 1 },
+    /**
+     * People look at what lands near them.
+     *
+     * `gawk` is a tourist stopping to stare, which is exactly the posture, and
+     * it is worth more than idle — so a thrown hot dog turns a row of people
+     * who were facing away into a row of faces.
+     */
+    { clip: 'gawk', minSeconds: 1.6, maxSeconds: 2.8, weight: 0, trigger: 'food' },
+    { clip: 'gawk', minSeconds: 1.2, maxSeconds: 2.0, weight: 0, trigger: 'startle' },
   ],
 }
 
@@ -575,6 +604,15 @@ const POLICE: SubjectDef = {
     { clip: 'idle', minSeconds: 3.0, maxSeconds: 6.0, weight: 4 },
     { clip: 'talk', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
     { clip: 'gawk', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
+    /**
+     * People look at what lands near them.
+     *
+     * `gawk` is a tourist stopping to stare, which is exactly the posture, and
+     * it is worth more than idle — so a thrown hot dog turns a row of people
+     * who were facing away into a row of faces.
+     */
+    { clip: 'gawk', minSeconds: 1.6, maxSeconds: 2.8, weight: 0, trigger: 'food' },
+    { clip: 'gawk', minSeconds: 1.2, maxSeconds: 2.0, weight: 0, trigger: 'startle' },
   ],
 }
 
@@ -610,6 +648,15 @@ const HOMELESS: SubjectDef = {
     { clip: 'idle', minSeconds: 4.0, maxSeconds: 8.0, weight: 5 },
     { clip: 'talk', minSeconds: 2.0, maxSeconds: 3.5, weight: 2 },
     { clip: 'gawk', minSeconds: 2.0, maxSeconds: 3.0, weight: 1 },
+    /**
+     * People look at what lands near them.
+     *
+     * `gawk` is a tourist stopping to stare, which is exactly the posture, and
+     * it is worth more than idle — so a thrown hot dog turns a row of people
+     * who were facing away into a row of faces.
+     */
+    { clip: 'gawk', minSeconds: 1.6, maxSeconds: 2.8, weight: 0, trigger: 'food' },
+    { clip: 'gawk', minSeconds: 1.2, maxSeconds: 2.0, weight: 0, trigger: 'startle' },
   ],
 }
 
@@ -721,6 +768,15 @@ const BUSINESS_MAN: SubjectDef = {
     { clip: 'talk', minSeconds: 2.5, maxSeconds: 4.5, weight: 3 },
     { clip: 'idle', minSeconds: 2.0, maxSeconds: 4.0, weight: 2 },
     { clip: 'gawk', minSeconds: 1.8, maxSeconds: 3.0, weight: 1 },
+    /**
+     * People look at what lands near them.
+     *
+     * `gawk` is a tourist stopping to stare, which is exactly the posture, and
+     * it is worth more than idle — so a thrown hot dog turns a row of people
+     * who were facing away into a row of faces.
+     */
+    { clip: 'gawk', minSeconds: 1.6, maxSeconds: 2.8, weight: 0, trigger: 'food' },
+    { clip: 'gawk', minSeconds: 1.2, maxSeconds: 2.0, weight: 0, trigger: 'startle' },
   ],
 }
 
@@ -755,6 +811,15 @@ const BUSINESS_WOMAN: SubjectDef = {
     { clip: 'talk', minSeconds: 2.5, maxSeconds: 4.5, weight: 3 },
     { clip: 'idle', minSeconds: 2.0, maxSeconds: 4.0, weight: 2 },
     { clip: 'gawk', minSeconds: 1.8, maxSeconds: 3.0, weight: 1 },
+    /**
+     * People look at what lands near them.
+     *
+     * `gawk` is a tourist stopping to stare, which is exactly the posture, and
+     * it is worth more than idle — so a thrown hot dog turns a row of people
+     * who were facing away into a row of faces.
+     */
+    { clip: 'gawk', minSeconds: 1.6, maxSeconds: 2.8, weight: 0, trigger: 'food' },
+    { clip: 'gawk', minSeconds: 1.2, maxSeconds: 2.0, weight: 0, trigger: 'startle' },
   ],
 }
 

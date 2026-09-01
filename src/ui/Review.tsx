@@ -1,6 +1,9 @@
+import { useState } from 'react'
+
 import { runTotal, useGame } from '@/game/state'
 
 import { PhotoCard } from './PhotoCard'
+import { PhotoDetail } from './PhotoDetail'
 
 /**
  * The end-of-route contact sheet.
@@ -10,12 +13,14 @@ import { PhotoCard } from './PhotoCard'
  * choice meaningful without punishing anyone for experimenting mid-route.
  */
 export function Review() {
+  const [openId, setOpenId] = useState<string | null>(null)
   const photos = useGame((s) => s.photos)
   const toggleSelected = useGame((s) => s.toggleSelected)
   const submit = useGame((s) => s.submit)
   const backToMenu = useGame((s) => s.backToMenu)
 
   const kept = photos.filter((p) => p.selected)
+  const open = photos.find((p) => p.id === openId) ?? null
 
   return (
     <div className="layer interactive">
@@ -44,7 +49,12 @@ export function Review() {
         ) : (
           <div className="grid">
             {photos.map((photo) => (
-              <PhotoCard key={photo.id} photo={photo} onToggle={toggleSelected} />
+              <PhotoCard
+                key={photo.id}
+                photo={photo}
+                onToggle={toggleSelected}
+                onOpen={setOpenId}
+              />
             ))}
           </div>
         )}
@@ -56,6 +66,8 @@ export function Review() {
           <button onClick={backToMenu}>Discard run</button>
         </div>
       </div>
+
+      {open && <PhotoDetail photo={open} onClose={() => setOpenId(null)} />}
     </div>
   )
 }

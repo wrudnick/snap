@@ -107,6 +107,42 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
     [actions, chooseBehavior, rng],
   )
 
+  /**
+   * Play a triggered behaviour, and turn towards whatever caused it.
+   *
+   * Held for the behaviour's own duration like any other, so it hands back to
+   * the idle rotation on its own rather than needing to be cancelled — a
+   * reaction that had to be switched off would be a second piece of state to
+   * get wrong.
+   *
+   * Only the yaw is taken from the direction: a pigeon that pitches to look at
+   * something on the pavement in front of it is a pigeon lying on its side.
+   */
+  const play = useMemo(
+    () => (trigger: string, from: THREE.Vector3): boolean => {
+      const next = def.behaviors.find((b) => b.trigger === trigger)
+      const group = groupRef.current
+      if (!next || !group) return false
+      const action = actions.get(next.clip)
+      if (!action) return false
+
+      const previous = current.current.action
+      action.reset()
+      action.setLoop(THREE.LoopRepeat, Infinity)
+      action.enabled = true
+      if (previous && previous !== action) action.crossFadeFrom(previous, 0.18, false).play()
+      else action.play()
+
+      current.current = { name: next.clip, action }
+      holdFor.current = range(rng, next.minSeconds, next.maxSeconds)
+
+      // Models face local −Z, so this is the heading that puts `from` in front.
+      group.rotation.y = Math.atan2(from.x - group.position.x, from.z - group.position.z) + Math.PI
+      return true
+    },
+    [actions, def.behaviors, rng],
+  )
+
   useEffect(() => {
     // Stagger start times so a flock doesn't move in lockstep.
     mixer.update(rng() * 2)
@@ -133,6 +169,7 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
         const time = action ? (action.time % duration) / duration : 0
         return { clip: name, time }
       },
+      react: (trigger, from) => play(trigger, from),
     })
 
     return () => unregisterSubject(placement.id)

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+import type { WorldState } from '@/game/capture/world'
+
 import type { PhotoScore, PhotoSnapshot } from './scoring/types'
 
 /**
@@ -14,6 +16,13 @@ export type Phase = 'menu' | 'riding' | 'review' | 'results'
 
 export interface Photo {
   id: string
+  /**
+   * Everything in the world when the shutter fired, for reading afterwards.
+   *
+   * Not used by scoring or by the game — this is the record you open when
+   * something in the picture is standing somewhere it should not be.
+   */
+  world?: WorldState
   /** Object URL for the captured image. Revoked when the photo is discarded. */
   /**
    * Object URL for the JPEG, or null while it is still being encoded.

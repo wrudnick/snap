@@ -1072,3 +1072,184 @@ h2 {
   opacity: 0.3;
   cursor: default;
 }
+
+/* -------------------------------------------------------------------------
+   Shot detail: one photograph, large, with the coordinates behind it.
+   ---------------------------------------------------------------------- */
+.detail {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.5rem, 2vw, 2rem);
+}
+.detail__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(6, 7, 9, 0.86);
+  backdrop-filter: blur(3px);
+  cursor: zoom-out;
+}
+.detail__panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(19rem, 0.85fr);
+  gap: 1rem;
+  width: min(100%, 76rem);
+  max-height: 92vh;
+  background: #101318;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+/* Narrow, and on a phone: the picture on top, the numbers under it. */
+@media (max-width: 60rem) {
+  .detail__panel {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+.detail__image {
+  display: grid;
+  place-items: center;
+  background: #05060a;
+  min-height: 0;
+}
+.detail__image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 92vh;
+  object-fit: contain;
+}
+.detail__side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem 1.3rem;
+  overflow-y: auto;
+  min-height: 0;
+}
+.detail__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.detail__title {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.detail__close {
+  background: none;
+  border: 0;
+  color: var(--dim);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.detail__close:hover {
+  color: #fff;
+}
+
+/* Label/value pairs, so the eye can run down the values without reading. */
+.detail__facts {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.3rem 0.8rem;
+  margin: 0;
+  font-size: 0.82rem;
+}
+.detail__facts dt {
+  color: var(--dim);
+}
+.detail__facts dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.detail__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.detail__actions button {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.7rem;
+}
+
+.detail__actors {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+}
+.detail__actor {
+  display: grid;
+  grid-template-columns: 7.5rem 8rem minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 0.16rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+/* Behind the camera: still listed, because "why is nothing there" is a
+   question the list has to be able to answer, but not competing for attention. */
+.detail__actor.behind {
+  opacity: 0.42;
+}
+.detail__actorName {
+  color: #fff;
+}
+.detail__actorPos,
+.detail__actorMeta {
+  color: var(--dim);
+}
+
+.detail__raw summary {
+  cursor: pointer;
+  color: var(--dim);
+  font-size: 0.78rem;
+}
+.detail__raw pre {
+  max-height: 18rem;
+  overflow: auto;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  background: #06070a;
+  padding: 0.6rem;
+  border-radius: 0.3rem;
+}
+.detail__none {
+  color: var(--dim);
+  font-size: 0.82rem;
+}
+
+/* Keep/drop, now that the card itself opens the shot. */
+.shot__keep {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  color: var(--dim);
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.shot__keep.on {
+  color: #14171c;
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Throw. Same footprint as the recentre control it sits beside. */
+.touch__toss {
+  pointer-events: auto;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  font-size: 1.2rem;
+}

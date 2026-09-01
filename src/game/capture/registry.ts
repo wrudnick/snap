@@ -17,6 +17,20 @@ export interface SubjectInstance {
   bounds: THREE.Box3
   /** Reads the live animation state straight off the mixer. */
   readPose: () => { clip: string; time: number }
+  /**
+   * Make this subject respond to something that happened in the world.
+   *
+   * The seam the plan reserved for throwables: behaviours can carry a
+   * `trigger`, and until now that only ever filtered them *out* of the idle
+   * rotation — nothing could ever fire one. Returns false when the species has
+   * nothing to say about this trigger, which is normal and not a failure: a
+   * parked car has no opinion about a dropped hot dog.
+   *
+   * `from` is where the thing happened, so the subject can turn towards it.
+   * Turning to look is most of what sells a reaction, and for a game about
+   * photographs it is the reaction that makes the picture.
+   */
+  react: (trigger: string, from: THREE.Vector3) => boolean
 }
 
 const registry = new Map<string, SubjectInstance>()

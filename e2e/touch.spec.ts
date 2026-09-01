@@ -48,7 +48,22 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
   await page.locator('canvas').first().dispatchEvent('pointerup', {
     pointerId: 1, pointerType: 'touch', clientX: 320, clientY: 400, isPrimary: true,
   })
-  await page.waitForTimeout(400)
+  /**
+   * Waited for rather than slept on.
+   *
+   * A fixed pause here failed about two runs in three: the drag is applied on
+   * the next frame the rig runs, and how soon that is depends on when the
+   * browser next schedules one. Polling for the effect keeps the assertion
+   * exactly as strict — if the drag never turns the camera this still fails —
+   * while removing the part that was a coin toss.
+   */
+  await page
+    .waitForFunction(
+      (start) => Math.abs(((window as any).__snap.runtime.yaw ?? 0) - start) > 0.01,
+      before,
+      { timeout: 5000 },
+    )
+    .catch(() => {})
   const after = await page.evaluate(() => (window as any).__snap.runtime.yaw ?? 0)
   expect(Math.abs(after - before), 'a drag turns the camera').toBeGreaterThan(0.01)
 

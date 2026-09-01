@@ -31,10 +31,13 @@ const BAND_LABEL: Record<string, string> = {
 export function PhotoCard({
   photo,
   onToggle,
+  onOpen,
   showBreakdown = true,
 }: {
   photo: Photo
   onToggle?: (id: string) => void
+  /** Open the shot large, with its coordinates and the world state. */
+  onOpen?: (id: string) => void
   showBreakdown?: boolean
 }) {
   const { score } = photo
@@ -43,8 +46,14 @@ export function PhotoCard({
   return (
     <div
       className={`shot ${photo.selected ? 'kept' : 'dropped'}`}
-      onClick={onToggle ? () => onToggle(photo.id) : undefined}
-      style={{ cursor: onToggle ? 'pointer' : 'default' }}
+      /*
+        Clicking the picture opens it, rather than throwing it away.
+        Keeping and dropping moved to its own control below: the whole card was
+        the discard target, so opening a shot to look at it closely and
+        discarding it were the same gesture.
+      */
+      onClick={onOpen ? () => onOpen(photo.id) : undefined}
+      style={{ cursor: onOpen ? 'zoom-in' : 'default' }}
     >
       {/*
         The frame is drawn whether or not the picture has arrived.
@@ -80,6 +89,20 @@ export function PhotoCard({
             `stopPropagation` because the card itself toggles whether the shot
             is kept, and sharing one should not also throw it away.
           */}
+          {onToggle && (
+            <button
+              type="button"
+              className={`shot__keep ${photo.selected ? 'on' : ''}`}
+              aria-pressed={photo.selected}
+              aria-label={photo.selected ? 'Keeping this shot' : 'Dropping this shot'}
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggle(photo.id)
+              }}
+            >
+              {photo.selected ? 'Keep' : 'Drop'}
+            </button>
+          )}
           <button
             type="button"
             className="shot__share"

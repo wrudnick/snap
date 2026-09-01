@@ -11,6 +11,7 @@ import { PointerKeyboardAdapter, TouchAdapter, prefersTouch } from '@/input'
 import { CelOutline } from '@/render/CelOutline'
 
 import { Rig } from './Rig'
+import { Items } from './Items'
 import { Shutter } from './Shutter'
 import { Environment } from './Environment'
 import { Subjects } from './Subjects'
@@ -169,7 +170,8 @@ export function Game() {
         sections={resolved.sections}
         checkpoints={resolved.checkpoints}
       />
-      <Shutter routeId={route.id} />
+      <Shutter routeId={route.id} rail={rail} />
+      <Items />
       <RunController fov={route.fov.default} duration={route.durationSeconds} />
       <InputBinding />
 
