@@ -8,7 +8,7 @@ The rule of thumb: **build the thing that the most other things depend on
 first.** Lenses are cheap once the rubric exists and expensive to retrofit once
 five of them assume the old one.
 
-## Slice 1 — the camera — **done, except the film**
+## Slice 1 — the camera — **done**
 
 Raise to eye, viewfinder crop, the frame as a property of the body.
 
@@ -24,10 +24,20 @@ capture and the snapshot all take that rectangle from one `frameCrop`.
 `e2e/camera.spec.ts` asserts they agree, on a 16:9 viewport deliberately — a 3:2
 viewport would pass however badly it were wired.
 
-**Still to do here.** Film simulation. `CameraBody.film` carries grain, warmth
-and vignette and nothing reads them yet; they want a pass in the composer. This
-is what makes one body look different from another, so it is the difference
-between the shop selling looks and selling numbers.
+**The film.** Grain, warmth and vignette are applied in the blit that makes the
+photograph and nowhere else — you compose through an optical viewfinder and
+there is no grain in a viewfinder, so the live view stays clean and the contact
+sheet shows you something the screen never did. It also costs nothing per frame.
+
+Grain is sampled coarsely, not per pixel: a JPEG encoder discards per-pixel
+noise, and measured at quality 0.85 it took a standard deviation of 5.7 down to
+1.1. Coarse grain has a size, survives the encoder, and is what film does anyway.
+
+**The whole game is letterboxed to the film's aspect**, because framing is the
+mechanic and how much you can see must not depend on the monitor. Lenses are
+expressed in millimetres, since a field of view in degrees means nothing without
+knowing the film behind it — the first pass picked 44 degrees by eye, which on
+35mm is a 29mm lens wearing a 45mm label.
 
 **Portrait** is deliberately not in this slice. The frame is a property of the
 body now, which is the mechanism; portrait arrives with a body that offers it,
