@@ -1417,3 +1417,62 @@ h2 {
   overflow: hidden;
   /* Width and height come from `fitAspect` — see Stage.tsx for why not CSS. */
 }
+
+/* -------------------------------------------------------------------------
+   The shop. Each body says what it is *for*, with the numbers underneath —
+   a shop that leads with a scene divisor is a spreadsheet.
+   ---------------------------------------------------------------------- */
+.shop {
+  margin: 2rem 0 2.5rem;
+}
+.shop__title {
+  margin: 0;
+}
+.shop__money {
+  font-size: 1.4rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.shop__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+.kit {
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 0.85rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+/* The one in your hands, so the shop doubles as the kit bag. */
+.kit.on {
+  border-color: var(--accent);
+}
+.kit__name {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+.kit__for {
+  color: var(--dim);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.kit__specs {
+  color: var(--dim);
+  font-size: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.kit__state {
+  color: var(--accent);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.album .p {
+  color: var(--dim);
+  font-size: 0.72rem;
+}

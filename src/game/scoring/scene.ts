@@ -1,5 +1,5 @@
 import type { StructureBreakdown } from './structure'
-import type { ScoringConfig, StructureObservation, SubjectObservation } from './types'
+import type { Rarity, ScoringConfig, StructureObservation, SubjectObservation } from './types'
 import type { SubjectScore } from './types'
 
 /**
@@ -16,6 +16,23 @@ export interface SceneEntry {
   /** Species for an actor, OSM id for a building. */
   id: string
   label: string
+  /** What it was doing, or which face you shot: the rest of its identity. */
+  sublabel: string
+  /**
+   * Which postcard slot this photograph would fill.
+   *
+   * The rack holds one card per slot, so this is what decides whether a shot is
+   * a new postcard or a better version of one you already sell. Species and
+   * pose for an actor — "taxi driver, yelling" and "taxi driver, parked" are
+   * different cards — and building and face for a structure, because the same
+   * tower square-on and three-quarter are genuinely two postcards.
+   *
+   * Light is deliberately not in it. It is a multiplier inside the rubric
+   * instead, so dawn is how you turn a B into an A in a slot you already own,
+   * rather than the game minting three times as many slots.
+   */
+  slot: string
+  rarity: Rarity
   points: number
   quality: number
   visibility: number
@@ -79,6 +96,9 @@ export function clusterActors(
       kind: 'actor' as const,
       id: g.best.species,
       label: g.best.displayName,
+      sublabel: g.best.poseLabel,
+      slot: `actor:${g.best.species}:${g.best.poseLabel}`,
+      rarity: g.best.rarity,
       points: g.best.points * (1 + clusterGrowth * Math.log(n)),
       quality: g.best.quality,
       visibility: g.best.visibility,
@@ -100,6 +120,9 @@ export function structureEntry(
     kind: 'structure',
     id: scored.structureId,
     label: scored.name,
+    sublabel: scored.faceBand,
+    slot: `structure:${scored.structureId}:${scored.faceBand}`,
+    rarity: obs.rarity,
     points: scored.total,
     quality: scored.quality,
     visibility: obs.visibility,

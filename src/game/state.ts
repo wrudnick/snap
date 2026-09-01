@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 
+import { saleValue } from '@/game/economy'
+import type { Rarity } from '@/game/scoring/types'
+
 import type { WorldState } from '@/game/capture/world'
 
 import type { PhotoScore, PhotoSnapshot } from './scoring/types'
@@ -41,18 +44,64 @@ export interface Photo {
   selected: boolean
 }
 
+/**
+ * One postcard on the rack.
+ *
+ * Keyed by slot rather than by species, because "taxi driver, yelling" and
+ * "taxi driver, parked" are different postcards, and so are the same tower
+ * square-on and three-quarter.
+ *
+ * Two numbers, doing different jobs. `paid` is a ratchet on the best grade ever
+ * sold in this slot and is what the money follows; `points` belongs to the card
+ * currently displayed and is what the portfolio follows. They come apart on
+ * purpose: an S with a dull background has already banked its money, and an A
+ * with a beautiful one pays nothing but scores higher — so which one hangs on
+ * the rack is a real choice, and it is the one a photographer would have.
+ */
 export interface AlbumEntry {
+  slot: string
+  kind: 'actor' | 'structure'
   species: string
   displayName: string
+  /** What it was doing, or which face was shot. */
+  sublabel: string
+  rarity: Rarity
+  /** Points of the card currently on the rack. The portfolio is their sum. */
   best: number
   grade: string
   stars: number
+  /** Ladder value already paid out for this slot, in money. */
+  paid: number
   /** Data URL — object URLs don't survive a reload. */
   thumbnail: string | null
   capturedAt: number
 }
 
-const ALBUM_KEY = 'snap.album.v1'
+const ALBUM_KEY = 'snap.album.v2'
+const MONEY_KEY = 'snap.money.v1'
+
+const OWNED_KEY = 'snap.owned.v1'
+
+function loadOwned(): string[] {
+  try {
+    const raw = localStorage.getItem(OWNED_KEY)
+    const list = raw ? (JSON.parse(raw) as string[]) : []
+    // The starting camera is never not owned, however the save got here.
+    return list.includes('compact') ? list : ['compact', ...list]
+  } catch {
+    return ['compact']
+  }
+}
+
+function loadMoney(): number {
+  try {
+    const raw = localStorage.getItem(MONEY_KEY)
+    const n = raw ? Number(raw) : 0
+    return Number.isFinite(n) && n >= 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
 
 function loadAlbum(): Record<string, AlbumEntry> {
   try {
@@ -64,9 +113,10 @@ function loadAlbum(): Record<string, AlbumEntry> {
   }
 }
 
-function saveAlbum(album: Record<string, AlbumEntry>): void {
+function saveAlbum(album: Record<string, AlbumEntry>, money?: number): void {
   try {
     localStorage.setItem(ALBUM_KEY, JSON.stringify(album))
+    if (money !== undefined) localStorage.setItem(MONEY_KEY, String(money))
   } catch {
     // Quota exceeded or private mode — the run still works, it just won't persist.
   }
@@ -79,6 +129,20 @@ interface GameStore {
   filmRemaining: number
   photos: Photo[]
   album: Record<string, AlbumEntry>
+  /**
+   * Money, and what the last run earned.
+   *
+   * One currency. It buys equipment and it buys locations, and that single
+   * choice — better glass, or somewhere new to point it — is the spine of the
+   * economy. Persisted with the rack, because a rack without the money it
+   * earned is a save file that has forgotten half of itself.
+   */
+  money: number
+  lastEarned: number
+  /** Bodies owned. The one you start with is always among them. */
+  owned: string[]
+  buy: (id: string, price: number) => void
+  equip: (id: string) => void
   /** Bumped on every shutter press so the HUD can flash without a per-frame sub. */
   shutterTick: number
 
@@ -106,6 +170,9 @@ export const useGame = create<GameStore>((set, get) => ({
   filmRemaining: 0,
   photos: [],
   album: loadAlbum(),
+  money: loadMoney(),
+  lastEarned: 0,
+  owned: loadOwned(),
   shutterTick: 0,
 
   startRun: (routeId, film) => {
@@ -133,22 +200,62 @@ export const useGame = create<GameStore>((set, get) => ({
       photos: s.photos.map((p) => (p.id === id ? { ...p, selected: !p.selected } : p)),
     })),
 
+  buy: (id, price) => {
+    const { money, owned } = get()
+    if (owned.includes(id) || money < price) return
+    const next = [...owned, id]
+    try {
+      localStorage.setItem(OWNED_KEY, JSON.stringify(next))
+      localStorage.setItem(MONEY_KEY, String(money - price))
+    } catch {
+      // A save that cannot be written should not stop the purchase working
+      // for this session.
+    }
+    set({ owned: next, money: money - price, cameraBody: id })
+  },
+
+  equip: (id) => {
+    if (!get().owned.includes(id)) return
+    set({ cameraBody: id })
+  },
+
   submit: () => {
-    const { photos, album } = get()
+    const { photos, album, money } = get()
     const next = { ...album }
+    let earned = 0
 
     for (const photo of photos) {
-      if (!photo.selected || !photo.score.primary) continue
-      const { species, displayName } = photo.score.primary
-      const current = next[species]
-      if (current && current.best >= photo.score.total) continue
+      const lead = photo.score.scene[0]
+      if (!photo.selected || !lead) continue
 
-      next[species] = {
-        species,
-        displayName,
-        best: photo.score.total,
-        grade: photo.score.grade,
-        stars: photo.score.stars,
+      const current = next[lead.slot]
+      const paid = current?.paid ?? 0
+
+      /**
+       * Money and the rack move independently.
+       *
+       * The sale is a ratchet on the best grade ever sold in this slot, so
+       * bringing back the same grade again earns nothing. The card on display
+       * is whichever scores highest, which is not always the one that paid —
+       * a scene-rich A can take the slot from an S that has already banked.
+       */
+      const sale = saleValue(photo.score.grade, lead.rarity, paid)
+      earned += sale
+
+      const displaces = !current || photo.score.total > current.best
+      if (!displaces && sale === 0) continue
+
+      next[lead.slot] = {
+        slot: lead.slot,
+        kind: lead.kind,
+        species: lead.id,
+        displayName: lead.label,
+        sublabel: lead.sublabel,
+        rarity: lead.rarity,
+        best: displaces ? photo.score.total : current!.best,
+        grade: displaces ? photo.score.grade : current!.grade,
+        stars: displaces ? photo.score.stars : current!.stars,
+        paid: paid + sale,
         // Object URLs die on reload; the thumbnail is filled in by the results
         // screen, which has the canvas needed to downscale it.
         thumbnail: current?.thumbnail ?? null,
@@ -156,8 +263,8 @@ export const useGame = create<GameStore>((set, get) => ({
       }
     }
 
-    saveAlbum(next)
-    set({ album: next, phase: 'results' })
+    saveAlbum(next, money + earned)
+    set({ album: next, money: money + earned, lastEarned: earned, phase: 'results' })
   },
 
   backToMenu: () => set({ phase: 'menu' }),

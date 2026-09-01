@@ -1,6 +1,6 @@
 import { GOLD_COAST } from '@/content/routes/goldcoast'
-import { SUBJECTS } from '@/content/subjects'
 import { useGame } from '@/game/state'
+import { Shop } from './Shop'
 import { requestMotionAccess } from '@/input'
 import { enterFullscreen, isIOS, isStandalone, lockLandscape } from '@/lib/display'
 
@@ -19,7 +19,6 @@ export function Menu() {
   const needsHomeScreen = isIOS() && !isStandalone()
 
   const found = Object.keys(album).length
-  const total = Object.keys(SUBJECTS).length
 
   return (
     <div className="layer interactive">
@@ -65,11 +64,13 @@ export function Menu() {
             Ride {GOLD_COAST.displayName}
           </button>
           <span className="sub" style={{ color: 'var(--dim)', fontSize: '0.78rem' }}>
-            {found} of {total} subjects photographed
+            {found} postcard{found === 1 ? '' : 's'} on the rack
           </span>
         </div>
 
-        <h2>Album</h2>
+        <Shop />
+
+        <h2>The rack</h2>
         {found === 0 ? (
           <div className="empty">Nothing yet. Everything on that street is worth a photo.</div>
         ) : (
@@ -77,8 +78,11 @@ export function Menu() {
             {Object.values(album)
               .sort((a, b) => b.best - a.best)
               .map((entry) => (
-                <div className="entry" key={entry.species}>
+                // Keyed by slot, not species: "taxi driver, yelling" and "taxi
+                // driver, parked" are two different postcards.
+                <div className="entry" key={entry.slot}>
                   <div className="n">{entry.displayName}</div>
+                  <div className="p">{entry.sublabel}</div>
                   <div className="s">
                     {entry.best.toLocaleString()} · {entry.grade}
                   </div>

@@ -63,6 +63,16 @@ export interface CameraBody {
     vignette: number
   }
   exposures: number
+  /**
+   * Supporting subjects contribute `points / (sceneDivisor × rank)`.
+   *
+   * A property of the glass rather than a global constant. Wide is for scenes
+   * and scores the supporting cast generously; long is for subjects and barely
+   * scores it at all.
+   */
+  sceneDivisor: number
+  /** What it costs. Zero for the one you start with. */
+  price: number
 }
 
 /** The frame's aspect, width over height. */
@@ -107,9 +117,41 @@ export const COMPACT: CameraBody = {
   finder: 'brightline',
   film: { grain: 0.35, warmth: 0.22, vignette: 0.3 },
   exposures: 80,
+  sceneDivisor: 5,
+  price: 0,
 }
 
-export const BODIES: Record<string, CameraBody> = { [COMPACT.id]: COMPACT }
+/**
+ * A wider lens, and the first thing worth buying.
+ *
+ * 28mm on the same film: 65 degrees across instead of 44. It exists to answer a
+ * complaint the 45mm creates — you cannot get far enough back on a thirty-metre
+ * street — and it buys height without tilt, which is the Level penalty the
+ * rubric spends all its time punishing.
+ *
+ * And it scores scenes differently, which is the part that matters. A wide lens
+ * is an instrument for scenes, so its supporting cast counts for more; a long
+ * lens is an instrument for subjects and would count for less. That is what
+ * makes buying glass change *what kind of photograph you are taking* rather
+ * than making the same photograph worth more — the difference between a shop
+ * worth visiting and a list of stat upgrades.
+ */
+export const WIDE: CameraBody = {
+  ...COMPACT,
+  id: 'wide',
+  displayName: 'Wide 28',
+  focalLength: 28,
+  fovHeld: 78,
+  // Cheap wide glass vignettes harder, which flatters a postcard.
+  film: { grain: 0.35, warmth: 0.22, vignette: 0.42 },
+  sceneDivisor: 3,
+  price: 240,
+}
+
+export const BODIES: Record<string, CameraBody> = {
+  [COMPACT.id]: COMPACT,
+  [WIDE.id]: WIDE,
+}
 
 /**
  * The largest frame of `aspect` that fits inside a view, as fractions of it.
