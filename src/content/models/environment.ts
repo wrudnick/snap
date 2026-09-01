@@ -1518,8 +1518,17 @@ function addCanopy(
     const t = i === 0 ? 0 : rng()
     const angle = rng() * Math.PI * 2
     const reach = i === 0 ? 0 : (0.2 + t * 0.45) * width * spread
-    const lift = i === 0 ? height * 0.34 : height * (0.16 + rng() * 0.55) * rise
     const scale = (i === 0 ? 0.92 : 0.42 + rng() * 0.4) * width * spread
+    /**
+     * The central mass is lifted by its own radius, not by the tree's height.
+     *
+     * `spread` shrinks every lump while `rise` raises them, so the narrow tall
+     * silhouette got small blobs hoisted high and its canopy floated clear of
+     * the trunk with sky between the two. Tying the mass to its own size means
+     * its underside always dips below the top of the pole, whatever the
+     * silhouette does.
+     */
+    const lift = i === 0 ? scale * 0.32 : height * (0.16 + rng() * 0.55) * rise
 
     blobs.push({
       position: [x + Math.cos(angle) * reach, base + lift, z + Math.sin(angle) * reach],

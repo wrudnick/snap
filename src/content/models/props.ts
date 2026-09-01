@@ -70,8 +70,10 @@ function tree(kind: SectionKind, shape: 0 | 1 | 2, label: string): PropModel {
       for (let i = 0; i < lumps; i++) {
         const angle = (i / (lumps - 1)) * Math.PI * 2
         const reach = i === 0 ? 0 : 0.34 * width * spread
-        const lift = i === 0 ? height * 0.34 : height * (0.22 + (i % 3) * 0.16) * rise
         const scale = (i === 0 ? 0.92 : 0.5 + (i % 3) * 0.12) * width * spread
+        // The central mass is lifted by its own radius, not by the tree's
+        // height — see addCanopy, which had the same gap for the same reason.
+        const lift = i === 0 ? scale * 0.32 : height * (0.22 + (i % 3) * 0.16) * rise
         group.add(
           piece(
             `canopy${i}`,
@@ -132,17 +134,40 @@ export const PROPS: PropModel[] = [
       for (const end of [-SPAN / 2, SPAN / 2]) {
         group.add(piece('pole', BOX, 0x241f1a, [0, HEIGHT / 2, end], [0.09, HEIGHT, 0.09]))
       }
+      /**
+       * The cable the bulbs hang from.
+       *
+       * Without it they are eight lights floating in a curve, which is the
+       * shape of a string of lights and none of the reason it reads as one —
+       * the black line between them is what the eye follows, and at dusk it is
+       * the only part of this that is not glowing.
+       *
+       * Straight segments chorded along the same sag curve. The whole thing
+       * lives in the YZ plane, so aligning a segment is one rotation about X:
+       * a box's length runs down its own Z, and rotating that to (dy, dz) is
+       * `atan2(dy, dz)`.
+       */
+      const onCurve = (u: number) =>
+        new THREE.Vector3(0, HEIGHT - Math.sin(u * Math.PI) * SAG, -SPAN / 2 + u * SPAN)
+
+      const SEGMENTS = 24
+      for (let k = 0; k < SEGMENTS; k++) {
+        const from = onCurve(k / SEGMENTS)
+        const to = onCurve((k + 1) / SEGMENTS)
+        const segment = new THREE.Mesh(BOX, mat(0x181512))
+        segment.name = `cable${k}`
+        segment.position.copy(from).add(to).multiplyScalar(0.5)
+        segment.scale.set(0.035, 0.035, from.distanceTo(to))
+        segment.rotation.x = Math.atan2(to.y - from.y, to.z - from.z)
+        group.add(segment)
+      }
+
       for (let b = 1; b < 9; b++) {
         const along = b / 9
-        group.add(
-          piece(
-            `bulb${b}`,
-            SPHERE,
-            0xffcf8a,
-            [0, HEIGHT - Math.sin(along * Math.PI) * SAG, -SPAN / 2 + along * SPAN],
-            [0.17, 0.17, 0.17],
-          ),
-        )
+        const on = onCurve(along)
+        // Hung a little under the cable rather than centred on it.
+        group.add(piece(`bulb${b}`, SPHERE, 0xffcf8a, [0, on.y - 0.14, on.z], [0.17, 0.17, 0.17]))
+        group.add(piece(`lead${b}`, BOX, 0x181512, [0, on.y - 0.06, on.z], [0.022, 0.13, 0.022]))
       }
       return group
     },
