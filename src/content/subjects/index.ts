@@ -46,6 +46,21 @@ const PIGEON: SubjectDef = {
     { clip: 'peck', minSeconds: 2.5, maxSeconds: 4.0, weight: 0, trigger: 'food' },
     { clip: 'flap', minSeconds: 1.4, maxSeconds: 2.2, weight: 0, trigger: 'startle' },
   ],
+  reactions: [
+    /**
+     * Pecking at food announces a flock, which is what brings the cat.
+     *
+     * The bird does not know a cat is listening — it broadcasts what it *is*,
+     * not who should care, and every species decides for itself whether birds
+     * on a pavement are interesting. Nothing else in the game currently
+     * answers to `birds`, and that is fine: it costs a walk over a list.
+     */
+    {
+      trigger: 'food',
+      senses: 11,
+      steps: [{ clip: 'peck', hold: 3.2, broadcast: 'birds' }],
+    },
+  ],
 }
 
 const DOG: SubjectDef = {
@@ -134,6 +149,35 @@ const CAT: SubjectDef = {
     { clip: 'loaf', minSeconds: 2.5, maxSeconds: 5.0, weight: 4 },
     { clip: 'prowl', minSeconds: 2.0, maxSeconds: 4.0, weight: 3 },
     { clip: 'stretch', minSeconds: 1.6, maxSeconds: 2.4, weight: 1 },
+  ],
+  reactions: [
+    /**
+     * The chain: your hot dog gathers pigeons, and the pigeons bring the cat.
+     *
+     * Nothing was thrown at the cat. It is the rarest thing on the street and
+     * the only reliable way to make one do anything is two steps removed from
+     * the player's hand, which is the best kind of thing a photography game can
+     * ask for.
+     *
+     * Slow on purpose. A cat crosses twenty metres at 1.5 m/s in a crouch, and
+     * the stalk is most of the photograph — `prowl` is worth 0.7 on its own,
+     * so the approach is a shot in its own right rather than dead time before
+     * one.
+     *
+     * The pounce broadcasts `startle`, so the flock goes up because of the cat
+     * rather than because of anything the player did. Birds already mid-peck
+     * ignore it, which is what keeps the scattered flock from calling the cat
+     * straight back.
+     */
+    {
+      trigger: 'birds',
+      senses: 26,
+      steps: [
+        { clip: 'prowl', hold: 'arrive', speed: 1.5 },
+        { clip: 'stretch', hold: 1.6, broadcast: 'startle' },
+        { clip: 'prowl', hold: 2.2 },
+      ],
+    },
   ],
 }
 

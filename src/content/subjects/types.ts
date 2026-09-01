@@ -117,6 +117,15 @@ export interface ReactionStep {
   speed?: number
   /** Eat it, at the end of this beat. */
   consume?: boolean
+  /**
+   * Tell everything nearby, when this beat starts.
+   *
+   * How a chain is built: pigeons pecking at food announce themselves as birds,
+   * and the cat that has been waiting three doors down comes to stalk them.
+   * No radius here — the emitter does not decide who is interested, the same
+   * way a hot dog does not decide that a dog can smell it from thirty metres.
+   */
+  broadcast?: string
 }
 
 export interface ReactionDef {

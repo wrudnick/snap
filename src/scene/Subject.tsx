@@ -8,6 +8,7 @@ import { getSubject } from '@/content/subjects'
 import type { BehaviorDef, ReactionStep } from '@/content/subjects/types'
 import { registerSubject, unregisterSubject } from '@/game/capture/registry'
 import { consumeItemAt } from '@/game/items'
+import { emitSignal } from '@/game/signals'
 import { makeRng, range } from '@/lib/rng'
 
 /**
@@ -64,6 +65,7 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
   const patrolT = useRef(rng())
 
   const _pos = useMemo(() => new THREE.Vector3(), [])
+  const _signalAt = useMemo(() => new THREE.Vector3(), [])
   const _ahead = useMemo(() => new THREE.Vector3(), [])
 
   /** Weighted pick over the subject's behaviours, excluding trigger-only ones. */
@@ -166,6 +168,15 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
       const group = groupRef.current
       if (!group) return false
 
+      /**
+       * One errand at a time.
+       *
+       * Also the loop guard for signals: the cat's pounce startles the flock,
+       * and a bird already mid-errand ignoring that is what stops the scattered
+       * flock calling the cat straight back in.
+       */
+      if (errand.current) return false
+
       const scripted = def.reactions?.find((r) => r.trigger === trigger)
       if (scripted && distance <= scripted.senses && scripted.steps.length > 0) {
         errand.current = {
@@ -176,6 +187,10 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
         }
         start(scripted.steps[0]!.clip)
         faceTowards(group, from)
+        if (scripted.steps[0]!.broadcast) {
+          group.getWorldPosition(_signalAt)
+          emitSignal(scripted.steps[0]!.broadcast, _signalAt, placement.id)
+        }
         // Held by the errand from here; the idle timer must not cut across it.
         holdFor.current = Number.POSITIVE_INFINITY
         return true
@@ -187,7 +202,7 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
       faceTowards(group, from)
       return true
     },
-    [def.behaviors, def.reactions, faceTowards, rng, start],
+    [def.behaviors, def.reactions, faceTowards, placement.id, rng, start],
   )
 
   /**
@@ -237,8 +252,12 @@ export function SubjectView({ placement }: { placement: SubjectPlacement }) {
         return
       }
       start(next.clip)
+      if (next.broadcast) {
+        group.getWorldPosition(_signalAt)
+        emitSignal(next.broadcast, _signalAt, placement.id)
+      }
     },
-    [faceTowards, start],
+    [faceTowards, placement.id, start],
   )
 
   useEffect(() => {
