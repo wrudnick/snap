@@ -16,6 +16,13 @@ The photograph becomes the viewfinder crop rather than the screen, which changes
 framing for every rule downstream — so it has to land before the rules do. Zoom
 is already a held-Shift field-of-view lerp, so a good deal of this exists.
 
+**What you will find.** Zoom is already held-Shift on the keyboard
+(`input/index.ts` sets `input.zoom` on keydown and clears it on keyup) and a
+toggle on touch, so raise-to-eye maps onto input that exists. The real work is
+the crop: `Shutter.tsx` takes `aspect` from the viewport
+(`size.width / size.height`) and derives the photo height from it, so the crop
+has to reach both capture *and* the snapshot, and those are two places.
+
 - Held low: wide, no frame furniture.
 - Raised: tighter crop, frame bars, per-body viewfinder HUD.
 - Capture and scoring both use the crop's aspect, not the viewport's.
@@ -29,6 +36,10 @@ Fit, Fill, Clear, Level, Face, and Light as a multiplier.
 
 Fifty-two hand-modelled landmarks currently score nothing. This is the slice that
 makes the biggest existing investment in the repository into content.
+
+**What you will find.** `SubjectInstance` in `game/capture/registry.ts` has a
+`species` and no notion of kind, so there is nowhere for a structure to live yet.
+That interface is the first thing to change, and `buildSnapshot` walks it.
 
 - Structures register as observable subjects with a silhouette.
 - Silhouette sampling for Fit and Clear — the BVH added for occlusion already
