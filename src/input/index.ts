@@ -24,10 +24,9 @@ export interface InputState {
    * Absolute look attitude from a device sensor, or null when there is none.
    *
    * `absoluteYaw` is a world heading in three's convention — the same frame as
-   * the camera's own rotation.y — not an offset from the route. The rig
-   * subtracts the rail's heading to get the offset it clamps, so the camera
-   * keeps pointing where the phone points as the route turns beneath it, which
-   * is what a camera in your hand actually does.
+   * the camera's own rotation.y. The rig does not use it as a heading, though:
+   * it takes the *difference* from a stored reference bearing, so what reaches
+   * the camera is how far the phone has turned from forward. See the rig.
    *
    * When these are set they replace the accumulated `aim` deltas rather than
    * adding to them: the whole point of absolute is that the phone's attitude
@@ -35,6 +34,8 @@ export interface InputState {
    */
   absoluteYaw: number | null
   absolutePitch: number | null
+  /** Re-align "forward" with the way the phone is currently pointing. */
+  recentre: boolean
   /** Jump to the next checkpoint. */
   nextCheckpoint: boolean
   /** Jump back to the previous checkpoint. */
@@ -54,6 +55,7 @@ export const input: InputState = {
   speedDown: false,
   absoluteYaw: null,
   absolutePitch: null,
+  recentre: false,
   nextCheckpoint: false,
   prevCheckpoint: false,
   togglePause: false,

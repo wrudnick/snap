@@ -170,3 +170,22 @@ export function wrapPi(angle: number): number {
   while (a < -Math.PI) a += Math.PI * 2
   return a
 }
+
+/**
+ * How far the device has turned from the bearing captured as "forward".
+ *
+ * The whole of the gyro look rule, in one line, so it can be tested as a
+ * property rather than inspected inside a React component. The camera's world
+ * heading is `railHeading + lookOffset(bearing, reference)`, and the reason
+ * that composition matters is the bug it replaces: feeding the bearing in as a
+ * world heading meant a still phone held a fixed compass direction while the
+ * route turned away underneath it, so rounding a corner slid the view off the
+ * street and into a wall.
+ *
+ * Wrapped, never clamped. A cone belongs to a mouse, where the hand stops when
+ * the picture stops; a phone keeps turning with your body whatever the camera
+ * does.
+ */
+export function lookOffset(bearing: number, reference: number): number {
+  return wrapPi(bearing - reference)
+}

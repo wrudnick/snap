@@ -2,6 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 
+import { lookOffset } from '@/lib/deviceOrientation'
 import type { RouteDef } from '@/content/routes/types'
 import { bridge } from '@/dev/harness'
 import { clamp, type Rail } from '@/game/rail'
@@ -28,14 +29,6 @@ function stepSpeed(current: number, direction: 1 | -1): number {
   const i = SPEEDS.indexOf(current as (typeof SPEEDS)[number])
   const next = (i === -1 ? 1 : i) + direction
   return SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, next))]!
-}
-
-/** Bring an angle difference into −π…π, so a turn past north is not a full circle. */
-function wrapPi(angle: number): number {
-  let a = angle
-  while (a > Math.PI) a -= Math.PI * 2
-  while (a < -Math.PI) a += Math.PI * 2
-  return a
 }
 
 export function Rig({
@@ -119,26 +112,53 @@ export function Rig({
 
     runtime.railHeading = rail.headingAt(runtime.t)
 
+    /**
+     * Recentre, handled before the branch so it works with or without a sensor.
+     *
+     * With a gyro it recaptures which way "forward" is; without one there is no
+     * reference to capture and the offset is simply zeroed. Left inside the
+     * gyro branch it would never clear on a desktop, and would sit latched.
+     */
+    if (input.recentre) {
+      input.recentre = false
+      runtime.yawReference = input.absoluteYaw
+      if (input.absoluteYaw === null) runtime.yaw = 0
+    }
+    if (runtime.yawReference === null && input.absoluteYaw !== null) {
+      runtime.yawReference = input.absoluteYaw
+    }
+
     if (input.absoluteYaw !== null && input.absolutePitch !== null) {
       /**
-       * The phone's attitude is the camera's attitude.
+       * How far the phone has turned from forward — not where it points.
        *
-       * `absoluteYaw` is a world heading, so the offset the cone clamps is the
-       * difference between it and the way the route is currently facing —
-       * which means holding the phone still keeps the camera pointed at the
-       * same place in the world while the route turns underneath, exactly as a
-       * camera in your hand behaves. The clamp is what stops you looking behind
-       * you; on a corner it will hold at the edge until you turn your body,
-       * which is the intended feel rather than a limitation to work around.
+       * This used to feed the device's world bearing straight in and clamp the
+       * difference against the route's heading, so holding the phone still kept
+       * the camera locked to a compass direction while the road turned away
+       * underneath it. Rounding a corner, the view slid off the street and
+       * ended up staring at a wall, and the only way back was to physically
+       * turn your whole body through the corner as you took it. The comment
+       * here argued that was correct because it is what a camera in your hand
+       * does. A camera in your hand is not bolted to a rail that turns without
+       * you, and the two together are not a camera, they are a fight.
        *
-       * Pitch needs no such correction: the rig applies it as the camera's own
-       * pitch, already in world terms.
+       * So the reading is relative: the difference between the current bearing
+       * and the bearing that was captured as "forward". Hold the phone still
+       * and the view stays pointed down the route through every turn; turn
+       * yourself ninety degrees and you are looking ninety degrees off the
+       * route, wherever the route happens to be pointing. The recentre button
+       * simply recaptures the reference.
        */
-      runtime.yaw = clamp(
-        wrapPi(input.absoluteYaw - runtime.railHeading),
-        -route.look.yawLimit,
-        route.look.yawLimit,
-      )
+      /**
+       * Unclamped, and wrapped instead.
+       *
+       * A cone made sense when yaw was a world bearing, because the route's own
+       * turning ate into it and something had to bound the result. Now that the
+       * reading is relative to forward, the cone is nothing but a wall you hit
+       * halfway through turning round — and on a phone that wall is worse than
+       * on a mouse, because your body keeps going after the picture stops.
+       */
+      runtime.yaw = lookOffset(input.absoluteYaw, runtime.yawReference ?? input.absoluteYaw)
       runtime.pitch = clamp(
         input.absolutePitch,
         -route.look.pitchLimit,

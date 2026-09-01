@@ -107,6 +107,24 @@ function TouchControls() {
         >
           <span aria-hidden="true">⌖</span>
         </button>
+        {/*
+          Face forward again.
+
+          On a phone the view is wherever the phone is pointing, and after
+          turning to follow something you are left holding the phone off to one
+          side with the route running away in front of you. Turning back by hand
+          means finding forward by eye. This just recaptures which way forward
+          is, so you can hold the phone however you are comfortable and start
+          from there.
+        */}
+        <button
+          type="button"
+          className="touch__btn touch__recentre"
+          aria-label="Face forward"
+          onPointerDown={press('recentre')}
+        >
+          <span aria-hidden="true">⌃</span>
+        </button>
       </div>
 
       <div className="touch touch--right">

@@ -42,6 +42,11 @@ export interface Runtime {
   speed: number
   /** The rail's own heading this frame, before the player's yaw offset. */
   railHeading: number
+  /**
+   * The device bearing that counts as "facing forward", or null before the
+   * first gyro sample. See the recentre handling in the rig.
+   */
+  yawReference: number | null
   /** Title of the section the camera is in. Shown in the HUD. */
   sectionTitle: string
 }
@@ -58,6 +63,7 @@ export const runtime: Runtime = {
   paused: false,
   duration: 1,
   railHeading: 0,
+  yawReference: null,
   speed: 1,
   sectionTitle: '',
 }

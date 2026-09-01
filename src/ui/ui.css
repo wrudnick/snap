@@ -791,6 +791,16 @@ h2 {
   color: #14171c;
 }
 
+/* Round like the zoom control above it, and a touch smaller — it is a
+   correction you reach for occasionally, not a control you hold. */
+.touch__recentre {
+  pointer-events: auto;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  font-size: 1.35rem;
+}
+
 .touch__row {
   display: flex;
   gap: 0.75rem;

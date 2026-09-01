@@ -141,6 +141,45 @@ test('a phone can look, shoot and pause', async ({ page }: { page: Page }) => {
     'tilting up does not swing the view sideways',
   ).toBeLessThan(0.2)
 
+  /**
+   * Turning right round keeps working.
+   *
+   * The look cone was 1.75 rad, so the view stopped dead about a hundred
+   * degrees out while your body kept turning. Nothing about a phone justifies a
+   * wall there — the picture has to keep up with the person holding it.
+   */
+  await point(0, 0, -90)
+  await page.getByRole('button', { name: 'Face forward' }).tap()
+  await page.waitForTimeout(250)
+  expect(
+    await page.evaluate(() => (window as any).__snap.runtime.yaw),
+    'facing forward zeroes the offset',
+  ).toBeCloseTo(0, 2)
+
+  /**
+   * Turned in steps, because the adapter rejects a bearing jump no wrist could
+   * make — a hundred degrees between two readings is a sensor glitch, not a
+   * player. Teleporting the phone in one event tests the noise filter, not the
+   * look.
+   */
+  for (let a = -20; a >= -140; a -= 20) await point(a, 0, -90)
+  const wayRound = await page.evaluate(() => (window as any).__snap.runtime.yaw)
+  expect(Math.abs(wayRound), 'the view turns past the old cone').toBeGreaterThan(1.9)
+
+  /**
+   * And forward is wherever you say it is.
+   *
+   * After following something round you are left holding the phone off to one
+   * side. Recentring from there has to make *that* forward, not snap back to
+   * some remembered pose.
+   */
+  await page.getByRole('button', { name: 'Face forward' }).tap()
+  await page.waitForTimeout(250)
+  expect(
+    await page.evaluate(() => (window as any).__snap.runtime.yaw),
+    'recentring adopts the pose you are holding',
+  ).toBeCloseTo(0, 2)
+
   /** Zoom latches on and off. */
   const wide = await page.evaluate(() => (window as any).__snap.runtime.targetFov)
   const zoom = page.getByRole('button', { name: 'Zoom' })
