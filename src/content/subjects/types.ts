@@ -4,6 +4,7 @@ import type { SpeciesDef } from '@/game/scoring/types'
 export type ModelKind =
   | 'bird'
   | 'quadruped'
+  | 'rat'
   | 'vehicle'
   | 'humanoid'
   | 'bicycle'

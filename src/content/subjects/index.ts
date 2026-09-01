@@ -945,10 +945,10 @@ const RAT: SubjectDef = {
   habitat: 'any',
   displayName: 'Rat',
   rarity: 3,
-  model: 'quadruped',
+  model: 'rat',
   palette: { body: 0x4a4038, accent: 0x2b2520 },
-  // A rat is about a fifth of the dog this shares a builder with.
-  scale: 0.26,
+  // Built at life size, so this is 1 rather than a fraction of a dog.
+  scale: 1,
   fallbackPose: 0.2,
   // Tiny, so filling a useful part of the frame means being very close or
   // zoomed all the way in.

@@ -2418,12 +2418,164 @@ function boundsOf(g: THREE.Group): THREE.Box3 {
   return box
 }
 
+/**
+ * A rat, which is not a small dog.
+ *
+ * It shared the quadruped builder, scaled to a quarter — so it had a dog's
+ * square muzzle, a dog's upright stance, a dog's stubby tail and a dog's
+ * triangular ears, at rat size. Nothing about that reads as a rat, and the rat
+ * is the rarest thing on the route: worth 0.95 scurrying and a full 1.0 out in
+ * the open, which is the highest pose value in the game.
+ *
+ * What actually says rat, in order: the tail, which is as long as the body and
+ * drags; the pointed snout; the big round bare ears; and a back that is nearly
+ * horizontal and very close to the ground. So those are what this builds.
+ *
+ * Modelled at life size — about twenty-four centimetres of body and another
+ * twenty-two of tail — rather than at some multiple to be scaled down, so the
+ * numbers in here are the animal's own.
+ */
+function buildRat(def: SubjectDef): BuiltModel {
+  const { body: c, accent: a } = def.palette
+  const FLESH = 0xc08d84
+  const g = new THREE.Group()
+
+  const body = new THREE.Group()
+  body.name = 'body'
+  g.add(body)
+
+  // A long low back, deeper at the haunch than at the shoulder.
+  body.add(
+    part('torso', BOX, c, [0, 0.05, 0.01], [0.075, 0.062, 0.2]),
+    part('haunch', SPHERE, c, [0, 0.052, 0.08], [0.086, 0.078, 0.1]),
+    part('shoulder', SPHERE, c, [0, 0.048, -0.07], [0.07, 0.06, 0.08]),
+    part('belly', BOX, shadeOf(c, 1.18), [0, 0.028, 0.01], [0.06, 0.03, 0.18]),
+  )
+
+  /**
+   * The head, as a group, so the whole face turns and dips with it.
+   *
+   * Learned the hard way on the dog, whose muzzle, eyes, brow and ears were
+   * siblings of the skull and stayed level while it looked around.
+   */
+  const head = new THREE.Group()
+  head.name = 'head'
+  head.position.set(0, 0.058, -0.125)
+  head.add(
+    part('skull', SPHERE, c, [0, 0, 0], [0.058, 0.052, 0.062]),
+    // The snout is the giveaway: long, narrow and tapering to the nose.
+    part('snout', BOX, c, [0, -0.008, -0.042], [0.03, 0.026, 0.05]),
+    part('nose', SPHERE, FLESH, [0, -0.006, -0.066], [0.014, 0.012, 0.012]),
+    part('eyeL', SPHERE, 0x0d0b0a, [-0.021, 0.012, -0.022], [0.011, 0.011, 0.011]),
+    part('eyeR', SPHERE, 0x0d0b0a, [0.021, 0.012, -0.022], [0.011, 0.011, 0.011]),
+    // Big, round, bare and set high — a rat's ears are half its head.
+    part('earL', SPHERE, FLESH, [-0.032, 0.036, 0.006], [0.038, 0.04, 0.014]),
+    part('earR', SPHERE, FLESH, [0.032, 0.036, 0.006], [0.038, 0.04, 0.014]),
+    part('earInL', SPHERE, shadeOf(FLESH, 0.78), [-0.03, 0.034, 0.0], [0.026, 0.028, 0.01]),
+    part('earInR', SPHERE, shadeOf(FLESH, 0.78), [0.03, 0.034, 0.0], [0.026, 0.028, 0.01]),
+  )
+  // Whiskers, swept back from the snout. Fanned by height, not by a Z tilt,
+  // which mirrors the wrong way across the centre line — see the cat.
+  for (const side of [-1, 1] as const) {
+    for (const [i, lift] of [0.006, 0, -0.006].entries()) {
+      head.add(
+        part(`whisker${side < 0 ? 'L' : 'R'}${i}`, BOX, 0xe8e0d4,
+          [side * 0.036, -0.004 + lift, -0.05], [0.05, 0.0028, 0.0028],
+          [0, side * (0.5 + i * 0.08), 0]),
+      )
+    }
+  }
+  body.add(head)
+
+  /**
+   * The tail: as long as the animal, and jointed so it can drag and flick.
+   *
+   * A chain rather than one tapering box, because the thing a rat's tail does
+   * is curve — a straight spike out the back is the single most dog-like thing
+   * the old model did.
+   */
+  let parent: THREE.Object3D = body
+  for (let i = 0; i < 5; i++) {
+    const t = i / 4
+    const segment = pivot(
+      `tail${i}`,
+      i === 0 ? [0, 0.05, 0.115] : [0, 0, 0.045],
+      part(`tail${i}Mesh`, BOX, FLESH, [0, 0, 0.023], [0.018 - t * 0.008, 0.018 - t * 0.008, 0.047]),
+    )
+    /*
+     * Down off the rump, then flattening out along the ground.
+     *
+     * A constant angle per joint compounds into an arc that carries the tip
+     * thirteen millimetres under the pavement — on an animal thirteen
+     * centimetres tall, that is a tenth of it buried. Dropping steeply at the
+     * base and easing back towards level puts the whole tail on the floor,
+     * which is where a rat's tail is.
+     */
+    segment.rotation.x = i === 0 ? 0.22 : -0.04
+    parent.add(segment)
+    parent = segment
+  }
+
+  // Four short legs, tucked well under a body that is already low.
+  const legs: Record<string, THREE.Object3D> = {}
+  for (const [name, x, z] of [
+    ['legFL', -0.032, -0.06], ['legFR', 0.032, -0.06],
+    ['legBL', -0.034, 0.07], ['legBR', 0.034, 0.07],
+  ] as const) {
+    const leg = pivot(name, [x, 0.032, z], part(`${name}Mesh`, BOX, a, [0, -0.014, 0], [0.016, 0.03, 0.018]))
+    leg.add(part(`${name}Paw`, BOX, FLESH, [0, -0.03, -0.004], [0.018, 0.008, 0.026]))
+    legs[name] = leg
+    body.add(leg)
+  }
+
+  const clips = [
+    /**
+     * Out of sight, which is where a rat is most of the time.
+     *
+     * Straight down rather than hidden behind anything: the route has no
+     * reliable cover at every rat, and a rat that sinks into the pavement is
+     * invisible, which is the entire point of the pose. It is worth 0.05.
+     */
+    new THREE.AnimationClip('hidden', 3.0, [
+      vec('body.position', [0, 3.0], [0, -0.3, 0, 0, -0.3, 0]),
+    ]),
+
+    /** Nose up, weight back, ears forward — the moment worth photographing. */
+    new THREE.AnimationClip('sniff', 1.6, [
+      num('head.rotation[x]', [0, 0.4, 0.8, 1.2, 1.6], [-0.15, -0.5, -0.3, -0.55, -0.15]),
+      num('head.rotation[y]', [0, 0.8, 1.6], [-0.3, 0.3, -0.3]),
+      // Nose-up tips the rump down, so this stays gentle or the tail digs in.
+      num('body.rotation[x]', [0, 0.8, 1.6], [0, -0.07, 0]),
+      num('legFL.rotation[x]', [0, 0.8, 1.6], [0, -0.5, 0]),
+      num('legFR.rotation[x]', [0, 0.8, 1.6], [0, -0.35, 0]),
+      num('tail0.rotation[x]', [0, 0.8, 1.6], [0.22, 0.06, 0.22]),
+      num('tail2.rotation[y]', [0, 0.4, 0.8, 1.2, 1.6], [0, 0.35, 0, -0.35, 0]),
+    ]),
+
+    /** Flat out, legs a blur, tail streaming behind. */
+    new THREE.AnimationClip('scurry', 0.42, [
+      num('body.position[y]', [0, 0.105, 0.21, 0.315, 0.42], [0, 0.006, 0, 0.006, 0]),
+      num('legFL.rotation[x]', [0, 0.21, 0.42], [0.7, -0.7, 0.7]),
+      num('legBR.rotation[x]', [0, 0.21, 0.42], [0.7, -0.7, 0.7]),
+      num('legFR.rotation[x]', [0, 0.21, 0.42], [-0.7, 0.7, -0.7]),
+      num('legBL.rotation[x]', [0, 0.21, 0.42], [-0.7, 0.7, -0.7]),
+      num('head.rotation[x]', [0, 0.42], [0.1, 0.1]),
+      // The tail whips a beat behind the legs, which is what sells the speed.
+      num('tail1.rotation[y]', [0, 0.14, 0.28, 0.42], [0.2, -0.2, 0.2, 0.2]),
+      num('tail3.rotation[y]', [0, 0.14, 0.28, 0.42], [-0.25, 0.25, -0.25, -0.25]),
+    ]),
+  ]
+
+  return { group: g, clips, bounds: boundsOf(g) }
+}
+
 const BUILDERS: Record<
   SubjectDef['model'],
   (def: SubjectDef, seed: number) => BuiltModel
 > = {
   bird: buildBird,
   quadruped: buildQuadruped,
+  rat: buildRat,
   vehicle: buildVehicle,
   humanoid: buildHumanoid,
   bicycle: buildBicycle,
