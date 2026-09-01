@@ -1306,6 +1306,70 @@ function buildBicycle(def: SubjectDef, seed: number): BuiltModel {
   const thighR = leg('thighR', 0.11)
   g.add(thighL, thighR)
 
+  /**
+   * Put the feet on the pedals, by solving for them rather than keying by eye.
+   *
+   * The hand-keyed version had the legs moving through nine centimetres while
+   * the pedals swept a thirty-two centimetre circle, and half a turn out of
+   * phase — the right foot was near the bottom of its stroke while its own
+   * pedal was at the top. Feet and pedals simply passed each other.
+   *
+   * It is a two-bone chain of known length reaching a point on a known circle,
+   * which is one cosine rule, so there is no reason to guess. The hip is fixed,
+   * the pedal is at crank centre plus radius at the crank angle, and the knee
+   * angle follows.
+   *
+   * Everything here is in the sagittal plane: the cranks turn about X, so the
+   * pedals never leave it and neither do the legs.
+   */
+  const HIP_Y = HIP[1] - 0.04
+  const HIP_Z = HIP[2] - 0.04
+  const THIGH = 0.34
+  // Knee to the middle of the foot, which sits slightly forward of the shin.
+  const SHIN = Math.hypot(0.33, 0.05)
+  // The foot hangs a little ahead of the shin's axis, so the shin has to be
+  // rotated back by that much for the foot itself to land on the pedal.
+  const FOOT_OFFSET = Math.atan2(0.05, 0.33)
+
+  const CRANK = { y: 0.34, z: 0.06, r: 0.16 }
+
+  /** Thigh and shin rotations that land this side's foot on its pedal. */
+  function pedalPose(phi: number, side: 1 | -1): [number, number] {
+    // Pedal position, matching how `cranks.rotation[x]` moves them.
+    const py = CRANK.y + side * CRANK.r * Math.cos(phi)
+    const pz = CRANK.z + side * CRANK.r * Math.sin(phi)
+
+    const dy = py - HIP_Y
+    const dz = pz - HIP_Z
+    // Clamped just inside full extension: a chain at exactly its own length has
+    // no solution to speak of and snaps straight.
+    const reach = Math.min(Math.hypot(dy, dz), THIGH + SHIN - 0.004)
+
+    // Cosine rule for the angle between the thigh and the hip-to-pedal line.
+    const cosHip = (THIGH * THIGH + reach * reach - SHIN * SHIN) / (2 * THIGH * reach)
+    const hipOffset = Math.acos(Math.max(-1, Math.min(1, cosHip)))
+    const cosKnee = (THIGH * THIGH + SHIN * SHIN - reach * reach) / (2 * THIGH * SHIN)
+    const knee = Math.acos(Math.max(-1, Math.min(1, cosKnee)))
+
+    /**
+     * A limb at rest points down −Y, and a rotation of t about X sends it to
+     * (−cos t, −sin t), so the rotation for a given direction is this atan2.
+     * The knee bends forwards, which is why the hip offset is subtracted.
+     */
+    const toPedal = Math.atan2(-dz, -dy)
+    const thighRot = toPedal + hipOffset
+    // The shin's angle is relative to the thigh; π − knee is how far it folds.
+    const shinRot = -(Math.PI - knee) - FOOT_OFFSET
+    return [thighRot, shinRot]
+  }
+
+  const CYCLE = 0.9
+  const SAMPLES = 12
+  const pedalTimes = Array.from({ length: SAMPLES + 1 }, (_, i) => (i / SAMPLES) * CYCLE)
+  // The crank runs backwards through the clip, so the phase does too.
+  const pedalPhase = pedalTimes.map((t) => -(t / CYCLE) * Math.PI * 2)
+  const legTrack = (side: 1 | -1, which: 0 | 1) => pedalPhase.map((p) => pedalPose(p, side)[which])
+
   if (spec?.accessories?.includes('helmet')) {
     // Over the head, not behind it: the head sits at z −0.1 and the helmet was
     // at −0.04, which put it on the back of the skull.
@@ -1336,12 +1400,15 @@ function buildBicycle(def: SubjectDef, seed: number): BuiltModel {
       num('wheelF.rotation[x]', [0, 0.45, 0.9], [0, -Math.PI, -Math.PI * 2]),
       num('wheelB.rotation[x]', [0, 0.45, 0.9], [0, -Math.PI, -Math.PI * 2]),
       num('cranks.rotation[x]', [0, 0.45, 0.9], [0, -Math.PI, -Math.PI * 2]),
-      // Thigh and shin move together: the knee closes as the foot comes up and
-      // opens as it goes down, which is the whole read of pedalling.
-      num('thighL.rotation[x]', [0, 0.225, 0.45, 0.675, 0.9], [0.85, 0.55, 0.28, 0.55, 0.85]),
-      num('thighR.rotation[x]', [0, 0.225, 0.45, 0.675, 0.9], [0.28, 0.55, 0.85, 0.55, 0.28]),
-      num('thighLShin.rotation[x]', [0, 0.225, 0.45, 0.675, 0.9], [-0.85, -0.45, -0.15, -0.5, -0.85]),
-      num('thighRShin.rotation[x]', [0, 0.225, 0.45, 0.675, 0.9], [-0.15, -0.5, -0.85, -0.45, -0.15]),
+      /*
+       * Solved against the pedals rather than keyed by hand — see `pedalPose`.
+       * Twelve samples a revolution, which is close enough that the linear
+       * interpolation between them stays on the circle.
+       */
+      num('thighL.rotation[x]', pedalTimes, legTrack(-1, 0)),
+      num('thighR.rotation[x]', pedalTimes, legTrack(1, 0)),
+      num('thighLShin.rotation[x]', pedalTimes, legTrack(-1, 1)),
+      num('thighRShin.rotation[x]', pedalTimes, legTrack(1, 1)),
       num('riderTorso.rotation[z]', [0, 0.225, 0.45, 0.675, 0.9], [0.04, 0, -0.04, 0, 0.04]),
     ]),
     // Up out of the saddle, which is the shot worth waiting for.
