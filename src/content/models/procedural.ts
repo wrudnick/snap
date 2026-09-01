@@ -464,23 +464,44 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
     part('chest', BOX, c, [0, 0.55, -0.34], [0.46, 0.44, 0.34]),
     // A short neck sets the head forward and clear of the shoulders.
     part('neck', BOX, c, [0, 0.66, -0.53], [0.24, 0.24, 0.16]),
-    part('head', BOX, c, [0, 0.79, -0.67], [0.4, 0.36, 0.38]),
+    part('tail', BOX, a, [0, 0.62, 0.44], [0.1, 0.1, 0.4]),
+  )
+
+  /**
+   * The head is a group, so the face turns with it.
+   *
+   * The muzzle, nose, eyes and ears used to be siblings of the skull, sitting
+   * beside it in the body. Every clip that turns the head — barking tilts it
+   * thirty degrees, sniffing drops it forty — rotated the skull and left the
+   * face exactly where it was, so a barking dog's snout stayed level while its
+   * head craned past it. Measuring gave it away: `snout` sat at z = −1.023
+   * whatever the head was doing.
+   *
+   * Same fault as the pigeon's primaries, and the fix is available here where
+   * it was not there — a head is a plain group, so its children can simply be
+   * carried rather than driven.
+   */
+  const headGroup = new THREE.Group()
+  headGroup.name = 'head'
+  headGroup.position.set(0, 0.79, -0.67)
+  headGroup.add(
+    part('skull', BOX, c, [0, 0, 0], [0.4, 0.36, 0.38]),
     // Muzzle kept low and small so it reads as a snout rather than a second
     // head, and so it leaves the brow clear for the eyes.
-    part('snout', BOX, a, [0, 0.71, -0.89], [0.18, 0.14, 0.14]),
-    part('nosePad', BOX, 0x2b2320, [0, 0.74, -0.96], [0.09, 0.07, 0.03]),
+    part('snout', BOX, a, [0, -0.08, -0.22], [0.18, 0.14, 0.14]),
+    part('nosePad', BOX, 0x2b2320, [0, -0.05, -0.29], [0.09, 0.07, 0.03]),
     // Eyes sit on the brow, proud of the head's front face. The first attempt
     // put them at the same depth as the muzzle, which buried them inside it —
     // invisible from every angle.
-    part('eyeL', BOX, 0xf2efe8, [-0.1, 0.85, -0.865], [0.1, 0.09, 0.02]),
-    part('eyeR', BOX, 0xf2efe8, [0.1, 0.85, -0.865], [0.1, 0.09, 0.02]),
-    part('pupilL', BOX, 0x141317, [-0.1, 0.85, -0.876], [0.05, 0.07, 0.02]),
-    part('pupilR', BOX, 0x141317, [0.1, 0.85, -0.876], [0.05, 0.07, 0.02]),
+    part('eyeL', BOX, 0xf2efe8, [-0.1, 0.06, -0.195], [0.1, 0.09, 0.02]),
+    part('eyeR', BOX, 0xf2efe8, [0.1, 0.06, -0.195], [0.1, 0.09, 0.02]),
+    part('pupilL', BOX, 0x141317, [-0.1, 0.06, -0.206], [0.05, 0.07, 0.02]),
+    part('pupilR', BOX, 0x141317, [0.1, 0.06, -0.206], [0.05, 0.07, 0.02]),
     // Ears: prominent, but a cat, not a rabbit.
-    part('earL', BOX, a, [-0.13, 0.97, -0.63], [0.1, 0.15, 0.05]),
-    part('earR', BOX, a, [0.13, 0.97, -0.63], [0.1, 0.15, 0.05]),
-    part('tail', BOX, a, [0, 0.62, 0.44], [0.1, 0.1, 0.4]),
+    part('earL', BOX, a, [-0.13, 0.18, 0.04], [0.1, 0.15, 0.05]),
+    part('earR', BOX, a, [0.13, 0.18, 0.04], [0.1, 0.15, 0.05]),
   )
+  body.add(headGroup)
 
   /**
    * Detail pass.
@@ -541,25 +562,50 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
     // Haunches down, front legs straight, slow tail sweep.
     // Rear down, front up, front legs braced vertical, back legs folded under.
     // Tilting the body alone rotates the legs with it and leaves them dangling.
+    /**
+     * Sitting: chest up, rear down, hind legs folded under.
+     *
+     * The sign here is not guessable and was guessed wrong once, in both
+     * directions. The model faces local −Z and a positive rotation about X
+     * tips the up vector towards +Z, which reads as "leans backwards" — and
+     * for a dog whose nose is at −Z, leaning backwards is exactly what sitting
+     * is. Reasoning about it from the axis convention produced a face-plant;
+     * measuring the world height of `head` against `tail` settled it in one
+     * run, and that is the check to reach for.
+     *
+     * A sitting dog: head high, tail low, hind legs folded, front legs
+     * vertical. Since the legs are children of the body they inherit its tilt,
+     * so the front pair take the opposite rotation to stand up underneath it.
+     * Sitting was too shallow as well as backwards — 0.3 barely moved it — so
+     * the rear drops further and the tilt is stronger.
+     */
     new THREE.AnimationClip('sit', 3.0, [
-      vec('body.position', [0, 3.0], [0, -0.13, 0.05, 0, -0.13, 0.05]),
-      num('body.rotation[x]', [0, 3.0], [0.3, 0.3]),
-      num('legFL.rotation[x]', [0, 3.0], [-0.3, -0.3]),
-      num('legFR.rotation[x]', [0, 3.0], [-0.3, -0.3]),
-      num('legBL.rotation[x]', [0, 3.0], [-1.15, -1.15]),
-      num('legBR.rotation[x]', [0, 3.0], [-1.15, -1.15]),
+      vec('body.position', [0, 3.0], [0, -0.16, 0.06, 0, -0.16, 0.06]),
+      num('body.rotation[x]', [0, 3.0], [0.42, 0.42]),
+      num('legFL.rotation[x]', [0, 3.0], [-0.42, -0.42]),
+      num('legFR.rotation[x]', [0, 3.0], [-0.42, -0.42]),
+      num('legBL.rotation[x]', [0, 3.0], [-1.25, -1.25]),
+      num('legBR.rotation[x]', [0, 3.0], [-1.25, -1.25]),
       num('tail.rotation[y]', [0, 0.75, 1.5, 2.25, 3.0], [0, 0.5, 0, -0.5, 0]),
       num('head.rotation[y]', [0, 1.5, 3.0], [-0.2, 0.25, -0.2]),
     ]),
 
     new THREE.AnimationClip('sniff', 2.0, [
-      num('head.rotation[x]', [0, 0.5, 1.5, 2.0], [0.5, 0.75, 0.75, 0.5]),
+      // Negative drops the muzzle. Positive raises it, and this clip had it
+      // raised — a dog sniffing the sky. It only became visible once the face
+      // was parented to the head and started following it.
+      num('head.rotation[x]', [0, 0.5, 1.5, 2.0], [-0.5, -0.75, -0.75, -0.5]),
       vec(
         'head.position',
         [0, 0.5, 1.5, 2.0],
         [0, 0.76, -0.52, 0, 0.42, -0.62, 0, 0.42, -0.62, 0, 0.76, -0.52],
       ),
-      num('snout.position[y]', [0, 0.5, 1.5, 2.0], [0.71, 0.32, 0.32, 0.71]),
+      /*
+       * The snout used to be dragged down by hand here, in body space, because
+       * it did not follow the head. Now that it does, the head's own rotation
+       * carries it — and this track, still authored against the body, was
+       * lifting the muzzle a third of a metre above the skull.
+       */
       num('tail.rotation[y]', [0, 0.5, 1.0, 1.5, 2.0], [0, 0.6, 0, -0.6, 0]),
     ]),
 
@@ -574,7 +620,9 @@ function buildQuadruped(def: SubjectDef): BuiltModel {
 
     // Head snaps up and back down. Peak window is the head fully raised.
     new THREE.AnimationClip('bark', 1.2, [
-      num('head.rotation[x]', [0, 0.25, 0.5, 0.7, 1.2], [0, -0.55, -0.5, -0.55, 0]),
+      // Up, as the comment above says — which it was not, until the face
+      // started following the skull and showed the dog barking at the pavement.
+      num('head.rotation[x]', [0, 0.25, 0.5, 0.7, 1.2], [0, 0.55, 0.5, 0.55, 0]),
       num('snout.scale[y]', [0, 0.25, 0.5, 0.7, 1.2], [0.15, 0.24, 0.16, 0.24, 0.15]),
       num('body.position[y]', [0, 0.25, 0.6, 1.2], [0, 0.06, 0, 0]),
       num('tail.rotation[y]', [0, 0.3, 0.6, 0.9, 1.2], [0, 0.8, 0, -0.8, 0]),
