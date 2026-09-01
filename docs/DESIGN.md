@@ -46,7 +46,8 @@ original one.
 | **A single currency** | One number, earned by selling photographs, buys both equipment and locations. Simplest to build, simplest to explain, and the spending choice ("lens or new location?") is itself the interesting decision. |
 | **Keystone rule on** | Tilting up to fit a tall building costs points. This is the rule that gives the equipment tree something to fix — portrait, wide angle and tilt-shift all exist to answer a complaint the scoring taught you. Without it, gear is a stat upgrade. |
 | **Scene scoring: primary + decayed support + named bonuses** | See `SCORING.md`. A single-subject score wastes a street full of life; a naive scene score rewards standing in a crowd. |
-| **Grade reflects the primary subject only** | Points carry the scene, the letter grade carries craft. Otherwise a careless snap of a busy street earns an S and the grade stops being feedback. |
+| **Grade reflects the primary subject only** | Points carry the scene, the letter grade carries craft. Otherwise a careless snap of a busy street earns an S and the grade stops being feedback. It also means money responds to the primary and portfolio score responds to the scene, which is what makes composition unfarmable. |
+| **One postcard per subject, sold as a ratchet** | Grades pay a fixed ladder and a better one pays only the difference, so each slot pays out the same total whatever route you took. The money supply becomes finite and computable — see `PROGRESSION.md`. |
 | **Deterministic, geometric scoring** | No vision model, no ML judge. The fun is a legible rulebook you learn to play against, and every rule here must be explainable in one line in the breakdown UI. |
 
 ## Open

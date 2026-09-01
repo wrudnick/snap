@@ -70,32 +70,84 @@ Buying a location should feel like buying access to *specific shots you have
 already been told you cannot take*. The Hancock, entire, is the advertisement for
 the Playpen.
 
-## Diminishing returns on repeats
+## Selling: one slot per subject, and a ratchet
 
-A photograph does not stop selling, it stops selling *well*. Having already sold
-an S-ranked shot of a taxi driver yelling out of his window, the second one is
-worth a fraction of the first.
+You do not sell photographs, you sell **postcards**, and the rack holds exactly
+one card per subject. Selling a better one replaces the card and pays only the
+difference.
 
-The catalogue remembers what has been sold, keyed by what the photograph is *of*:
+| Grade | Card is worth |
+|---|---|
+| D | $1 |
+| C | $5 |
+| B | $12 |
+| A | $25 |
+| S | $50 |
 
-- **Actors** — species and pose. "Taxi driver, yelling" is one entry; "taxi
-  driver, parked" is another.
-- **Structures** — building, face band, and light. The same tower square-on at
-  dawn and three-quarter at dusk are two different postcards, because they are.
+Sell a D taxi driver yelling out of his window and take $1. Come back with a C
+of the same thing and take $4. An A pays $20, and the S that follows pays the
+last $25. The slot has paid out $50 in total, and it always will, whatever route
+you took to it.
 
-The *k*-th sale of an entry pays `1 / (1 + 0.7k)` — full, then 59%, 42%, 32%.
-Repeats stay worth taking, so a great shot is never a punishment, but novelty is
-where the money is.
+Multiplied by rarity, so a slot is worth what it is worth: an S-grade rat is
+harder to earn than an S-grade pigeon and should pay like it.
 
-This is doing more work than it looks. It makes **the catalogue the economy**: to
-keep earning you have to find pairings you have not sold, which is the same pull
-as filling a collection, without a checklist. It is why fifty-two buildings are
-worth modelling. And because a structure's key includes light and angle, it is
-what sends you back to a location you have already bought at a different hour —
-which is far cheaper to build than another location and, for a postcard
-photographer, is exactly the right instinct to teach.
+**What a slot is keyed on.** For actors, species and pose — "taxi driver,
+yelling" and "taxi driver, parked" are different cards. For structures, the
+building and the face you shot it from. **Light is deliberately not part of the
+key.** It is a multiplier inside the structure rubric instead, which means dawn
+is how you turn a B into an A *in a slot you already own* — the ratchet sends you
+back at golden hour, rather than the game inventing three times as many slots.
+
+### Why this is the right shape
+
+**The money supply is finite and computable.** Every slot pays its S value once,
+so the whole economy is a sum you can write down — currently about $11,000
+across ninety pose slots and a hundred and four building faces, split almost
+exactly evenly between street life and architecture. Equipment and locations must
+be priced against that total, and the game has to be finishable well short of
+completing every slot.
+
+**Grinding pays nothing.** Selling the same grade twice is worth zero. The only
+way to earn is to bring back something better than what is on the rack, or
+something that is not on it at all.
+
+**Improvement is paid for exactly.** Not a bonus for improving — the difference,
+which is the honest amount.
+
+**It cannot be farmed by composition.** See below; this is the important one.
+
+## Portfolio score
+
+The cumulative score of the postcards currently in your rack. Money is what you
+spend; the portfolio is what you *are* — the number behind "world-renowned".
+
+The two measure different things on purpose, and the gap between them is where
+the scene scoring finally becomes safe:
+
+- **Money** comes from the *grade*, which comes from the **primary subject
+  alone**.
+- **Portfolio score** comes from *total points*, which carries the whole scene.
+
+So two photographs of the same taxi driver, both graded A, pay identical money —
+but the one with the skyline behind it and a pigeon in the foreground is worth
+more portfolio. You will swap it onto the rack knowing it pays nothing.
+
+That resolves the thing we went three rounds on: **scenes cannot be farmed for
+cash, because cash does not respond to them at all.** Composition is pure
+prestige, so it can be made generous without any risk of it becoming the optimal
+way to make money.
+
+It also produces a genuine dilemma, for free. Money banks permanently at your
+best grade ever, but the rack shows one card. An S with a dull background has
+already paid you its $50; an A with a beautiful one pays nothing but scores
+higher. Which one hangs on the rack is then a real choice, and it is the choice a
+photographer would actually have.
 
 ## Open
 
-- Do photographs sell once, or earn royalties over time?
 - Does film cost money?
+- **Building rarity is unassigned.** Every landmark currently prices the same,
+  which is wrong: the Hancock is not 40 East Oak. Tiering them changes both the
+  money supply and which buildings are worth going out of your way for.
+- Pricing the shop and the map against an ~$11,000 supply.
