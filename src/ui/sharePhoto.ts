@@ -20,7 +20,7 @@ export function shareText(photo: Photo): string {
   const named = s.subjects.map((o) => o.species)
   return [
     `snap ${s.routeId} t=${round(s.t)}`,
-    v ? `yaw=${round(v.yaw)} pitch=${round(v.pitch)} fov=${Math.round(v.fov)}` : null,
+    v ? `${v.focalLength}mm yaw=${round(v.yaw)} pitch=${round(v.pitch)} fov=${Math.round(v.fov)}` : null,
     v ? `build=${v.build}` : null,
     named.length ? `in frame: ${[...new Set(named)].join(', ')}` : 'nothing in frame',
   ]

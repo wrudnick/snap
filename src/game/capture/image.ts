@@ -28,16 +28,86 @@ let pixels: Uint8Array | null = null
 let blit: {
   scene: THREE.Scene
   camera: THREE.OrthographicCamera
-  material: THREE.MeshBasicMaterial
+  material: THREE.ShaderMaterial
 } | null = null
 
+/**
+ * The blit, which is also where the film happens.
+ *
+ * Grain, warmth and vignette are applied *here* and nowhere else, which is a
+ * deliberate call rather than an implementation detail: you compose through an
+ * optical viewfinder, and there is no grain in a viewfinder. Film is a property
+ * of the developed photograph. So the live view stays clean, the contact sheet
+ * shows you something the screen never did, and the look costs nothing per
+ * frame because it only runs when the shutter fires.
+ *
+ * The crop moved in here too. It used to be done by mutating `repeat` and
+ * `offset` on the composer's own texture and putting them back afterwards —
+ * reaching into a live object the renderer is still using, to read a
+ * sub-rectangle we could just as easily sample directly.
+ */
 function getBlit() {
   if (!blit) {
-    const material = new THREE.MeshBasicMaterial({
-      // Tone mapping and depth are the composer's business, already done.
-      toneMapped: false,
+    const material = new THREE.ShaderMaterial({
       depthTest: false,
       depthWrite: false,
+      uniforms: {
+        tMap: { value: null },
+        uOffset: { value: new THREE.Vector2(0, 0) },
+        uRepeat: { value: new THREE.Vector2(1, 1) },
+        uGrain: { value: 0 },
+        uWarmth: { value: 0 },
+        uVignette: { value: 0 },
+        uSeed: { value: 0 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D tMap;
+        uniform vec2 uOffset;
+        uniform vec2 uRepeat;
+        uniform float uGrain;
+        uniform float uWarmth;
+        uniform float uVignette;
+        uniform float uSeed;
+        varying vec2 vUv;
+
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+
+        void main() {
+          vec3 c = texture2D(tMap, uOffset + vUv * uRepeat).rgb;
+
+          // Consumer colour negative runs warm, and it is most of why a
+          // photograph reads as film before you have noticed the grain.
+          c = mix(c, c * vec3(1.06, 1.0, 0.90), uWarmth);
+
+          // Falloff on the *frame's* coordinates, not the screen's, so it sits
+          // in the corners of the photograph wherever the crop was taken from.
+          float d = distance(vUv, vec2(0.5));
+          c *= 1.0 - uVignette * smoothstep(0.36, 0.80, d);
+
+          /**
+           * Grain last, so it is not tinted or darkened by the two above.
+           *
+           * Sampled coarsely rather than per pixel. Per-pixel noise is the
+           * first thing a JPEG encoder discards — measured at quality 0.85 it
+           * left a standard deviation of 1.1 in a flat patch where the shader
+           * had put 3.5 — and it is not what film does anyway. Silver halide
+           * clumps, so grain has a size.
+           */
+          c += (hash(floor(vUv * 420.0) + uSeed) - 0.5) * uGrain * 0.22;
+
+          gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+          #include <colorspace_fragment>
+        }
+      `,
     })
     const scene = new THREE.Scene()
     scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material))
@@ -89,6 +159,12 @@ export interface CaptureOptions {
    * another.
    */
   crop?: { width: number; height: number; x: number; y: number }
+  /**
+   * The film in the camera. Applied to the photograph only — never to the live
+   * view, because you are composing through a viewfinder and there is no grain
+   * in a viewfinder.
+   */
+  film?: { grain: number; warmth: number; vignette: number }
 }
 
 /**
@@ -106,7 +182,7 @@ export async function capturePhotoImage(opts: CaptureOptions): Promise<Blob> {
   const composed = composer ? renderThroughComposer(composer) : null
 
   const rt = composed
-    ? blitToTarget(gl, composed, width, height, opts.crop)
+    ? blitToTarget(gl, composed, width, height, opts.crop, opts.film)
     : renderOffscreen(gl, scene, camera, width, height, opts.crop)
 
   const buffer = getBuffer(width * height * 4)
@@ -138,37 +214,29 @@ function blitToTarget(
   width: number,
   height: number,
   crop?: { width: number; height: number; x: number; y: number },
+  film?: { grain: number; warmth: number; vignette: number },
 ): THREE.WebGLRenderTarget {
   const rt = getTarget(width, height)
   const { scene, camera, material } = getBlit()
 
-  material.map = source.texture
-  /**
-   * Cropping by texture transform rather than by a scissor.
-   *
-   * The composed frame is already a canvas-sized texture, so taking the finder's
-   * rectangle out of it is two numbers on the sampler and costs nothing. A
-   * scissored re-render would be a second full pass for a rectangle we already
-   * have.
-   */
-  if (crop && source.texture) {
-    source.texture.repeat.set(crop.width, crop.height)
-    source.texture.offset.set(crop.x, crop.y)
-    source.texture.needsUpdate = true
-  }
+  material.uniforms.tMap!.value = source.texture
+  material.uniforms.uOffset!.value.set(crop?.x ?? 0, crop?.y ?? 0)
+  material.uniforms.uRepeat!.value.set(crop?.width ?? 1, crop?.height ?? 1)
+  material.uniforms.uGrain!.value = film?.grain ?? 0
+  material.uniforms.uWarmth!.value = film?.warmth ?? 0
+  material.uniforms.uVignette!.value = film?.vignette ?? 0
+  // A different grain pattern per exposure, the way a different piece of film
+  // would be. Without this every photograph carries an identical dust pattern,
+  // which reads as a dirty lens rather than as film.
+  material.uniforms.uSeed!.value = Math.random() * 1000
 
   const previous = gl.getRenderTarget()
   gl.setRenderTarget(rt)
   gl.render(scene, camera)
   gl.setRenderTarget(previous)
-  // Left as found: the composer reuses this texture for the live view.
-  if (crop && source.texture) {
-    source.texture.repeat.set(1, 1)
-    source.texture.offset.set(0, 0)
-  }
 
   // Don't hold a reference to a composer buffer between shots.
-  material.map = null
+  material.uniforms.tMap!.value = null
   return rt
 }
 
@@ -290,13 +358,13 @@ export function warmCapturePipeline(
 ): void {
   const rt = getTarget(width, height)
   const { scene, camera, material } = getBlit()
-  // A real texture, so the shader compiles with the same defines the first
-  // genuine capture will use. Without a map bound it compiles a different
-  // program and the stall simply moves.
-  material.map = rt.texture
+  // A real texture bound, so the program that compiles here is the one the
+  // first genuine capture uses rather than a variant of it — otherwise the
+  // stall this exists to prevent simply moves.
+  material.uniforms.tMap!.value = rt.texture
   const previous = gl.getRenderTarget()
   gl.setRenderTarget(rt)
   gl.render(scene, camera)
   gl.setRenderTarget(previous)
-  material.map = null
+  material.uniforms.tMap!.value = null
 }

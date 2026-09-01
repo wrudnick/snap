@@ -44,6 +44,15 @@ export interface WorldState {
     /** Degrees above the horizon. */
     pitch: number
     fov: number
+    /**
+     * The lens, in millimetres.
+     *
+     * Reported alongside `fov` because the field of view is the *camera's*,
+     * widened past the lens by the finder's coverage so the frame sees the true
+     * focal length. Showing only the angle made a 45mm read as "34.5 degrees",
+     * which is neither the lens nor a number anyone can act on.
+     */
+    focalLength: number
     /** Look offset from the way the route was pointing, in degrees. */
     yawFromRoute: number
   }
@@ -71,6 +80,7 @@ export function captureWorldState(opts: {
   pitch: number
   railHeading: number
   fov: number
+  focalLength: number
   build: string
 }): WorldState {
   const camPos = new THREE.Vector3()
@@ -113,6 +123,7 @@ export function captureWorldState(opts: {
       bearing: bearingOf(opts.railHeading + opts.yaw),
       pitch: round((opts.pitch * 180) / Math.PI, 1),
       fov: round(opts.fov, 1),
+      focalLength: opts.focalLength,
       yawFromRoute: round((opts.yaw * 180) / Math.PI, 1),
     },
     actors,

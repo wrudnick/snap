@@ -108,6 +108,7 @@ export function Shutter({
       yaw: runtime.yaw,
       pitch: runtime.pitch,
       fov: runtime.targetFov,
+      focalLength: body.focalLength,
       build: __BUILD__,
     }
 
@@ -129,6 +130,7 @@ export function Shutter({
       pitch: runtime.pitch,
       railHeading: runtime.railHeading,
       fov: runtime.targetFov,
+      focalLength: body.focalLength,
       build: __BUILD__,
     })
     const score = scorePhoto(snapshot, SPECIES_INDEX, DEFAULT_SCORING_CONFIG)
@@ -155,6 +157,7 @@ export function Shutter({
       height,
       crop,
       composer: activeComposer.current,
+      film: body.film,
     })
       .then((blob) => {
         useGame.getState().attachImage(id, URL.createObjectURL(blob))

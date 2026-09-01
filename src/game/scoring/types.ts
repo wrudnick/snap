@@ -47,7 +47,7 @@ export interface PhotoSnapshot {
    * Optional so the hand-built snapshot literals the scoring tests are written
    * against stay valid; they are about framing, not about where the camera was.
    */
-  view?: { yaw: number; pitch: number; fov: number; build: string }
+  view?: { yaw: number; pitch: number; fov: number; focalLength: number; build: string }
   subjects: SubjectObservation[]
 }
 

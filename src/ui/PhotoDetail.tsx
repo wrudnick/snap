@@ -78,7 +78,9 @@ export function PhotoDetail({ photo, onClose }: { photo: Photo; onClose: () => v
                   ° off route
                 </dd>
                 <dt>Lens</dt>
-                <dd>{world.camera.fov}° fov</dd>
+                <dd>
+                  {world.camera.focalLength}mm · {world.camera.fov}° view
+                </dd>
                 <dt>Actors</dt>
                 <dd>
                   {world.actors.length} loaded, {ahead.length} in front
