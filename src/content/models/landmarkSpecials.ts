@@ -19,6 +19,7 @@ import {
   piers,
   slab,
   taperedSlab,
+  wallBlock,
   wallWidth,
 } from './landmarkKit'
 import type { LandmarkSite } from './landmarkSites'
@@ -102,69 +103,124 @@ export function sofitel(site: LandmarkSite): THREE.Object3D {
  */
 export function quigley(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
-  const [, d] = site.size
-  const [fullW, fullD] = site.bounds
+  const { minX, maxX, minZ, maxZ } = site.extent
+  const fullW = maxX - minX
   const wallH = 16
-  const naveD = Math.min(fullD, d * 1.6)
   const STONE = 0xb9b5a4
+  const ROOF = 0x5a5148
+
+  /**
+   * A quadrangle, not a hall.
+   *
+   * The footprint is a U — a range along Chestnut with two wings running back
+   * to enclose a courtyard — which is the thing I wrongly accused the church's
+   * footprint of being. Here it is true, and it matters: the roof used to be a
+   * single gable eighteen metres deep laid over a sixty-eight metre plan,
+   * covering a quarter of it and leaving the rest flat, with the front and its
+   * buttresses parked in mid-courtyard where the nave was imagined to end.
+   *
+   * So each range is roofed separately. The wings are found by cutting across
+   * the plan inside the courtyard and taking the spans that are still solid,
+   * rather than by guessing at coordinates — the shape is in the data.
+   */
+  const RANGE_D = 17
+  const frontMid = minZ + RANGE_D / 2
+
+  const inRing = (x: number, z: number) => {
+    let inside = false
+    const r = site.localRing
+    for (let i = 0, k = r.length - 1; i < r.length; k = i++) {
+      const [xi, zi] = r[i]!
+      const [xk, zk] = r[k]!
+      if (zi > z !== zk > z && x < ((xk - xi) * (z - zi)) / (zk - zi) + xi) inside = !inside
+    }
+    return inside
+  }
+
+  const cutZ = minZ + (maxZ - minZ) * 0.55
+  const wings: Array<{ x: number; w: number }> = []
+  let runStart: number | null = null
+  const STEP = 0.5
+  for (let x = minX; x <= maxX + STEP; x += STEP) {
+    const solid = x <= maxX && inRing(x, cutZ)
+    if (solid && runStart === null) runStart = x
+    if (!solid && runStart !== null) {
+      const width = x - STEP - runStart
+      if (width > 4) wings.push({ x: runStart + width / 2, w: width })
+      runStart = null
+    }
+  }
+
+  g.add(extrudeRing(site.localRing, 0, wallH, STONE))
+  // The range along the street, ridge running the length of it.
+  g.add(gable(fullW * 0.99, RANGE_D, wallH, 11, ROOF).translateZ(frontMid))
+  // Each wing, ridge running back into the block.
+  for (const wing of wings) {
+    const from = minZ + RANGE_D * 0.6
+    g.add(
+      gable(wing.w * 1.02, maxZ - from, wallH, 7, ROOF, 'z')
+        .translateX(wing.x)
+        .translateZ(from + (maxZ - from) / 2),
+    )
+  }
 
   /**
    * The rose window is the building.
    *
    * St James Chapel is modelled on the Sainte-Chapelle and its street front is
-   * one steep gable almost entirely filled by a great traceried circle, over a
-   * deep pointed portal. The first version had a gable, buttresses and a flèche
-   * and none of that — which is most of a Gothic chapel's face missing.
-   *
-   * Built as a recessed disc with radiating spokes rather than real tracery:
-   * the outline pass draws every one of those edges, and at the distance this
-   * is seen from the ring and the spokes are exactly what reads.
+   * one steep gable almost entirely filled by a great traceried circle over a
+   * deep pointed portal. Built as a recessed disc with radiating spokes rather
+   * than real tracery: the outline pass draws every one of those edges, and at
+   * the distance this is seen the ring and the spokes are exactly what reads.
    */
-  g.add(extrudeRing(site.localRing, 0, wallH, STONE))
-  g.add(gable(fullW * 0.98, naveD, wallH, 11, 0x5a5148))
-  g.add(piers(fullW * 0.96, wallH * 0.9, naveD, 0, Math.max(5, Math.round(fullW / 5)), 0xa9a494, 0.85))
-
-  // The west front, stepped proud of the nave and carried up as a gable wall.
-  const frontZ = -naveD / 2
-  g.add(slab(fullW * 0.46, wallH + 11, 1.8, 0, STONE, [0, frontZ]))
-
+  const front = wallBlock(site, 'street', {
+    across: fullW * 0.46,
+    height: wallH + 11,
+    depth: 1.8,
+    y: 0,
+    color: STONE,
+  })
   const rose = Math.min(fullW * 0.3, 9)
-  const ring = new THREE.Mesh(
-    new THREE.CylinderGeometry(rose / 2, rose / 2, 1.0, 16, 1),
-    mat(0x6f6a5c),
+  const portalW = fullW * 0.2
+
+  g.add(
+    carve(
+      front.mesh,
+      front.into({ across: rose, height: rose, depth: 0.8, y: wallH * 0.86 - rose / 2 }),
+      front.into({ across: portalW, height: wallH * 0.46, depth: 1.2, y: 0 }),
+    ),
   )
-  ring.rotation.x = Math.PI / 2
-  ring.position.set(0, wallH * 0.86, frontZ - 1.0)
-  g.add(ring)
-  const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(rose * 0.13, rose * 0.13, 1.2, 10, 1),
-    mat(STONE),
-  )
-  hub.rotation.x = Math.PI / 2
-  hub.position.set(0, wallH * 0.86, frontZ - 1.1)
-  g.add(hub)
+  // Glass behind the rose, then the ring and its spokes standing in the opening.
+  g.add(front.back({ across: rose * 0.98, height: rose * 0.98, depth: 0.3, y: wallH * 0.86 - rose / 2, set: 0.5, color: 0x6f6a5c }))
   for (let i = 0; i < 8; i++) {
-    const spoke = slab(0.5, rose * 0.92, 0.4, 0, STONE, [0, frontZ - 1.1])
+    const spoke = front.back({ across: 0.45, height: rose * 0.94, depth: 0.4, y: wallH * 0.86 - rose / 2, set: 0.1, color: STONE })
     spoke.position.y = wallH * 0.86
     spoke.rotation.z = (i / 8) * Math.PI
     g.add(spoke)
   }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(rose * 0.13, rose * 0.13, 1.2, 10, 1), mat(STONE))
+  hub.rotation.x = Math.PI / 2
+  hub.position.copy(front.back({ across: 1, height: 1, depth: 0.4, y: wallH * 0.86, set: 0 }).position)
+  g.add(hub)
+  // The doors, deep in the portal.
+  g.add(front.back({ across: portalW * 0.8, height: wallH * 0.4, depth: 0.4, y: 0, set: 0.8, color: 0x554f44 }))
 
-  // The portal beneath it, and pinnacles up the gable.
-  g.add(slab(fullW * 0.2, wallH * 0.44, 0.9, 0, 0x554f44, [0, frontZ - 1.0]))
+  // Pinnacles up the gable, and buttresses between the windows of the range.
   for (const sx of [-1, 1]) {
-    g.add(slab(1.5, 7, 1.5, wallH + 2, STONE, [sx * fullW * 0.22, frontZ]))
-    g.add(slab(1.1, 4, 1.1, wallH + 9, STONE, [sx * fullW * 0.22, frontZ]))
+    g.add(front.on({ across: 1.5, height: 7, depth: 1.5, y: wallH + 2, along: sx * fullW * 0.22, color: STONE }))
+    g.add(front.on({ across: 1.1, height: 4, depth: 1.1, y: wallH + 9, along: sx * fullW * 0.22, color: STONE }))
+  }
+  const bays = Math.max(5, Math.round(fullW / 6))
+  for (let i = 0; i < bays; i++) {
+    const along = -fullW / 2 + (fullW * (i + 0.5)) / bays
+    if (Math.abs(along) < fullW * 0.26) continue
+    g.add(onWall(site, 'street', { across: 1.2, height: wallH * 0.88, depth: 1.1, y: 0, along, color: 0xa9a494 }))
   }
 
-  // The flèche over the ridge.
-  const spireMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.001, 1.5, 15, 6, 1),
-    mat(0x5a5148),
-  )
-  spireMesh.position.y = wallH + 11 + 7
+  // The flèche over the crossing.
+  const spireMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.001, 1.5, 15, 6, 1), mat(ROOF))
+  spireMesh.position.set(0, wallH + 11 + 7, frontMid)
   g.add(spireMesh)
-  g.add(slab(2.4, 3, 2.4, wallH + 11, 0x5a5148))
   return g
 }
 
@@ -285,10 +341,25 @@ export function fortnightly(site: LandmarkSite): THREE.Object3D {
 
   g.add(extrudeRing(site.localRing, 0, 2.2, LIMESTONE))
   g.add(extrudeRing(site.localRing, 2.2, h - 2.2, RED_BRICK))
-  g.add(floorBands(w * 0.98, h - 6, d * 0.98, 2.2, 4.4, LIMESTONE_SHADE))
+  g.add(floorBands(site.bounds[0] * 0.99, h - 6, site.bounds[1] * 0.99, 2.2, 4.4, LIMESTONE_SHADE))
   // Quoins: limestone blocks up both front corners.
+  /**
+   * Quoins up the two front corners.
+   *
+   * Placed on the street wall rather than at `±size / 2`, which is the corner
+   * of the rectangle that fits *inside* the plot — several metres in from the
+   * real corner, so both quoins stood buried in the brick.
+   */
+  const frontage = wallWidth(site, 'street')
   for (const sx of [-1, 1]) {
-    g.add(slab(1.4, h - 3, 1.4, 2.2, LIMESTONE, [(sx * w) / 2, d / 2]))
+    g.add(onWall(site, 'street', {
+      across: 1.4,
+      height: h - 3,
+      depth: 1.4,
+      y: 2.2,
+      along: (sx * frontage) / 2 - sx * 0.7,
+      color: LIMESTONE,
+    }))
   }
   /**
    * A cornice, a balustrade and a hipped roof.
@@ -298,15 +369,23 @@ export function fortnightly(site: LandmarkSite): THREE.Object3D {
    * low run of balusters, and behind it the roof is hipped with dormers, which
    * is what stops a townhouse reading as an office block.
    */
-  g.add(band(w, d, h - 1.6, 1.6, 1.1, LIMESTONE))
-  const posts = Math.max(6, Math.round(w / 1.8))
-  for (let i = 0; i < posts; i++) {
-    const x = -w / 2 + (w * (i + 0.5)) / posts
-    for (const z of [d / 2, -d / 2]) {
-      g.add(slab(0.28, 1.3, 0.28, h, LIMESTONE_SHADE, [x, z]))
+  const [fullW, fullD] = site.bounds
+  g.add(band(fullW, fullD, h - 1.6, 1.6, 1.1, LIMESTONE))
+  // Balusters along the two long walls, on the parapet the cornice carries.
+  const posts = Math.max(6, Math.round(frontage / 1.8))
+  for (const wall of ['street', 'back'] as const) {
+    for (let i = 0; i < posts; i++) {
+      g.add(onWall(site, wall, {
+        across: 0.28,
+        height: 1.3,
+        depth: 0.28,
+        y: h,
+        along: -frontage / 2 + (frontage * (i + 0.5)) / posts,
+        color: LIMESTONE_SHADE,
+      }))
     }
   }
-  g.add(band(w, d, h + 1.3, 0.35, 0.5, LIMESTONE))
+  g.add(band(fullW, fullD, h + 1.3, 0.35, 0.5, LIMESTONE))
   g.add(taperedSlab(w * 0.92, 4.5, d * 0.92, h + 1.6, 0.45, 0x5a5148))
   for (const sx of [-1, 0, 1]) {
     g.add(slab(1.6, 1.8, 1.2, h + 2.2, LIMESTONE, [sx * w * 0.24, d * 0.3]))

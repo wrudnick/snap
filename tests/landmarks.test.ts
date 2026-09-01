@@ -191,6 +191,61 @@ describe('landmark parts are visible', () => {
  * exact failure this replaced, and one that is invisible from any angle the
  * model inspector shows by default.
  */
+/**
+ * Parts buried inside the extruded footprint.
+ *
+ * The box-in-box rule above only trusts an unrotated box as the container,
+ * because a box is exactly its own bounding volume. That let a real one
+ * through for months: `shopFront` extrudes the whole plot to full height and
+ * then adds "recessed glazing at street level" *inside* it, so every shop on
+ * the route had an invisible shopfront and a blank wall where the player walks
+ * closest.
+ *
+ * An extruded footprint is a prism, and a prism is not its bounding box — but
+ * it is exactly its ring swept through a height, and point-in-ring is a precise
+ * test. So this one is exact where the box rule was conservative, and catches
+ * the shape of burial the box rule cannot see.
+ */
+describe('nothing is buried in the extrusion', () => {
+  it('no part sits entirely inside the footprint prism', () => {
+    const buried: string[] = []
+    for (const [key, entry] of Object.entries(LANDMARK_BUILDINGS)) {
+      const site = siteById(Number(key))
+      if (!site) continue
+      const ring = site.localRing
+
+      // How high the solid extrusions reach. Anything above this is in open air.
+      let solidTo = 0
+      const parts: Array<{ box: THREE.Box3; label: string }> = []
+      entry.build({ ...site, height: heightOf(entry, site) }).traverse((o) => {
+        const mesh = o as THREE.Mesh
+        if (!mesh.isMesh || !mesh.geometry) return
+        mesh.updateWorldMatrix(true, false)
+        const box = new THREE.Box3().setFromObject(mesh)
+        if (box.isEmpty()) return
+        if (mesh.geometry.type === 'ExtrudeGeometry') solidTo = Math.max(solidTo, box.max.y)
+        else parts.push({ box, label: `${mesh.geometry.type}@${box.min.toArray().map((n) => n.toFixed(0)).join(',')}` })
+      })
+      if (solidTo <= 0) continue
+
+      for (const part of parts) {
+        // Well inside on every side, and under the top of the solid.
+        if (part.box.max.y > solidTo - 0.25) continue
+        const corners: Array<[number, number]> = [
+          [part.box.min.x + 0.25, part.box.min.z + 0.25],
+          [part.box.min.x + 0.25, part.box.max.z - 0.25],
+          [part.box.max.x - 0.25, part.box.min.z + 0.25],
+          [part.box.max.x - 0.25, part.box.max.z - 0.25],
+        ]
+        if (corners.every(([x, z]) => inRing(ring, x, z))) {
+          buried.push(`${entry.name}: ${part.label} is inside the extruded footprint`)
+        }
+      }
+    }
+    expect(buried).toEqual([])
+  })
+})
+
 describe('street faces', () => {
   it('points at the nearest route point, in the building frame', () => {
     const wrong: string[] = []

@@ -5,11 +5,13 @@ import {
   carve,
   extrudeRing,
   floorBands,
-  slotIn,
+  onWall,
   piers,
+  slotIn,
   setbackStack,
   slab,
   taperedSlab,
+  wallWidth,
 } from './landmarkKit'
 import type { LandmarkSite } from './landmarkSites'
 
@@ -156,29 +158,86 @@ export interface ShopOptions {
  */
 export function shopFront(site: LandmarkSite, o: ShopOptions): THREE.Object3D {
   const g = new THREE.Group()
-  const [w, d] = site.size
   const h = Math.max(site.height, 6)
+  const [fullW, fullD] = site.bounds
+  const street = wallWidth(site, 'street')
+  const glazeH = Math.min(4.2, h * 0.55)
+  const REVEAL = 0.9
 
   /**
-   * Extruded whole, not just at the base: a two-storey shop *is* its plot, and
-   * these are the buildings the player passes closest to.
+   * Extruded whole, not just at the base: a two-storey shop *is* its plot.
+   *
+   * And then the shopfront is cut out of it. It used to be a glass box added
+   * *inside* the extrusion — sealed in the solid, drawing nothing — so every
+   * shop on the route had an invisible shopfront and presented a blank wall at
+   * exactly the point where the player passes closest to it. The awnings went
+   * the same way: hung off `±d / 2` where `d` is the inscribed rectangle, which
+   * is inside the real footprint, so they were buried in the masonry too.
    */
-  g.add(extrudeRing(site.localRing, 0, h, o.color))
-  // Recessed glazing at street level.
-  g.add(slab(w * 0.94, Math.min(4.2, h * 0.55), d * 0.94, 0.4, GLASS))
-  g.add(band(w, d, Math.min(4.6, h * 0.6), 0.8, 0.5, o.trim))
-  if (h > 8) g.add(floorBands(w, h - 6, d, 4.6, 3.8, o.trim))
-  g.add(band(w, d, h - 1.2, 1.2, 0.9, o.trim))
+  let shell = extrudeRing(site.localRing, 0, h, o.color)
+  const opening = { across: street * 0.82, height: glazeH, depth: REVEAL, y: 0.5 }
+  shell = carve(shell, slotIn(site, shell, 'street', opening))
+  g.add(shell)
+
+  // Glass at the back of the reveal, where it picks up the shadow of the head.
+  g.add(onWall(site, 'street', {
+    across: opening.across - 0.3,
+    height: glazeH - 0.3,
+    depth: 0.4,
+    y: 0.6,
+    set: 0.5,
+    color: GLASS,
+  }))
+  // Mullions standing in the opening, on a shopfront rhythm rather than a
+  // structural one — these are wide panes of glass with slim bars between.
+  const bays = Math.max(2, Math.round(opening.across / 3.2))
+  for (let i = 1; i < bays; i++) {
+    g.add(onWall(site, 'street', {
+      across: 0.22,
+      height: glazeH - 0.2,
+      depth: 0.5,
+      y: 0.5,
+      set: 0.2,
+      along: -opening.across / 2 + (opening.across * i) / bays,
+      color: o.trim,
+    }))
+  }
+  /**
+   * A lintel over the opening, and a cornice.
+   *
+   * Both kept tight to the wall. Sized off `bounds` with a generous overhang
+   * they became shelves standing most of a metre off an irregular plot — a
+   * two-storey shop wearing a cornice a tower would be embarrassed by.
+   */
+  g.add(onWall(site, 'street', {
+    across: opening.across + 0.8,
+    height: 0.7,
+    depth: 0.55,
+    y: glazeH + 0.1,
+    color: o.trim,
+  }))
+  if (h > 8) g.add(floorBands(fullW * 0.98, h - 6, fullD * 0.98, glazeH + 1.4, 3.8, o.trim))
+  g.add(band(fullW * 0.98, fullD * 0.98, h - 1.0, 1.0, 0.35, o.trim))
 
   if (o.awning !== undefined) {
-    for (const side of [1, -1]) {
-      const canopy = slab(w * 0.9, 0.35, 2.4, 3.4, o.awning, [0, (side * d) / 2 + 1.1])
-      g.add(canopy)
-    }
+    g.add(onWall(site, 'street', {
+      across: street * 0.86,
+      height: 0.35,
+      depth: 2.4,
+      y: glazeH + 1.1,
+      color: o.awning,
+    }))
   }
   if (o.blade !== undefined) {
-    // A vertical marquee blade on one corner — a cinema or a bar sign.
-    g.add(slab(0.6, h * 0.8, 2.6, h * 0.35, o.blade, [w / 2 - 1, d / 2 + 1.2]))
+    // A vertical sign on one end of the frontage — a cinema or a bar.
+    g.add(onWall(site, 'street', {
+      across: 0.6,
+      height: h * 0.8,
+      depth: 2.6,
+      y: h * 0.35,
+      along: street * 0.34,
+      color: o.blade,
+    }))
   }
   return g
 }

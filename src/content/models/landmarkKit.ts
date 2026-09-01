@@ -529,6 +529,8 @@ export interface WallPlacement {
   y: number
   /** Offset along the wall, from centred. */
   along?: number
+  /** Set back behind the wall face — for glass sitting inside a cut reveal. */
+  set?: number
   color?: number
 }
 
@@ -586,7 +588,7 @@ export function onWall(site: LandmarkSite, wall: Wall, p: WallPlacement): THREE.
   const { out, plane, onX } = wallPlane(site, wall)
   const along = p.along ?? 0
   // Bites very slightly into the wall, so the join is a seam and not a gap.
-  const centre = plane + (onX ? out[0] : out[1]) * (p.depth / 2 - 0.4)
+  const centre = plane + (onX ? out[0] : out[1]) * (p.depth / 2 - 0.4 - (p.set ?? 0))
   const color = p.color ?? 0xffffff
   return onX
     ? slab(p.depth, p.height, p.across, p.y, color, [centre, along])
