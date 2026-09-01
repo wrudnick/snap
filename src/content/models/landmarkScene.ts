@@ -2,6 +2,7 @@ import * as THREE from 'three'
 
 import { addFacadeAttributes, mergeByMaterial } from './landmarkKit'
 import { LANDMARK_BUILDINGS, heightOf } from './landmarkBuildings'
+import { silhouetteOf, type Silhouette } from './landmarkSilhouette'
 import { siteById } from './landmarkSites'
 
 /**
@@ -16,8 +17,19 @@ import { siteById } from './landmarkSites'
  * down Michigan, and half the point of putting the Hancock in is that it is
  * visible from the beach.
  */
+/**
+ * Each landmark's outline, by OSM id, taken before the merge.
+ *
+ * Rendering wants one mesh per material for the whole city; scoring wants to
+ * know which building is which. Those are different questions and only the
+ * first one needs a draw call, so the silhouettes are captured here — from the
+ * real built geometry, spires included — and the merge proceeds unchanged.
+ */
+export const LANDMARK_SILHOUETTES = new Map<number, Silhouette>()
+
 export function buildLandmarks(): THREE.Group {
   const scaffold = new THREE.Group()
+  LANDMARK_SILHOUETTES.clear()
 
   for (const [key, entry] of Object.entries(LANDMARK_BUILDINGS)) {
     const site = siteById(Number(key))
@@ -30,6 +42,9 @@ export function buildLandmarks(): THREE.Group {
     holder.position.set(site.center[0], 0, site.center[1])
     holder.rotation.y = site.heading
     scaffold.add(holder)
+
+    const outline = silhouetteOf(holder)
+    if (outline) LANDMARK_SILHOUETTES.set(Number(key), outline)
   }
 
   const merged = mergeByMaterial(scaffold)
