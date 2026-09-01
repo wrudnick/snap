@@ -309,7 +309,29 @@ function buildBird(def: SubjectDef): BuiltModel {
     // Primaries crossing over the tail, the way a settled pigeon holds them.
     part('primaryL', BOX, shadeOf(c, 0.7), [-0.06, 0.17, 0.23], [0.05, 0.03, 0.2], [0, -0.16, 0]),
     part('primaryR', BOX, shadeOf(c, 0.7), [0.06, 0.17, 0.23], [0.05, 0.03, 0.2], [0, 0.16, 0]),
-    part('tail', BOX, shadeOf(c, 0.85), [0, 0.2, 0.26], [0.13, 0.028, 0.2]),
+    /**
+     * The tail, as five splayed feathers rather than one card.
+     *
+     * It was a single box thirteen centimetres wide and under three thick — a
+     * flat plate, and from behind and from either side that is exactly what it
+     * read as. The comment two lines down claimed the feathers were splayed;
+     * they were not.
+     *
+     * Fanned about the root, so the outline pass draws four separations across
+     * the fan and the shape says feathers even at the size a pigeon occupies in
+     * frame. The outer pair sit slightly lower, which is how a folded tail
+     * actually hangs.
+     */
+    ...[-2, -1, 0, 1, 2].map((i) =>
+      part(
+        `tail${i + 2}`,
+        BOX,
+        shadeOf(c, 0.85 - Math.abs(i) * 0.05),
+        [i * 0.021, 0.2 - Math.abs(i) * 0.006, 0.26],
+        [0.03, 0.022, 0.2 - Math.abs(i) * 0.022],
+        [0, i * 0.13, 0],
+      ),
+    ),
     part('legL', CYL, a, [-0.05, 0.05, 0.02], [0.02, 0.11, 0.02]),
     part('legR', CYL, a, [0.05, 0.05, 0.02], [0.02, 0.11, 0.02]),
   )
@@ -390,7 +412,25 @@ function buildBird(def: SubjectDef): BuiltModel {
       num('wingR.rotation[z]', [0, 0.2, 0.4, 0.6, 0.8], [0, 1.1, -0.3, 1.1, 0]),
       num('body.position[y]', [0, 0.3, 0.5, 0.8], [0, 0.23, 0.27, 0.05]),
       num('body.rotation[x]', [0, 0.3, 0.8], [0, -0.25, 0]),
-      num('tail.rotation[x]', [0, 0.4, 0.8], [0, 0.4, 0]),
+      num('tail0.rotation[x]', [0, 0.4, 0.8], [0, 0.4, 0]),
+      num('tail1.rotation[x]', [0, 0.4, 0.8], [0, 0.4, 0]),
+      num('tail2.rotation[x]', [0, 0.4, 0.8], [0, 0.4, 0]),
+      num('tail3.rotation[x]', [0, 0.4, 0.8], [0, 0.4, 0]),
+      num('tail4.rotation[x]', [0, 0.4, 0.8], [0, 0.4, 0]),
+      /**
+       * The primaries go up with the wings.
+       *
+       * They are siblings of the wings rather than children — a wing here is a
+       * non-uniformly scaled ellipsoid, and anything parented to it inherits
+       * that scale and comes out sheared. So they are driven, not carried.
+       *
+       * Without this the bird took off with its wings at sixty degrees and its
+       * primaries still lying flat across its tail, which from the side read as
+       * a plank sticking out of it. Slightly under the wings' amplitude,
+       * because they trail.
+       */
+      num('primaryL.rotation[z]', [0, 0.2, 0.4, 0.6, 0.8], [0, -0.85, 0.2, -0.85, 0]),
+      num('primaryR.rotation[z]', [0, 0.2, 0.4, 0.6, 0.8], [0, 0.85, -0.2, 0.85, 0]),
     ]),
   ]
 

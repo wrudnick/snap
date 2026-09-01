@@ -27,7 +27,17 @@ const PIGEON: SubjectDef = {
     idle: { label: 'Loitering', value: 0.3 },
     peck: { label: 'Pecking', value: 0.55, peak: [0.35, 0.6], peakBonus: 0.15 },
     strut: { label: 'Strutting', value: 0.6 },
-    flap: { label: 'Taking off', value: 0.8, peak: [0.3, 0.55], peakBonus: 0.2 },
+    /**
+     * The peak is the top of the wingbeat, which is a quarter of the way in.
+     *
+     * It was 30–55%, and on an eight-tenths-of-a-second clip that is 0.24s to
+     * 0.44s — the downstroke passing through horizontal, with the wings at
+     * seven degrees. The bonus was being paid for the least photogenic instant
+     * of the beat, and the comment on the clip itself claimed the peak was the
+     * top of it. The extremes are at 25% and 75%; this brackets the first,
+     * where the wings are at full spread and the body is still rising.
+     */
+    flap: { label: 'Taking off', value: 0.8, peak: [0.19, 0.33], peakBonus: 0.2 },
   },
   behaviors: [
     { clip: 'idle', minSeconds: 1.5, maxSeconds: 3.5, weight: 4 },

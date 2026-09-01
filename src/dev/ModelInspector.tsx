@@ -228,17 +228,69 @@ export function ModelInspector() {
     return [...subjects, ...items, ...props, ...landmarks]
   }, [])
 
-  const [selected, setSelected] = useState(entries[0]?.id ?? '')
-  const [seed, setSeed] = useState(1)
+  /**
+   * The whole view, in the URL.
+   *
+   * `?debug=models&model=pigeon&clip=flap&view=angles&t=0.45` loads exactly
+   * that, which matters in two directions. A review script can screenshot a
+   * hundred poses with one navigate each instead of clicking through a panel
+   * whose buttons move whenever anything is added to it — the first attempt at
+   * this read clip names out of the rendered DOM and picked the wrong control
+   * the moment a reactions panel appeared above it. And a person who finds
+   * something wrong can send the address of it rather than a description.
+   *
+   * Read once on mount. After that the URL follows the controls rather than
+   * driving them, so nothing fights the user mid-drag.
+   */
+  const initial = useMemo(() => {
+    const q = new URLSearchParams(window.location.search)
+    const t = Number(q.get('t'))
+    const seedParam = Number(q.get('seed'))
+    const view = q.get('view')
+    return {
+      model: q.get('model'),
+      clip: q.get('clip'),
+      t: Number.isFinite(t) && q.has('t') ? Math.min(1, Math.max(0, t)) : null,
+      seed: Number.isFinite(seedParam) && seedParam > 0 ? seedParam : 1,
+      view: (['turntable', 'angles', 'animation', 'parts'] as const).includes(view as Mode)
+        ? (view as Mode)
+        : null,
+    }
+  }, [])
+
+  const [selected, setSelected] = useState(
+    () => (initial.model && entries.some((e) => e.id === initial.model) ? initial.model : entries[0]?.id) ?? '',
+  )
+  const [seed, setSeed] = useState(initial.seed)
   const [spin, setSpin] = useState(true)
-  const [clip, setClip] = useState<string | null>(null)
-  const [scrub, setScrub] = useState<number | null>(null)
-  const [mode, setMode] = useState<Mode>('turntable')
+  const [clip, setClip] = useState<string | null>(initial.clip)
+  const [scrub, setScrub] = useState<number | null>(initial.t)
+  const [mode, setMode] = useState<Mode>(initial.view ?? 'turntable')
   const [selectedPart, setSelectedPart] = useState<string | null>(null)
   const [gizmoMode, setGizmoMode] = useState<GizmoMode>('translate')
   const [, forceRedraw] = useState(0)
   const [overrides, saveOverrides, overrideStatus] = useOverrides()
   const actionRef = useRef<THREE.AnimationAction | null>(null)
+
+  /**
+   * Reflect the current view back into the address bar.
+   *
+   * `replaceState` rather than `pushState`: scrubbing an animation would
+   * otherwise bury the back button under a hundred entries.
+   */
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    q.set('debug', 'models')
+    q.set('model', selected)
+    q.set('view', mode)
+    if (seed !== 1) q.set('seed', String(seed))
+    else q.delete('seed')
+    if (clip) q.set('clip', clip)
+    else q.delete('clip')
+    if (scrub !== null) q.set('t', scrub.toFixed(3))
+    else q.delete('t')
+    window.history.replaceState(null, '', `?${q.toString()}`)
+  }, [selected, mode, seed, clip, scrub])
 
   const entry = entries.find((e) => e.id === selected) ?? entries[0]
 
@@ -295,8 +347,21 @@ export function ModelInspector() {
     }
   }, [mixer, built, clip])
 
-  // Reset the clip selection when switching models — clip names differ per kind.
+  /**
+   * Reset the clip when switching models, since clip names differ per kind.
+   *
+   * Only when it genuinely changes, or it would wipe the clip the URL just
+   * asked for — effects fire after mount, so `?clip=flap` was being cleared a
+   * frame after it was read.
+   */
+  const lastModel = useRef(selected)
   useEffect(() => {
+    // Compared against the previous model rather than flagged as "first run":
+    // in development React invokes effects twice, so a one-shot flag is spent
+    // on the first invocation and the second clears the clip anyway — which is
+    // exactly what swallowed `?clip=` and left every sheet showing `idle`.
+    if (lastModel.current === selected) return
+    lastModel.current = selected
     setClip(null)
   }, [selected])
 
