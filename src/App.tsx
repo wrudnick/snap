@@ -2,7 +2,9 @@ import { useGame } from '@/game/state'
 import { useRouteBundle } from '@/game/useRoute'
 import { MiniMap } from '@/ui/MiniMap'
 import { Scrub } from '@/ui/Scrub'
+import { BODIES, COMPACT } from '@/content/cameras'
 import { Hud } from '@/ui/Hud'
+import { Stage } from '@/ui/Stage'
 import { Menu } from '@/ui/Menu'
 import { Results } from '@/ui/Results'
 import { Review } from '@/ui/Review'
@@ -54,8 +56,16 @@ function GameApp() {
   const routeId = useGame((s) => s.routeId)
   const { route, rail, resolved } = useRouteBundle(routeId)
 
+  /**
+   * Everything sits inside the stage, letterboxed to the film's aspect.
+   *
+   * Including the menus, so the game is one consistently shaped thing rather
+   * than a picture with a differently shaped shell around it.
+   */
+  const body = BODIES[useGame((s) => s.cameraBody)] ?? COMPACT
+
   return (
-    <>
+    <Stage body={body}>
       <Game />
       {phase === 'riding' && (
         <>
@@ -73,6 +83,6 @@ function GameApp() {
       {phase === 'menu' && <Menu />}
       {phase === 'review' && <Review />}
       {phase === 'results' && <Results />}
-    </>
+    </Stage>
   )
 }

@@ -6,7 +6,7 @@ import { lookOffset } from '@/lib/deviceOrientation'
 import type { RouteDef } from '@/content/routes/types'
 import { bridge } from '@/dev/harness'
 import { clamp, type Rail } from '@/game/rail'
-import type { CameraBody } from '@/content/cameras'
+import { raisedFov, type CameraBody } from '@/content/cameras'
 import { runtime } from '@/game/runtime'
 import {
   sectionAt,
@@ -192,7 +192,7 @@ export function Rig({
      * starting value and the fallback.
      */
     runtime.raised = input.raise
-    runtime.targetFov = runtime.raised ? body.fovRaised : body.fovHeld
+    runtime.targetFov = runtime.raised ? raisedFov(body) : body.fovHeld
     runtime.fov += (runtime.targetFov - runtime.fov) * Math.min(1, dt * 12)
 
     rail.positionAt(runtime.t, camera.position)

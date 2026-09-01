@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BODIES, COMPACT, frameCrop } from '@/content/cameras'
+import { BODIES, COMPACT, finderCrop } from '@/content/cameras'
 
 import { runtime } from '@/game/runtime'
 import { useGame } from '@/game/state'
@@ -217,7 +217,7 @@ export function Hud() {
     const fit = () => {
       const { width, height } = host.getBoundingClientRect()
       if (width <= 0 || height <= 0) return
-      const crop = frameCrop(width / height, body.aspect)
+      const crop = finderCrop(width / height, body)
       el.style.width = `${crop.width * 100}%`
       el.style.height = `${crop.height * 100}%`
     }
@@ -225,7 +225,7 @@ export function Hud() {
     const observer = new ResizeObserver(fit)
     observer.observe(host)
     return () => observer.disconnect()
-  }, [body.aspect])
+  }, [body])
 
   useEffect(() => {
     let frame = 0

@@ -1395,3 +1395,25 @@ h2 {
   grid-column: 2 / -1;
   color: #7fd1a0;
 }
+
+/* -------------------------------------------------------------------------
+   The stage: the game, letterboxed to the film's aspect.
+
+   Everything lives inside `.stage__view` — canvas and overlays alike — so the
+   HUD lines up with the picture rather than with the window, and the bars
+   around it are outside the game entirely.
+   ---------------------------------------------------------------------- */
+.stage {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #05060a;
+  overflow: hidden;
+}
+
+.stage__view {
+  position: relative;
+  overflow: hidden;
+  /* Width and height come from `fitAspect` — see Stage.tsx for why not CSS. */
+}

@@ -7,7 +7,7 @@ import { capturePhotoImage, warmCapturePipeline } from '@/game/capture/image'
 import { prepareOccluders } from '@/render/raycastAcceleration'
 import { buildSnapshot } from '@/game/capture/snapshot'
 import { captureWorldState } from '@/game/capture/world'
-import { frameCrop, type CameraBody } from '@/content/cameras'
+import { finderCrop, formatAspect, type CameraBody } from '@/content/cameras'
 import type { Rail } from '@/game/rail'
 import { runtime } from '@/game/runtime'
 import { DEFAULT_SCORING_CONFIG } from '@/game/scoring/config'
@@ -66,8 +66,8 @@ export function Shutter({
     // The body's frame, not the viewport's — otherwise the warmed target is the
     // wrong size and the first real capture allocates another one, which is the
     // stall this exists to prevent.
-    warmCapturePipeline(gl, PHOTO_WIDTH, Math.round(PHOTO_WIDTH / body.aspect))
-  }, [gl, body.aspect])
+    warmCapturePipeline(gl, PHOTO_WIDTH, Math.round(PHOTO_WIDTH / formatAspect(body.format)))
+  }, [gl, body.format])
 
   useFrame(() => {
     if (!input.shutter) return
@@ -86,8 +86,8 @@ export function Shutter({
      * composing inside a 3:2 bright-line finder on a 16:9 screen would have been
      * judged on a rectangle they were never shown.
      */
-    const aspect = body.aspect
-    const crop = frameCrop(size.width / size.height, body.aspect)
+    const aspect = formatAspect(body.format)
+    const crop = finderCrop(size.width / size.height, body)
 
     // Synchronous: the world is frozen at this exact instant.
     const snapshot = buildSnapshot({
