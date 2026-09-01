@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg'
 
 import { toonRamp } from '@/render/palette'
 import { toonMaterial } from '@/render/toonPatch'
@@ -506,56 +507,256 @@ export function addFacadeAttributes(geometry: THREE.BufferGeometry, seed: number
 }
 
 /**
- * Mount something on the wall that faces the street.
+ * Which wall of the building, named the way a person would name it.
  *
- * Two things kept going wrong independently, and this fixes both. Features were
- * measured off `size` — the rectangle that fits *inside* the outline — while
- * the mass is extruded from the real footprint, which is wider, so the feature
- * ended up buried in its own building. And "the front" was taken to be local
- * +Z, which is only the street side for about a quarter of the landmarks,
- * because `heading` follows the longest edge of the plot rather than its
- * frontage.
+ * Not an axis. `heading` follows the longest edge of the plot, which is the
+ * side lot line as often as it is the frontage, so local +Z is the front for
+ * about a quarter of these buildings and the back or a flank for the rest. A
+ * builder that names an axis is guessing; a builder that says "street" is not.
  *
- * So: extent comes from `bounds`, and the wall comes from `streetFace`. The
- * caller thinks in facade terms — how wide along the wall, how far it stands
- * out — and never in local axes.
+ * `left` and `right` are from the point of view of someone standing in the
+ * street looking at the building, which is the only vantage that matters here.
  */
-export function onFace(
-  site: LandmarkSite,
-  o: {
-    /** Width along the facade. */
-    across: number
-    height: number
-    /** How far it projects from the wall. */
-    out: number
-    /** Height of its underside above grade. */
-    y: number
-    color: number
-    /** Sideways offset along the facade, from centred. */
-    along?: number
-    /** Gap between the wall and the near edge; negative buries it slightly. */
-    gap?: number
-  },
-): THREE.Mesh {
-  const [fx, fz] = site.streetFace
-  const { minX, maxX, minZ, maxZ } = site.extent
-  const along = o.along ?? 0
-  // A small negative default so the part meets the wall rather than hovering
-  // a hair off it, which shows as a seam at grazing angles.
-  const gap = o.gap ?? -0.4
-  /**
-   * The wall comes from the footprint's actual edge, not from half the bounds.
-   *
-   * The frame's origin is the centre of the inscribed rectangle, so the ring is
-   * not centred on it, and on the church the two are 3.7 m apart along the
-   * nave — far enough to leave anything hung off `bounds / 2` sitting inside
-   * the building.
-   */
-  const wall = Math.abs(fx) > 0 ? (fx > 0 ? maxX : minX) : fz > 0 ? maxZ : minZ
-  const sign = Math.abs(fx) > 0 ? fx : fz
-  const centre = wall + sign * (gap + o.out / 2)
+export type Wall = 'street' | 'back' | 'left' | 'right'
 
-  return Math.abs(fx) > 0
-    ? slab(o.out, o.height, o.across, o.y, o.color, [centre, along])
-    : slab(o.across, o.height, o.out, o.y, o.color, [along, centre])
+export interface WallPlacement {
+  /** Width along the wall. */
+  across: number
+  height: number
+  /** How far it stands out from the wall, or sinks into it. */
+  depth: number
+  /** Height of its underside above grade. */
+  y: number
+  /** Offset along the wall, from centred. */
+  along?: number
+  color?: number
+}
+
+/**
+ * The plane a wall lies in, and which way is out.
+ *
+ * The wall comes from the footprint's real edge rather than half the bounds,
+ * because the frame's origin is the centre of the inscribed rectangle and the
+ * ring is not centred on it. On the church those differ by 3.7 m along the
+ * nave, which was enough to leave the entire Michigan Avenue front sitting
+ * inside the masonry.
+ */
+function wallPlane(site: LandmarkSite, wall: Wall): {
+  out: [number, number]
+  plane: number
+  onX: boolean
+  width: number
+} {
+  const [fx, fz] = site.streetFace
+  // Standing in the street facing the building, right is the wall clockwise
+  // from the front — cross(look, up) with look pointing at the building.
+  const out: [number, number] =
+    wall === 'street' ? [fx, fz]
+    : wall === 'back' ? [-fx, -fz]
+    : wall === 'right' ? [fz, -fx]
+    : [-fz, fx]
+
+  const { minX, maxX, minZ, maxZ } = site.extent
+  const onX = Math.abs(out[0]) > 0
+  return {
+    out,
+    onX,
+    plane: onX ? (out[0] > 0 ? maxX : minX) : out[1] > 0 ? maxZ : minZ,
+    // How much wall there is to place things along.
+    width: onX ? maxZ - minZ : maxX - minX,
+  }
+}
+
+/** How much wall there is, so a builder can size things as a fraction of it. */
+export function wallWidth(site: LandmarkSite, wall: Wall): number {
+  return wallPlane(site, wall).width
+}
+
+/**
+ * A part standing proud of a wall.
+ *
+ * The caller thinks in facade terms — how wide along the wall, how far it
+ * stands out, how high off the pavement — and never in local axes. Both of the
+ * ways this used to go wrong are gone: it cannot land on the wrong wall,
+ * because walls are named rather than derived, and it cannot end up buried,
+ * because it is measured from the wall's real position rather than from a
+ * half-extent that assumes the footprint is centred.
+ */
+export function onWall(site: LandmarkSite, wall: Wall, p: WallPlacement): THREE.Mesh {
+  const { out, plane, onX } = wallPlane(site, wall)
+  const along = p.along ?? 0
+  // Bites very slightly into the wall, so the join is a seam and not a gap.
+  const centre = plane + (onX ? out[0] : out[1]) * (p.depth / 2 - 0.4)
+  const color = p.color ?? 0xffffff
+  return onX
+    ? slab(p.depth, p.height, p.across, p.y, color, [centre, along])
+    : slab(p.across, p.height, p.depth, p.y, color, [along, centre])
+}
+
+/**
+ * Cut a slot into one face of a specific mesh.
+ *
+ * The plane comes from the *target's* own bounding box rather than from the
+ * footprint, which is the only version of this that cannot drift. A shaft is a
+ * centred box and the footprint is not centred on the origin, so a cutter
+ * measured from the footprint edge can stop short of the shaft entirely and
+ * remove nothing — a carve that silently does nothing, which is a worse failure
+ * than the sealed box it replaced, because at least a sealed box shows up in a
+ * vertex count. A projecting wall block fails the same way in the other
+ * direction, its outer face standing beyond where the cutter starts.
+ *
+ * Only the direction comes from the site. The distance is measured off the
+ * thing being cut, so there is nothing to keep in step.
+ *
+ * It overshoots by 300 mm so the cut passes cleanly through the outer face.
+ * Two coincident surfaces are the one thing a CSG evaluator cannot decide, and
+ * the result is a flickering skin over the hole rather than an opening.
+ */
+export function slotIn(
+  site: LandmarkSite,
+  target: THREE.Mesh,
+  wall: Wall,
+  p: WallPlacement,
+): THREE.Mesh {
+  const { out, onX } = wallPlane(site, wall)
+  const sign = onX ? out[0] : out[1]
+  target.updateMatrixWorld(true)
+  const box = new THREE.Box3().setFromObject(target)
+  const plane = onX
+    ? sign > 0 ? box.max.x : box.min.x
+    : sign > 0 ? box.max.z : box.min.z
+
+  const length = p.depth + 0.3
+  const at = plane + sign * (0.3 - length / 2)
+  const along = p.along ?? 0
+  return onX
+    ? slab(length, p.height, p.across, p.y, 0xffffff, [at, along])
+    : slab(p.across, p.height, length, p.y, 0xffffff, [along, at])
+}
+
+/**
+ * A wall block that stands proud of the footprint, with its cuts bound to it.
+ *
+ * A church front, a shopfront surround or a frontispiece projects past the
+ * building line, so its outer face is not the footprint edge — and a cutter
+ * measured from the footprint edge stops short of it and hollows out a cavity
+ * sealed inside the stone. That is the same bug this whole exercise exists to
+ * kill, arriving by a new route.
+ *
+ * So the block hands back its own cutters. There is no second measurement for a
+ * builder to keep in step with the first, because there is no second
+ * measurement.
+ */
+export interface WallSurface {
+  /** How much wall there is along this face. */
+  width: number
+  /** The block itself. Pass it to `carve` with the cutters below. */
+  mesh: THREE.Mesh
+  /** A part standing proud of this block's outer face. */
+  on(p: WallPlacement): THREE.Mesh
+  /** A cutter sunk into this block's outer face, for `carve`. */
+  into(p: WallPlacement): THREE.Mesh
+  /** A panel set back behind this block's outer face — glass in a recess. */
+  back(p: WallPlacement & { set: number }): THREE.Mesh
+}
+
+export function wallBlock(site: LandmarkSite, wall: Wall, o: WallPlacement): WallSurface {
+  const { out, plane, onX, width } = wallPlane(site, wall)
+  const sign = onX ? out[0] : out[1]
+  const mesh = onWall(site, wall, o)
+  // Where the block's own outer face ended up — see `onWall`.
+  const face = plane + sign * (o.depth - 0.4)
+
+  const box = (across: number, height: number, thickness: number, y: number, at: number, along: number, color: number) =>
+    onX
+      ? slab(thickness, height, across, y, color, [at, along])
+      : slab(across, height, thickness, y, color, [along, at])
+
+  return {
+    width,
+    mesh,
+    on: (p) =>
+      box(p.across, p.height, p.depth, p.y, face + sign * (p.depth / 2 - 0.4), p.along ?? 0, p.color ?? 0xffffff),
+    // Delegated, so there is exactly one rule in the codebase for where a
+    // cutter goes: measured off the face of the thing being cut.
+    into: (p) => slotIn(site, mesh, wall, p),
+    back: (p) =>
+      box(p.across, p.height, p.depth, p.y, face - sign * (p.set + p.depth / 2), p.along ?? 0, p.color ?? 0xffffff),
+  }
+}
+
+/**
+ * The evaluator, kept for the life of the process.
+ *
+ * It holds working buffers that grow to the largest operation it has seen, so
+ * one shared instance across the whole city is much cheaper than one per cut.
+ */
+const evaluator = new Evaluator()
+evaluator.useGroups = false
+// Position and normal only, matching what `mergeByMaterial` keeps. Asking for
+// uv as well makes the evaluator carry an attribute nothing reads, and mismatched
+// attribute sets between brushes are a silent failure in the merge later.
+evaluator.attributes = ['position', 'normal']
+
+/**
+ * Cut shapes out of a solid.
+ *
+ * This exists because a recess is not a thing you can add. Sixteen places in
+ * these models describe one, and with only addition available every one of them
+ * had to fake it by putting a smaller box inside a bigger one — which is either
+ * invisible, because it is sealed in the solid, or wrong, because it floats in
+ * front of the wall it is supposed to be cut into. That produced the same bug
+ * six times: the Drake's floor banding, the Carlyle's glass, the Esquire's
+ * marquee, the spire's lantern, the light court on six prewar hotels at once,
+ * and 900 North Michigan's window bands.
+ *
+ * Both meshes' own transforms are honoured and baked into the result, so the
+ * caller can position a tool exactly the way it would position a part — which
+ * is the whole point, since a cutter that has to be placed differently from a
+ * part is a second convention to get wrong.
+ */
+export function carve(target: THREE.Mesh, ...tools: THREE.Mesh[]): THREE.Mesh {
+  if (!tools.length) return target
+
+  /**
+   * Both operands are baked into the building's frame before evaluating.
+   *
+   * The evaluator returns its result in the *first* brush's local space, not in
+   * world space, so carrying the transforms on the brushes puts the hole
+   * somewhere else entirely — a wall standing at y = 6 came back with its
+   * opening six metres low. Flattening the transform into the vertices means
+   * there is only one frame in play and the result can sit at the origin.
+   */
+  const asBrush = (mesh: THREE.Mesh) => {
+    mesh.updateMatrixWorld(true)
+    const geometry = mesh.geometry.clone()
+    geometry.applyMatrix4(mesh.matrixWorld)
+    return new Brush(geometry)
+  }
+
+  let result = asBrush(target)
+  for (const tool of tools) {
+    const before = result.geometry.attributes.position!.count
+    result = evaluator.evaluate(result, asBrush(tool), SUBTRACTION)
+    result.updateMatrixWorld(true)
+    /**
+     * A cut that misses is worse than no cut at all.
+     *
+     * The evaluator hands back the original when the tool does not reach the
+     * solid, so a cutter measured from the wrong plane removes nothing and says
+     * nothing — leaving a builder that reads as though it opens a window and a
+     * building that has none. That is strictly harder to notice than the sealed
+     * box this replaced, which at least showed up in a vertex count. Subtracting
+     * an intersecting box always changes the triangle count, so this cannot
+     * pass by accident.
+     */
+    if (result.geometry.attributes.position!.count === before) {
+      throw new Error('carve: the tool did not reach the solid, so nothing was cut')
+    }
+  }
+
+  const carved = new THREE.Mesh(result.geometry, target.material)
+  carved.castShadow = true
+  carved.receiveShadow = true
+  return carved
 }

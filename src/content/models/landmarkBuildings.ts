@@ -2,6 +2,7 @@ import * as THREE from 'three'
 
 import {
   band,
+  carve,
   extrudeRing,
   floorBands,
   gable,
@@ -10,6 +11,7 @@ import {
   slab,
   spire,
   taperedSlab,
+  wallBlock,
 } from './landmarkKit'
 import {
   BROWN_BRICK,
@@ -463,37 +465,62 @@ function fourthPresbyterian(site: LandmarkSite): THREE.Object3D {
    * window very nearly fills the gable.
    */
   const frontH = naveH + 9
-  // The wall block projects, so its outer face is half its depth in front of
-  // the footprint edge; everything on the front is measured from there.
-  g.add(slab(fullW * 0.96, frontH, 1.8, 0, STONE, [0, east]))
-  const face = east - 0.9
 
   /**
-   * The great window: a recess stepping back, with a pointed head.
+   * The Michigan Avenue front.
    *
-   * There is no subtracting geometry here, so a recess is made by standing
-   * darker panels proud of the wall and letting the outline pass draw the
-   * steps. The head is two narrowing courses rather than a true arch — at the
-   * width of Michigan Avenue that is the difference between a pointed window
-   * and a square one, and nothing finer survives the distance.
+   * In the wall vocabulary this is `left`: standing on Delaware where the route
+   * runs, looking at the church, Michigan is to your left. That reads oddly in
+   * code until you remember the alternative was naming a local axis, which was
+   * wrong here by a quarter turn and wrong on the Esquire by half.
+   */
+  const front = wallBlock(site, 'left', {
+    across: fullW * 0.96,
+    height: frontH,
+    depth: 1.8,
+    y: 0,
+    color: STONE,
+  })
+
+  /**
+   * The great window and the portal are cut out of the stone.
+   *
+   * Both used to be darker panels standing *in front of* the wall, because
+   * adding a box was the only move available — a recess you could not recess.
+   * Now the opening is an opening, with the glass set back inside it where the
+   * reveal casts a shadow across it. The head is two narrowing courses rather
+   * than a true arch: at the width of Michigan Avenue that is the difference
+   * between a pointed window and a square one, and nothing finer survives.
    */
   const winW = fullW * 0.6
   const winY = 7.0
   const winH = frontH * 0.5
-  g.add(slab(winW, winH, 1.0, winY, 0x6f6a5c, [0, face - 0.1]))
-  g.add(slab(winW * 0.84, winH - 0.8, 0.8, winY + 0.4, 0x8a8f7a, [0, face - 0.4]))
-  g.add(slab(winW * 0.66, winH * 0.16, 1.0, winY + winH, 0x6f6a5c, [0, face - 0.1]))
-  g.add(slab(winW * 0.34, winH * 0.13, 1.0, winY + winH * 1.14, 0x6f6a5c, [0, face - 0.1]))
+  const REVEAL = 0.9
 
-  // The portal, deep and dark, under the window.
-  g.add(slab(fullW * 0.34, 9.0, 2.0, 0, STONE, [0, face - 0.6]))
-  g.add(slab(fullW * 0.26, 7.6, 1.4, 0, 0x6f6a5c, [0, face - 1.2]))
-  g.add(slab(fullW * 0.17, 6.4, 1.0, 0, 0x39352b, [0, face - 1.6]))
+  g.add(
+    carve(
+      front.mesh,
+      front.into({ across: winW, height: winH, depth: REVEAL, y: winY }),
+      front.into({ across: winW * 0.66, height: winH * 0.16, depth: REVEAL, y: winY + winH }),
+      front.into({ across: winW * 0.34, height: winH * 0.13, depth: REVEAL, y: winY + winH * 1.14 }),
+      front.into({ across: fullW * 0.26, height: 8.4, depth: 1.5, y: 0 }),
+    ),
+  )
+
+  // Glazing, sitting at the back of its reveal.
+  g.add(front.back({ across: winW * 0.92, height: winH * 0.96, depth: 0.4, y: winY, set: REVEAL - 0.4, color: 0x8a8f7a }))
+  g.add(front.back({ across: winW * 0.6, height: winH * 0.14, depth: 0.4, y: winY + winH, set: REVEAL - 0.4, color: 0x8a8f7a }))
+  // Mullions across it, which is most of what says tracery at this distance.
+  for (const m of [-2, -1, 0, 1, 2]) {
+    g.add(front.back({ across: 0.45, height: winH * 0.96, depth: 0.5, y: winY, set: REVEAL - 0.5, along: (m * winW) / 6, color: STONE }))
+  }
+  // The doors, deep in the portal.
+  g.add(front.back({ across: fullW * 0.2, height: 6.6, depth: 0.4, y: 0, set: 1.1, color: 0x39352b }))
 
   // Turrets flanking the gable, which is what stops the front reading as a barn.
   for (const sx of [-1, 1]) {
-    g.add(slab(2.2, frontH + 3, 2.2, 0, STONE, [sx * fullW * 0.43, face + 0.1]))
-    g.add(slab(1.3, 2.8, 1.3, frontH + 3, STONE, [sx * fullW * 0.43, face + 0.1]))
+    g.add(front.on({ across: 2.2, height: frontH + 3, depth: 2.2, y: 0, along: sx * fullW * 0.43, color: STONE }))
+    g.add(front.on({ across: 1.3, height: 2.8, depth: 1.3, y: frontH + 3, along: sx * fullW * 0.43, color: STONE }))
   }
 
   /**

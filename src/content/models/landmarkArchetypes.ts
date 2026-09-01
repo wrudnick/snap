@@ -1,6 +1,16 @@
 import * as THREE from 'three'
 
-import { band, extrudeRing, floorBands, piers, setbackStack, slab, taperedSlab } from './landmarkKit'
+import {
+  band,
+  carve,
+  extrudeRing,
+  floorBands,
+  slotIn,
+  piers,
+  setbackStack,
+  slab,
+  taperedSlab,
+} from './landmarkKit'
 import type { LandmarkSite } from './landmarkSites'
 
 /**
@@ -202,17 +212,25 @@ export function prewarHotel(
    * It was a smaller box added in the middle of the shaft — the same brick,
    * shorter and narrower on every side, sealed inside and drawing nothing on
    * six buildings at once. A recess cannot be made by adding geometry. So the
-   * shaft is built as two full-depth wings with a shallower block between
-   * them, which notches both long faces at once, the way the real ones are
-   * notched front and back.
+   * shaft was rebuilt as two full-depth wings with a shallower block between
+   * them, which faked it. Now the notch is simply cut, front and back, which is
+   * what a light court is: a slot taken out of the middle of the plan so the
+   * inner rooms get a window.
    */
-  const wing = w * 0.33
-  const wingX = (w - wing) / 2
+  const shaft = slab(w * 0.97, h - baseH, d * 0.97, baseH, brick)
+  const courtW = w * 0.3
+  const courtD = d * 0.2
+  g.add(
+    carve(
+      shaft,
+      ...(['street', 'back'] as const).map((wall) =>
+        slotIn(site, shaft, wall, { across: courtW, height: h - baseH - 4, depth: courtD, y: baseH + 2 }),
+      ),
+    ),
+  )
   for (const sx of [-1, 1]) {
-    g.add(slab(wing, h - baseH, d * 0.97, baseH, brick, [sx * wingX, 0]))
-    g.add(floorBands(wing, h - baseH - 6, d * 0.97, baseH, 3.6, course).translateX(sx * wingX))
+    g.add(floorBands(w * 0.33, h - baseH - 6, d * 0.97, baseH, 3.6, course).translateX((sx * w * 0.64) / 2))
   }
-  g.add(slab(w - wing * 1.94, h - baseH, d * 0.62, baseH, brick))
   g.add(band(w, d, h - 2.4, 2.4, 1.9, trim))
   g.add(band(w, d, h, 0.9, 0.9, LIMESTONE_SHADE))
   return g

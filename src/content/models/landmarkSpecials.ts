@@ -7,7 +7,20 @@ import {
   LIMESTONE_SHADE,
   RED_BRICK,
 } from './landmarkArchetypes'
-import { band, extrudeRing, floorBands, gable, mat, onFace, piers, slab, taperedSlab } from './landmarkKit'
+import {
+  band,
+  carve,
+  extrudeRing,
+  floorBands,
+  gable,
+  slotIn,
+  mat,
+  onWall,
+  piers,
+  slab,
+  taperedSlab,
+  wallWidth,
+} from './landmarkKit'
 import type { LandmarkSite } from './landmarkSites'
 
 /**
@@ -168,7 +181,41 @@ export function esquire(site: LandmarkSite): THREE.Object3D {
   const [fullW, fullD] = site.bounds
   const h = Math.max(site.height, 14)
 
-  g.add(extrudeRing(site.localRing, 0, h, 0xe0d8c4))
+  /**
+   * The shopfronts are cut, not drawn on.
+   *
+   * A cinema at street level is glass, and the way to say so is to take the
+   * stone away and put the glass in the hole. Standing a dark panel in front of
+   * the wall - which is all this could do before - reads as a poster stuck to
+   * the masonry.
+   */
+  let shell = extrudeRing(site.localRing, 0, h, 0xe0d8c4)
+  const front = wallWidth(site, 'street')
+  for (const side of [-1, 1]) {
+    shell = carve(
+      shell,
+      slotIn(site, shell, 'street', {
+        across: front * 0.24,
+        height: 4.0,
+        depth: 1.1,
+        y: 0.5,
+        along: side * front * 0.3,
+      }),
+    )
+  }
+  g.add(shell)
+  for (const side of [-1, 1]) {
+    g.add(
+      onWall(site, 'street', {
+        across: front * 0.24,
+        height: 4.0,
+        depth: 0.3,
+        y: 0.5,
+        along: side * front * 0.3,
+        color: 0x3a4a5e,
+      }),
+    )
+  }
   /**
    * The auditorium stands taller than the shops flanking it, so the front is a
    * raised centre bay rather than one flat parapet. On a lot this wide a single
@@ -190,13 +237,13 @@ export function esquire(site: LandmarkSite): THREE.Object3D {
    * the real footprint five metres deeper, so it was buried in the building and
    * the blade showed only as a stub standing on the roof. And it was hung off
    * local +Z, which for this building is the back: its street side is -Z. It
-   * was an invisible marquee on the wrong wall. `onFace` knows both.
+   * was an invisible marquee on the wrong wall. `onWall` names the wall instead of deriving it, and `intoWall` cuts.
    */
   const MARQUEE = 0xb8332f
   const lip = h * 0.3
-  g.add(onFace(site, { across: fullW * 0.6, height: 2.0, out: 3.4, y: lip, color: MARQUEE }))
-  g.add(onFace(site, { across: fullW * 0.56, height: 0.5, out: 3.0, y: lip - 0.7, color: 0xffe6b4 }))
-  g.add(onFace(site, { across: fullW * 0.6, height: 0.45, out: 3.8, y: lip + 2.0, color: 0xe8d9b8 }))
+  g.add(onWall(site, 'street', { across: fullW * 0.6, height: 2.0, depth: 3.4, y: lip, color: MARQUEE }))
+  g.add(onWall(site, 'street', { across: fullW * 0.56, height: 0.5, depth: 3.0, y: lip - 0.7, color: 0xffe6b4 }))
+  g.add(onWall(site, 'street', { across: fullW * 0.6, height: 0.45, depth: 3.8, y: lip + 2.0, color: 0xe8d9b8 }))
 
   /**
    * The blade carries the name, and it has to clear the raised centre bay —
@@ -204,20 +251,20 @@ export function esquire(site: LandmarkSite): THREE.Object3D {
    */
   const bladeY = h * 0.34
   const bladeTop = h + h * 0.38 + 5
-  g.add(onFace(site, { across: 2.0, height: bladeTop - bladeY, out: 2.6, y: bladeY, color: MARQUEE }))
+  g.add(onWall(site, 'street', { across: 2.0, height: bladeTop - bladeY, depth: 2.6, y: bladeY, color: MARQUEE }))
   for (const sx of [-1, 0, 1]) {
     g.add(
-      onFace(site, {
+      onWall(site, 'street', {
         across: 0.34,
         height: (bladeTop - bladeY) * 0.94,
-        out: 2.9,
+        depth: 2.9,
         y: bladeY,
         color: 0xe8d9b8,
         along: sx * 0.6,
       }),
     )
   }
-  g.add(onFace(site, { across: 2.6, height: 1.3, out: 3.0, y: bladeTop, color: 0xe8d9b8 }))
+  g.add(onWall(site, 'street', { across: 2.6, height: 1.3, depth: 3.0, y: bladeTop, color: 0xe8d9b8 }))
 
   return g
 }
