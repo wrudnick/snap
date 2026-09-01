@@ -27,6 +27,26 @@ Built and tuned already. Four weighted terms, summing to 1:
 Gated by visibility (below a quarter visible it is not a photograph of that
 thing) and multiplied by rarity.
 
+**Presence gates craft.** Direction and pose are multiplied by the size score
+rather than added alongside it. Measured against the real scorer before this
+rule existed: a person sixty metres away, facing away, at the edge of the frame,
+scored **106 points** — size 0.000, placement 0.02, direction 0.04 — earning it
+almost entirely from `pose 0.45`, twenty-five percent of the weight for happening
+to be mid-stride. Twenty such specks scored **1,462**, beating a clean
+single-subject photograph.
+
+A weighted sum lets a subject fail every visual criterion and still bank the
+terms that do not check whether you can see it. You cannot have caught something
+mid-stride if it is four pixels tall. Craft terms are therefore conditional on
+presence, not additive with it.
+
+**Presence floor.** Below roughly 0.03% of frame area — a person beyond about
+thirty-five metres — a subject is scenery and does not enter the scene list at
+all. Not scored, not counted, not decayed. This is deliberately *below* the size
+at which a figure still reads (a person at twenty metres is about thirty pixels
+tall on a 1080-line frame, and that is exactly the figure a **Scale** bonus
+wants), so the floor removes the invisible tail without removing supporting cast.
+
 ### Structures — named buildings
 
 Buildings have no pose and no facing-you, and want terms of their own. Weights
@@ -69,8 +89,13 @@ the thrown hot dog pay off.
 the **primary**.
 
 **3. Decay.** Supporting subject at rank *n* (starting at 1) contributes
-`points / (D · n)`, where `D` is the **scene divisor** — a property of the lens,
-default 5.
+`points / (D · n)`, where `D` is the **scene divisor**.
+
+`D` is a **property of the lens, not a global constant** — see `PROGRESSION.md`.
+A fisheye is an instrument for scenes and scores supporting subjects generously;
+a telephoto is an instrument for subjects and barely scores them at all. This is
+what makes buying glass change *what kind of photograph you are taking* rather
+than making the same photograph worth more. Default 5 for a standard lens.
 
 The rank decay matters more than it looks. A flat divisor makes a crowd worth its
 headcount: on Michigan Avenue, 28 supporting subjects averaging 150 points would

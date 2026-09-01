@@ -70,10 +70,32 @@ Buying a location should feel like buying access to *specific shots you have
 already been told you cannot take*. The Hancock, entire, is the advertisement for
 the Playpen.
 
+## Diminishing returns on repeats
+
+A photograph does not stop selling, it stops selling *well*. Having already sold
+an S-ranked shot of a taxi driver yelling out of his window, the second one is
+worth a fraction of the first.
+
+The catalogue remembers what has been sold, keyed by what the photograph is *of*:
+
+- **Actors** — species and pose. "Taxi driver, yelling" is one entry; "taxi
+  driver, parked" is another.
+- **Structures** — building, face band, and light. The same tower square-on at
+  dawn and three-quarter at dusk are two different postcards, because they are.
+
+The *k*-th sale of an entry pays `1 / (1 + 0.7k)` — full, then 59%, 42%, 32%.
+Repeats stay worth taking, so a great shot is never a punishment, but novelty is
+where the money is.
+
+This is doing more work than it looks. It makes **the catalogue the economy**: to
+keep earning you have to find pairings you have not sold, which is the same pull
+as filling a collection, without a checklist. It is why fifty-two buildings are
+worth modelling. And because a structure's key includes light and angle, it is
+what sends you back to a location you have already bought at a different hour —
+which is far cheaper to build than another location and, for a postcard
+photographer, is exactly the right instinct to teach.
+
 ## Open
 
 - Do photographs sell once, or earn royalties over time?
 - Does film cost money?
-- Is there a price ceiling on repeat sales of the same composition? Something
-  must stop the same shot being farmed — most likely a photograph only sells once
-  and a *materially different* composition of the same subject counts as new.

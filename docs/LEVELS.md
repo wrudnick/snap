@@ -20,7 +20,7 @@ in detail but not entire. That limitation is deliberate and should not be
 either clearance or something on the wall worth being close to. "Through the
 Kitchen" is the least developed section.
 
-## 2. The Playpen — proposed
+## 2. The Playpen — confirmed, unbuilt
 
 The boat anchorage off Oak Street Beach where everything rafts up on a summer
 weekend. The rail is a boat's wake; you are a passenger.
