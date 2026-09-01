@@ -31,11 +31,17 @@ export interface LandmarkSite {
    */
   heading: number
   /**
-   * Plan size along and across that heading, metres.
+   * Plan size as [width, depth], in the building's own frame.
    *
-   * The largest rectangle of these proportions that fits *inside* the real
-   * outline — see `inscribed`. Never the bounding box, which is what put six
-   * buildings in the road.
+   * Width is across the heading, depth is along it — matching a three.js
+   * `rotation.y = heading`, which maps local +X to across and local +Z to
+   * along. That matters because every builder unpacks it as
+   * `const [w, d] = site.size` and draws `slab(w, height, d)`: with the two the
+   * other way round every landmark was rotated a quarter turn in plan, which is
+   * most of why they were standing in the street.
+   *
+   * The value is the largest rectangle that fits *inside* the real outline —
+   * see `inscribed` — never the bounding box.
    */
   size: [number, number]
   /** The real footprint, for anything that wants to follow it exactly. */
@@ -140,15 +146,38 @@ function inscribed(
     }
   }
 
+  /**
+   * Does this rectangle lie wholly inside the outline?
+   *
+   * Sampled by *distance* rather than by a fixed count. Nine points per edge is
+   * plenty on a ten-metre shop and far too few on a seventy-metre block, where
+   * a notch fits comfortably between two of them — which is how the Bristol
+   * ended up with one per cent of itself in the carriageway and Jeni's with
+   * fourteen per cent outside its own wall.
+   *
+   * The interior is sampled too. A rectangle can have every point of its
+   * perimeter inside a concave polygon and still cover ground the polygon does
+   * not.
+   */
   const fits = (halfW: number, halfD: number): boolean => {
-    for (let i = 0; i <= 8; i++) {
-      for (const [sx, sz] of [
-        [-1, -1 + (2 * i) / 8],
-        [1, -1 + (2 * i) / 8],
-        [-1 + (2 * i) / 8, -1],
-        [-1 + (2 * i) / 8, 1],
-      ] as const) {
-        if (!inRing(local, best[0] + sx * halfW, best[1] + sz * halfD)) return false
+    const wSteps = Math.max(6, Math.ceil((halfW * 2) / 1.2))
+    const dSteps = Math.max(6, Math.ceil((halfD * 2) / 1.2))
+
+    for (let i = 0; i <= wSteps; i++) {
+      const u = -1 + (2 * i) / wSteps
+      if (!inRing(local, best[0] + u * halfW, best[1] - halfD)) return false
+      if (!inRing(local, best[0] + u * halfW, best[1] + halfD)) return false
+    }
+    for (let i = 0; i <= dSteps; i++) {
+      const v = -1 + (2 * i) / dSteps
+      if (!inRing(local, best[0] - halfW, best[1] + v * halfD)) return false
+      if (!inRing(local, best[0] + halfW, best[1] + v * halfD)) return false
+    }
+    for (let i = 1; i < 6; i++) {
+      for (let j = 1; j < 6; j++) {
+        const u = -1 + (2 * i) / 6
+        const v = -1 + (2 * j) / 6
+        if (!inRing(local, best[0] + u * halfW, best[1] + v * halfD)) return false
       }
     }
     return true
@@ -167,28 +196,28 @@ function inscribed(
   let bestArea = 0
   let bestSize: [number, number] = [0, 0]
 
-  for (let k = 0; k <= 10; k++) {
-    // Aspect from much longer than the bounds to much wider.
-    const aspect = 0.25 * Math.pow(4 / 0.25, k / 10)
-    const unitAlong = bounds[0]
-    const unitAcross = bounds[1] / aspect
+  for (let k = 0; k <= 12; k++) {
+    // Aspect from much deeper than the bounds to much wider.
+    const aspect = 0.25 * Math.pow(4 / 0.25, k / 12)
+    const unitWidth = bounds[0] * aspect
+    const unitDepth = bounds[1] / aspect
 
     let low = 0
     let high = 1.4
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 18; i++) {
       const mid = (low + high) / 2
-      if (fits((unitAcross * mid) / 2, (unitAlong * mid) / 2)) low = mid
+      if (fits((unitWidth * mid) / 2, (unitDepth * mid) / 2)) low = mid
       else high = mid
     }
 
-    const along = unitAlong * low
-    const across = unitAcross * low
-    // Never wider than the building actually is.
-    if (along > bounds[0] * 1.001 || across > bounds[1] * 1.001) continue
-    const area = along * across
+    const width = unitWidth * low
+    const depth = unitDepth * low
+    // Never larger than the building actually is.
+    if (width > bounds[0] * 1.001 || depth > bounds[1] * 1.001) continue
+    const area = width * depth
     if (area > bestArea) {
       bestArea = area
-      bestSize = [along, across]
+      bestSize = [width, depth]
     }
   }
 
@@ -199,7 +228,12 @@ function inscribed(
   }
 }
 
-/** Extent of a ring in a rotated frame. */
+/**
+ * Bounding extent of a ring in the building's own frame, as [width, depth].
+ *
+ * One convention, used everywhere in this file and matching how the scene
+ * places these: local +X runs across the heading, local +Z runs along it.
+ */
 function extent(
   ring: Array<[number, number]>,
   center: [number, number],
@@ -207,23 +241,23 @@ function extent(
 ): [number, number] {
   const cos = Math.cos(heading)
   const sin = Math.sin(heading)
-  let alongMin = Infinity
-  let alongMax = -Infinity
-  let acrossMin = Infinity
-  let acrossMax = -Infinity
+  let depthMin = Infinity
+  let depthMax = -Infinity
+  let widthMin = Infinity
+  let widthMax = -Infinity
 
   for (const [x, z] of ring) {
     const dx = x - center[0]
     const dz = z - center[1]
-    const along = dx * sin + dz * cos
-    const across = dx * cos - dz * sin
-    alongMin = Math.min(alongMin, along)
-    alongMax = Math.max(alongMax, along)
-    acrossMin = Math.min(acrossMin, across)
-    acrossMax = Math.max(acrossMax, across)
+    const depth = dx * sin + dz * cos
+    const width = dx * cos - dz * sin
+    depthMin = Math.min(depthMin, depth)
+    depthMax = Math.max(depthMax, depth)
+    widthMin = Math.min(widthMin, width)
+    widthMax = Math.max(widthMax, width)
   }
 
-  return [alongMax - alongMin, acrossMax - acrossMin]
+  return [widthMax - widthMin, depthMax - depthMin]
 }
 
 /**

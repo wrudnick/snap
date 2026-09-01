@@ -32,15 +32,17 @@ function planSamples(id: number): Array<[number, number]> {
   const site = siteById(id)!
   const cos = Math.cos(site.heading)
   const sin = Math.sin(site.heading)
-  const [along, across] = site.size
+  // [width, depth]: width across the heading, depth along it — the same frame
+  // `rotation.y = heading` puts the model in.
+  const [width, depth] = site.size
   const out: Array<[number, number]> = []
   for (let i = 0; i <= 16; i++) {
     for (let j = 0; j <= 16; j++) {
-      const a = -along / 2 + (along * i) / 16
-      const c = -across / 2 + (across * j) / 16
+      const w = -width / 2 + (width * i) / 16
+      const d = -depth / 2 + (depth * j) / 16
       out.push([
-        site.center[0] + (-sin * a + cos * c),
-        site.center[1] + (cos * a + sin * c),
+        site.center[0] + w * cos + d * sin,
+        site.center[1] + -w * sin + d * cos,
       ])
     }
   }
