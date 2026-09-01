@@ -140,12 +140,22 @@ whole point of the list. Nothing here is rejected.
   replays exactly. Cheap if kept in mind, expensive to retrofit, and it would let
   a whole run be sent for review instead of a screenshot.
 - **Further locations** — see `LEVELS.md`.
-- **Draw calls.** Currently 1,200–1,550 against a 150 budget. Not a feature, but
+- **Draw calls.** Currently 1,200–1,800 against a 150 budget. Not a feature, but
   it will decide whether any of this is playable on a phone, and it should be
   fixed before the content grows much further.
 
 ## Known open bugs
 
+- Quadrupeds put legs and tails through the pavement in their faster clips —
+  the dog by 0.21 m prowling and 0.43 m stretching, the cat by half that. Locked
+  at their current depth by `tests/groundContact.test.ts`, which is a ratchet:
+  the allowances may be lowered, never raised.
+- Vehicle wheels dip about 0.14 m below the road, and the bus 0.22 m. Same
+  ratchet.
+- The cyclist's saddle sits high enough that at the bottom of the stroke the leg
+  is four centimetres short of the pedal, so the solver clamps just inside full
+  extension and the foot hangs a little above it. Closing it means lowering the
+  saddle or shortening the cranks, both of which move the rider.
 - Segment gating does not respond to `seek`: jumping to a route position leaves
   the previous segment's subjects mounted. Normal play is unaffected because
   segments activate as you travel, but it makes seek-based debugging lie and

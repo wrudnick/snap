@@ -1,8 +1,11 @@
 # snap
 
-An on-rails photography game in the mould of Pokémon Snap, set on an ordinary
-city street. You ride a fixed route, you can't stop and can't turn back — you
-can only look, and choose when to press the shutter.
+An on-rails photography game in the mould of Pokémon Snap, set in a real
+Chicago — the Gold Coast and the Magnificent Mile — in the style of Jet Set
+Radio Future. You work for a postcard company: ride a fixed route, photograph
+the place, sell what you bring back, and buy better equipment with the proceeds.
+You can't stop and can't turn back. You can only look, and choose when to press
+the shutter.
 
 Scoring is fully deterministic and geometric. No AI, no vision model: framing,
 scale, direction and pose are read straight off the 3D scene at the instant the
@@ -14,10 +17,17 @@ npm install
 npm run dev
 ```
 
-Drag to look · Click or Space to shoot · Hold Shift or right-click to zoom.
+Drag to look · Click or Space to shoot · Hold Shift or right-drag to raise the
+camera to your eye · E or F to throw.
 
-Zoom matters more than it appears. A pigeon at four metres is unscoreably small
-wide open — bringing it into range is most of the game.
+Raising the camera matters more than it appears. Held at your side the lens
+shows its full width; raised to the eye it narrows to the true angle of view of
+whatever focal length is fitted, and a pigeon at four metres is unscoreably
+small until you do. Bringing things into range is most of the game.
+
+Throwing is the other half: a hot dog landing *near* pigeons gathers them and
+one landing *on* them puts the flock up, and "taking off" is the most valuable
+pose a pigeon has.
 
 ## Verifying
 
@@ -42,13 +52,16 @@ src/
 ├── game/
 │   ├── scoring/     pure scoring core — no three.js, ever
 │   ├── capture/     shutter → image + snapshot
-│   ├── rail.ts      spline traversal, look clamping, segment gating
+│   ├── rail.ts      spline traversal, segment gating
+│   ├── items.ts     thrown items, and what notices them
 │   ├── runtime.ts   per-frame state, deliberately outside React
 │   └── state.ts     discrete state (phase, film, photos)
 ├── content/         ← all game content, as data
-│   ├── subjects/    pigeon, dog, cat, taxi
-│   ├── routes/      downtown
-│   └── models/      procedural placeholders + street generator
+│   ├── subjects/    twenty-five species, from pigeons to the CTA bus
+│   ├── items/       what you can throw
+│   ├── cameras/     film formats, bodies and focal lengths
+│   ├── routes/      goldcoast — the one route, and its kerb fitting
+│   └── models/      procedural models, landmarks, and the street generator
 ├── scene/           R3F components
 ├── ui/              HUD, contact sheet, results, album
 └── input/           adapter layer (pointer/keyboard now, gamepad later)
@@ -59,9 +72,13 @@ src/
 - **A subject** — one file in `content/subjects/`. Pose values are the dial for
   "what makes a good photo of this thing".
 - **A route** — one file in `content/routes/`.
+- **A throwable** — one row in `content/items/`, and a `trigger` behaviour on
+  whichever species should notice it.
 - **Real models** — `content/models/` only. The placeholders are primitives, but
   they animate through a real `AnimationMixer` playing real `AnimationClip`s, so
-  the pose-reading code is identical once `.glb` files replace them.
+  the pose-reading code is identical once `.glb` files replace them. Recesses
+  are cut with real CSG rather than faked by adding a smaller box inside a
+  bigger one, which is invisible; see `landmarkKit.ts`.
 - **Gamepad** — one adapter in `input/`. Game code reads `InputState` and doesn't
   care where it came from.
 - **Scoring feel** — `game/scoring/config.ts`. All pure numbers, all covered by
@@ -73,7 +90,13 @@ The rail is the main performance asset: because the camera path is known ahead o
 time, the street is partitioned into segments and only those near the camera are
 mounted at all — gating object *count* rather than culling a live world every
 frame. Repeated props (buildings, lampposts, bins) are instanced, so the whole
-street is a handful of draw calls. Budget is ~150; it currently runs around 100.
+street is a handful of draw calls.
+
+**Draw calls are over budget and this is the honest number: 1,200–1,800 against
+a target of ~150.** The gating and instancing work; there is simply more world
+than the budget was written for, and nothing has been done about it yet. It is
+the largest known performance problem and it will be felt on a phone before
+anything else is.
 
 Other decisions worth not undoing:
 
@@ -86,7 +109,20 @@ Other decisions worth not undoing:
   frame to serve something that happens on a click; photos render into an
   offscreen target instead.
 - **`<Preload all />` compiles shaders up front**, so a material entering view
-  for the first time doesn't stall.
+  for the first time doesn't stall. The capture pipeline is warmed the same way
+  at scene setup: the first shutter press used to spend half a second compiling
+  its blit shader, on the one interaction whose entire point is timing.
+- **The frame rate is uncapped.** It ran pinned at 30 for a while, which is
+  smoother in the abstract and visibly 30 when you pan — and panning is the
+  whole verb here. `?fps=30` still pins it for comparison; `AdaptiveDpr` and the
+  performance monitor shed resolution rather than frames.
+- **Occlusion raycasts go through a bounds tree.** Each shutter press fires nine
+  rays per subject in frame; unaccelerated that was a linear walk over every
+  triangle in the city and cost 1.6 seconds on a crowded street. See
+  `render/raycastAcceleration.ts`.
+- **A photograph is recorded the moment it is taken**, and the image is attached
+  when the JPEG finishes encoding. Hanging the film counter on the encode made
+  the camera feel broken.
 
 ### Scoring, specifically
 
