@@ -271,10 +271,20 @@ function nineHundred(site: LandmarkSite): THREE.Object3D {
    */
   const STONE = 0xbfb8a8
   const towerH = h - podiumH
-  g.add(slab(towerW, towerH, towerD, podiumH, STONE))
-  g.add(slab(towerW * 0.9, towerH - 6, towerD * 0.9, podiumH, 0x6e7480))
-  g.add(piers(towerW, towerH - 8, towerD, podiumH, Math.max(4, Math.round(towerW / 5)), STONE, 0.7))
-  g.add(floorBands(towerW, towerH - 10, towerD, podiumH, 10.8, STONE))
+  /**
+   * The recessed window bands are the shaft; the stone stands in front of them.
+   *
+   * Built as a solid stone block with the darker bands sealed inside it, they
+   * drew nothing and the tower was a blank pale slab.
+   */
+  const plateW = towerW * 0.92
+  const plateD = towerD * 0.92
+  g.add(slab(plateW, towerH, plateD, podiumH, 0x6e7480))
+  g.add(piers(plateW, towerH - 8, plateD, podiumH, Math.max(4, Math.round(towerW / 5)), STONE, 1.0))
+  g.add(floorBands(plateW, towerH - 10, plateD, podiumH, 10.8, STONE, 0.7, 0.5))
+  for (const sx of [-1, 1]) {
+    g.add(slab(towerW * 0.09, towerH, towerD, podiumH, STONE, [(sx * towerW * 0.95) / 2, 0]))
+  }
   // A setback near the top, then the lanterns above it.
   g.add(band(towerW, towerD, h - 18, 2.2, 1.4, STONE))
 
@@ -345,78 +355,179 @@ function oneMagnificentMile(site: LandmarkSite): THREE.Object3D {
  * 126 East Chestnut — Fourth Presbyterian Church, 1914, Ralph Adams Cram.
  *
  * Gothic Revival limestone, and the reason it matters here is that it is the
- * one low, horizontal, deeply-carved thing on a mile of towers — the route
- * passes it on Michigan. A long nave with a steep roof, a tall square bell
- * tower with corner pinnacles, and buttresses down the flank.
+ * one low, horizontal, deeply-carved thing on a mile of towers.
  *
- * OSM gives it no height at all, so this is authored: the nave is about 20 m
- * and the tower about 40.
+ * Its plan is a strip 23 m across by 60 m deep — the sanctuary range alone,
+ * not the whole complex; the cloister and parish house are separate footprints
+ * to the south. The long axis runs east-west, so the gable end faces Michigan
+ * Avenue and the nave runs away from it. The route comes up Michigan, sees
+ * that front across the avenue, then turns west onto Delaware and runs
+ * twenty-three metres off the north flank for its whole length. Both of those
+ * faces have to hold up.
+ *
+ * OSM gives it no height, so this is authored: eaves about 17 m, the tower
+ * about 34 to its parapet.
  */
 function fourthPresbyterian(site: LandmarkSite): THREE.Object3D {
   const g = new THREE.Group()
   /**
-   * Worked from photographs of the Michigan Avenue front, which corrected the
-   * two things that decide whether it reads as a church at all.
+   * Rebuilt against a photograph of the Michigan-and-Delaware corner, which is
+   * the exact angle the player turns through.
    *
-   * The tower ends in a *spire* over an open lantern, not the crenellated
-   * parapet the first version had — that is a castle. And the street front is a
-   * gable end with one great pointed arch and a deep recessed portal under it,
-   * which is the face the player actually walks past; the long flank with its
-   * buttresses is the side you see afterwards.
+   * Almost none of the previous version was where it claimed to be. The roof
+   * was a gable eleven metres deep on a sixty-metre nave — a fifth of the
+   * building, ridge turned across the length instead of along it — leaving
+   * fifty metres of flat top. Everything else was placed against `naveD`, that
+   * same eleven metres, so the front wall, the great arch, the portal, the
+   * pinnacles and the tower all stood at z = -5.7 in a building running from
+   * -30 to +30: buried two dozen metres inside the nave, in the middle of it.
+   * The buttresses were pinned to the same phantom face and sealed in the
+   * masonry. What rendered was a flat-topped stone box with a small roof adrift
+   * on it and a tower growing out of one flank.
    *
-   * The stone is a weathered grey-green rather than clean limestone: the real
-   * one is half covered in ivy.
+   * From the photograph: the east front is one enormous traceried arch over a
+   * deep recessed portal, the flank is a march of buttresses between tall
+   * lancets under a steep slate roof, and the spire stands at the *south* end
+   * of the front, next to the cloister — not on the Delaware side.
    */
   const STONE = 0xc6c3ac
+  // Slate, and blue against the limestone. The roof is a third of what you see
+  // from Delaware, so its colour does real work.
+  const SLATE = 0x5c6673
+  const IVY = 0x6f7a58
   const naveH = 17
-  // Sized from what the building actually covers, not from the rectangle that
-  // fits inside it — a roof has to span the walls it sits on.
-  const [fullW, fullD] = site.bounds
-  const naveD = Math.min(fullD, fullW * 0.5)
+
+  /**
+   * Where the walls are, not how big the plan is.
+   *
+   * A roof spans the walls it sits on, and the front stands on the front wall.
+   * `bounds` is only the size, and the frame's origin is the centre of the
+   * inscribed rectangle rather than of the footprint — here those are 3.7 m
+   * apart along the nave, which put the whole east front back inside the
+   * masonry immediately after it had been dug out.
+   */
+  const { minX, maxX, minZ, maxZ } = site.extent
+  const fullW = maxX - minX
+  // Michigan Avenue. Local +Z runs west, so the front is the -Z end.
+  const east = minZ
+  // The west end tapers to a narrow spur; the roof stops short of it.
+  const naveD = (maxZ - minZ) * 0.88
+  const naveZ = east + naveD / 2
 
   g.add(extrudeRing(site.localRing, 0, naveH, STONE))
-  g.add(gable(fullW * 0.98, naveD, naveH, 8, 0x6b6152))
-
-  // Buttresses down the flanks, dying into the wall below the eaves.
-  const bays = Math.max(4, Math.round(fullW / 6))
-  g.add(piers(fullW * 0.96, naveH * 0.84, naveD, 0, bays, 0xb4b199, 0.75))
+  // Ridge along the nave, which is the Z axis here.
+  g.add(gable(fullW, naveD, naveH, 9, SLATE, 'z').translateZ(naveZ))
 
   /**
-   * The west front: a gable wall carrying a great arch, stepped forward of the
-   * nave so it casts its own shadow.
+   * The flank the player drives along: buttresses between tall lancets.
+   *
+   * Spaced along the length and standing on the side walls, which are the X
+   * faces. `piers` steps along X and can only sit on the Z faces, which is how
+   * the last set ended up inside the building.
    */
-  const frontZ = -naveD / 2
-  g.add(slab(fullW * 0.5, naveH + 8, 1.8, 0, STONE, [0, frontZ]))
-  // The arch, as a recess rather than a true opening — at this scale the
-  // shadow is the whole of it.
-  g.add(slab(fullW * 0.28, naveH * 0.74, 0.8, 2, 0x6f6a5c, [0, frontZ - 0.7]))
-  g.add(slab(fullW * 0.16, naveH * 0.34, 0.8, 0, 0x4a4438, [0, frontZ - 1.0]))
-  // Pinnacles along the front parapet.
+  const bays = Math.max(6, Math.round(naveD / 6.5))
+  const pitch = naveD / bays
+  for (let i = 0; i < bays; i++) {
+    const z = east + pitch * (i + 0.5)
+    for (const sx of [-1, 1]) {
+      // Buttress: deep at the base, dying into the wall below the eaves.
+      g.add(slab(1.7, naveH * 0.92, 1.5, 0, STONE, [(sx * fullW) / 2, z]))
+      g.add(slab(1.4, naveH * 0.62, 2.4, 0, STONE, [(sx * fullW) / 2, z]))
+      /**
+       * A pair of lancets between each pair of buttresses.
+       *
+       * Narrow and tall, and high up the wall. One wide opening per bay reads
+       * as a row of doorways along the flank; it is the proportion that says
+       * window, and Gothic ones come in pairs under a single arch.
+       */
+      if (i < bays - 1) {
+        for (const off of [-1, 1]) {
+          g.add(slab(0.7, naveH * 0.52, pitch * 0.15, naveH * 0.34, 0x54503f, [
+            (sx * fullW) / 2,
+            z + pitch / 2 + off * pitch * 0.11,
+          ]))
+        }
+      }
+    }
+  }
+  // Ivy, which is half the colour of the real building at street level.
   for (const sx of [-1, 1]) {
-    g.add(slab(1.8, 6, 1.8, naveH + 8, STONE, [sx * fullW * 0.23, frontZ]))
+    g.add(slab(0.5, naveH * 0.42, naveD * 0.9, 0, IVY, [(sx * fullW) / 2, naveZ]))
   }
 
   /**
-   * The tower, at the street corner beside the front, with the lantern and
-   * spire that make the silhouette.
+   * The Michigan Avenue front: one great arch, and a portal you could walk into.
+   *
+   * The arch is a recess rather than a true opening — at this distance the
+   * shadow is the whole of it — but it has to be big. On the real building the
+   * window very nearly fills the gable.
    */
-  const towerW = Math.min(naveD * 0.8, 12)
-  const towerH = 38
-  const towerX = -fullW / 2 + towerW * 0.6
-  g.add(slab(towerW, towerH, towerW, 0, STONE, [towerX, frontZ * 0.4]))
-  g.add(
-    band(towerW, towerW, towerH * 0.55, 0.9, 0.5, 0xb4b199).translateX(towerX)
-      .translateZ(frontZ * 0.4),
-  )
-  // Tall lancet recesses, which is most of what says Gothic at a distance.
+  const frontH = naveH + 9
+  // The wall block projects, so its outer face is half its depth in front of
+  // the footprint edge; everything on the front is measured from there.
+  g.add(slab(fullW * 0.96, frontH, 1.8, 0, STONE, [0, east]))
+  const face = east - 0.9
+
+  /**
+   * The great window: a recess stepping back, with a pointed head.
+   *
+   * There is no subtracting geometry here, so a recess is made by standing
+   * darker panels proud of the wall and letting the outline pass draw the
+   * steps. The head is two narrowing courses rather than a true arch — at the
+   * width of Michigan Avenue that is the difference between a pointed window
+   * and a square one, and nothing finer survives the distance.
+   */
+  const winW = fullW * 0.6
+  const winY = 7.0
+  const winH = frontH * 0.5
+  g.add(slab(winW, winH, 1.0, winY, 0x6f6a5c, [0, face - 0.1]))
+  g.add(slab(winW * 0.84, winH - 0.8, 0.8, winY + 0.4, 0x8a8f7a, [0, face - 0.4]))
+  g.add(slab(winW * 0.66, winH * 0.16, 1.0, winY + winH, 0x6f6a5c, [0, face - 0.1]))
+  g.add(slab(winW * 0.34, winH * 0.13, 1.0, winY + winH * 1.14, 0x6f6a5c, [0, face - 0.1]))
+
+  // The portal, deep and dark, under the window.
+  g.add(slab(fullW * 0.34, 9.0, 2.0, 0, STONE, [0, face - 0.6]))
+  g.add(slab(fullW * 0.26, 7.6, 1.4, 0, 0x6f6a5c, [0, face - 1.2]))
+  g.add(slab(fullW * 0.17, 6.4, 1.0, 0, 0x39352b, [0, face - 1.6]))
+
+  // Turrets flanking the gable, which is what stops the front reading as a barn.
+  for (const sx of [-1, 1]) {
+    g.add(slab(2.2, frontH + 3, 2.2, 0, STONE, [sx * fullW * 0.43, face + 0.1]))
+    g.add(slab(1.3, 2.8, 1.3, frontH + 3, STONE, [sx * fullW * 0.43, face + 0.1]))
+  }
+
+  /**
+   * The tower, at the south end of the front beside the cloister.
+   *
+   * South is local +X here. Putting it on the Delaware side would be the more
+   * obvious choice — it is the side the player drives past — and it would be
+   * wrong; from the corner where the route turns, the spire stands off the far
+   * shoulder of the gable.
+   */
+  const towerW = Math.min(fullW * 0.42, 10)
+  const towerH = 34
+  const towerX = fullW / 2 - towerW / 2
+  const towerZ = east + towerW * 0.45
+  g.add(slab(towerW, towerH, towerW, 0, STONE, [towerX, towerZ]))
+  g.add(band(towerW, towerW, towerH * 0.52, 0.9, 0.5, 0xb4b199).translateX(towerX).translateZ(towerZ))
+  // Tall lancet recesses on all four sides — most of what says Gothic at range.
   for (const [ox, oz] of [[towerW / 2, 0], [-towerW / 2, 0], [0, towerW / 2], [0, -towerW / 2]] as const) {
     g.add(
-      slab(ox === 0 ? towerW * 0.3 : 0.5, towerH * 0.28, oz === 0 ? 0.5 : towerW * 0.3,
-        towerH * 0.34, 0x8f8a76, [towerX + ox, frontZ * 0.4 + oz]),
+      slab(ox === 0 ? towerW * 0.34 : 0.5, towerH * 0.3, oz === 0 ? 0.5 : towerW * 0.34,
+        towerH * 0.6, 0x8f8a76, [towerX + ox, towerZ + oz]),
     )
   }
-  const crown = spire(towerW, towerH, 6, 13, STONE)
-  crown.position.set(towerX, 0, frontZ * 0.4)
+  // Pinnacles at the tower corners, standing around the base of the spire.
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      g.add(slab(1.3, 7, 1.3, towerH, STONE, [
+        towerX + (sx * towerW) / 2 - sx * 0.65,
+        towerZ + (sz * towerW) / 2 - sz * 0.65,
+      ]))
+    }
+  }
+  const crown = spire(towerW * 0.82, towerH, 6, 15, STONE)
+  crown.position.set(towerX, 0, towerZ)
   g.add(crown)
   return g
 }

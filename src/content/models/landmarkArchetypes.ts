@@ -191,13 +191,28 @@ export function prewarHotel(
   const h = site.height
   const baseH = Math.min(h * 0.14, 11)
 
+  const course = brick === RED_BRICK ? 0x8a5c46 : 0x6d5344
+
   g.add(extrudeRing(site.localRing, 0, baseH, trim))
   g.add(band(w, d, baseH, 1.0, 0.6, trim))
-  g.add(slab(w * 0.97, h - baseH, d * 0.97, baseH, brick))
-  g.add(floorBands(w * 0.97, h - baseH - 6, d * 0.97, baseH, 3.6, brick === RED_BRICK ? 0x8a5c46 : 0x6d5344))
-  // A light court notch on the long faces, which is what these hotels have
-  // instead of a flat wall.
-  g.add(slab(w * 0.3, h - baseH - 4, d * 0.55, baseH, brick))
+
+  /**
+   * The light court, which is what these hotels have instead of a flat wall.
+   *
+   * It was a smaller box added in the middle of the shaft — the same brick,
+   * shorter and narrower on every side, sealed inside and drawing nothing on
+   * six buildings at once. A recess cannot be made by adding geometry. So the
+   * shaft is built as two full-depth wings with a shallower block between
+   * them, which notches both long faces at once, the way the real ones are
+   * notched front and back.
+   */
+  const wing = w * 0.33
+  const wingX = (w - wing) / 2
+  for (const sx of [-1, 1]) {
+    g.add(slab(wing, h - baseH, d * 0.97, baseH, brick, [sx * wingX, 0]))
+    g.add(floorBands(wing, h - baseH - 6, d * 0.97, baseH, 3.6, course).translateX(sx * wingX))
+  }
+  g.add(slab(w - wing * 1.94, h - baseH, d * 0.62, baseH, brick))
   g.add(band(w, d, h - 2.4, 2.4, 1.9, trim))
   g.add(band(w, d, h, 0.9, 0.9, LIMESTONE_SHADE))
   return g

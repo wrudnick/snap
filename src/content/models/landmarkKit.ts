@@ -166,6 +166,14 @@ export function gable(
   y: number,
   rise: number,
   color: number,
+  /**
+   * Which way the ridge runs.
+   *
+   * A nave is long, and its ridge runs down the length of it. With only the
+   * one axis available the church got a roof turned across its nave and
+   * covering a fifth of it, the other fifty metres left flat on top.
+   */
+  along: 'x' | 'z' = 'x',
 ): THREE.Mesh {
   /**
    * Built as its own geometry rather than assembled from primitives.
@@ -180,13 +188,15 @@ export function gable(
    */
   const hw = width / 2
   const hd = depth / 2
-  // Ridge ends, then the four eaves corners.
-  const r0: [number, number, number] = [-hw, rise, 0]
-  const r1: [number, number, number] = [hw, rise, 0]
-  const a0: [number, number, number] = [-hw, 0, hd]
-  const a1: [number, number, number] = [hw, 0, hd]
-  const b0: [number, number, number] = [-hw, 0, -hd]
-  const b1: [number, number, number] = [hw, 0, -hd]
+  // Ridge ends, then the four eaves corners. Spelled out for both axes rather
+  // than rotated, since a rotation is exactly what put wings on the first one.
+  const ridged = along === 'x'
+  const r0: [number, number, number] = ridged ? [-hw, rise, 0] : [0, rise, -hd]
+  const r1: [number, number, number] = ridged ? [hw, rise, 0] : [0, rise, hd]
+  const a0: [number, number, number] = ridged ? [-hw, 0, hd] : [hw, 0, -hd]
+  const a1: [number, number, number] = ridged ? [hw, 0, hd] : [hw, 0, hd]
+  const b0: [number, number, number] = ridged ? [-hw, 0, -hd] : [-hw, 0, -hd]
+  const b1: [number, number, number] = ridged ? [hw, 0, -hd] : [-hw, 0, hd]
 
   const tri = (...points: Array<[number, number, number]>) => points.flat()
   const positions = [
@@ -225,9 +235,16 @@ export function spire(
 ): THREE.Group {
   const group = new THREE.Group()
 
-  group.add(slab(width, lanternHeight, width, y, color))
-  // Open the lantern with corner posts standing proud of the recessed core.
-  group.add(slab(width * 0.72, lanternHeight - 0.6, width * 0.72, y, shade(color, 0.72)))
+  /**
+   * The core is the lantern. There is no box around it.
+   *
+   * There used to be: a solid full-width block, with the "recessed core" built
+   * inside it and the corner posts standing on top of both. Nothing was
+   * recessed and nothing was open — the core drew nothing at all and the
+   * lantern was a plain box with the posts buried in its corners. The whole
+   * point of a lantern is that daylight comes through it.
+   */
+  group.add(slab(width * 0.72, lanternHeight, width * 0.72, y, shade(color, 0.72)))
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       group.add(
@@ -521,15 +538,24 @@ export function onFace(
   },
 ): THREE.Mesh {
   const [fx, fz] = site.streetFace
-  const [fullW, fullD] = site.bounds
+  const { minX, maxX, minZ, maxZ } = site.extent
   const along = o.along ?? 0
   // A small negative default so the part meets the wall rather than hovering
   // a hair off it, which shows as a seam at grazing angles.
   const gap = o.gap ?? -0.4
-  const wall = (Math.abs(fx) > 0 ? fullW : fullD) / 2
-  const centre = wall + gap + o.out / 2
+  /**
+   * The wall comes from the footprint's actual edge, not from half the bounds.
+   *
+   * The frame's origin is the centre of the inscribed rectangle, so the ring is
+   * not centred on it, and on the church the two are 3.7 m apart along the
+   * nave — far enough to leave anything hung off `bounds / 2` sitting inside
+   * the building.
+   */
+  const wall = Math.abs(fx) > 0 ? (fx > 0 ? maxX : minX) : fz > 0 ? maxZ : minZ
+  const sign = Math.abs(fx) > 0 ? fx : fz
+  const centre = wall + sign * (gap + o.out / 2)
 
   return Math.abs(fx) > 0
-    ? slab(o.out, o.height, o.across, o.y, o.color, [fx * centre, along])
-    : slab(o.across, o.height, o.out, o.y, o.color, [along, fz * centre])
+    ? slab(o.out, o.height, o.across, o.y, o.color, [centre, along])
+    : slab(o.across, o.height, o.out, o.y, o.color, [along, centre])
 }

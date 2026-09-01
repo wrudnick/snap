@@ -151,13 +151,24 @@ describe('landmark parts are visible', () => {
         for (const outer of parts) {
           if (!outer.solid) continue
           if (inner === outer) continue
+          /**
+           * Clear on all four sides and over the top, and no lower than the
+           * container's own floor.
+           *
+           * Requiring clearance underneath as well let a real one through: a
+           * spire's lantern core sat inside a solid block that shared its base,
+           * so the bottom faces were coplanar and the part escaped — while
+           * being every bit as invisible, since nothing looks up at the
+           * underside of a tower. Sitting on the same floor is how parts are
+           * normally stacked; being swallowed sideways and overhead is not.
+           */
           const contains =
             inner.box.min.x > outer.box.min.x + CLEARANCE &&
-            inner.box.min.y > outer.box.min.y + CLEARANCE &&
             inner.box.min.z > outer.box.min.z + CLEARANCE &&
             inner.box.max.x < outer.box.max.x - CLEARANCE &&
+            inner.box.max.z < outer.box.max.z - CLEARANCE &&
             inner.box.max.y < outer.box.max.y - CLEARANCE &&
-            inner.box.max.z < outer.box.max.z - CLEARANCE
+            inner.box.min.y > outer.box.min.y - 0.01
           if (contains) {
             sealed.push(`${entry.name}: ${inner.label} sealed inside ${outer.label}`)
             break

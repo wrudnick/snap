@@ -81,6 +81,18 @@ export interface LandmarkSite {
    * reads this.
    */
   streetFace: [number, number]
+  /**
+   * Where the walls actually are, in the building's frame.
+   *
+   * The origin is the centre of the *inscribed rectangle*, not of the
+   * footprint, and on a plot of any irregularity those are not the same point.
+   * So `bounds` gives the size of the thing and this gives its edges, and
+   * `±bounds / 2` is a wall position only by coincidence. On the church the two
+   * differ by 3.7 m along the nave, which was enough to bury the entire
+   * Michigan Avenue front — arch, portal and turrets — inside the masonry for
+   * the second time, having just been dug out of it.
+   */
+  extent: { minX: number; maxX: number; minZ: number; maxZ: number }
   height: number
   /** Storeys, where OSM has them. */
   levels?: number
@@ -381,6 +393,14 @@ export function siteOf(building: CityBuilding): LandmarkSite {
   const heading = longestEdge(building.r)
   const bounds = extent(building.r, centroid(building.r), heading)
   const fitted = inscribed(building.r, heading, bounds)
+  const localRing = building.r.map(([x, z]) => {
+    const dx = x - fitted.center[0]
+    const dz = z - fitted.center[1]
+    // Inverse of the scene's rotation: local +X across the heading, +Z along.
+    return [dx * cosOf(heading) - dz * sinOf(heading), dx * sinOf(heading) + dz * cosOf(heading)] as [number, number]
+  })
+  const xs = localRing.map(([x]) => x)
+  const zs = localRing.map(([, z]) => z)
   return {
     id: building.i,
     name: building.n ?? `building ${building.i}`,
@@ -390,12 +410,13 @@ export function siteOf(building: CityBuilding): LandmarkSite {
     bounds: extent(building.r, fitted.center, heading),
     ring: building.r,
     streetFace: faceToRoute(fitted.center, heading),
-    localRing: building.r.map(([x, z]) => {
-      const dx = x - fitted.center[0]
-      const dz = z - fitted.center[1]
-      // Inverse of the scene's rotation: local +X across the heading, +Z along.
-      return [dx * cosOf(heading) - dz * sinOf(heading), dx * sinOf(heading) + dz * cosOf(heading)] as [number, number]
-    }),
+    localRing,
+    extent: {
+      minX: Math.min(...xs),
+      maxX: Math.max(...xs),
+      minZ: Math.min(...zs),
+      maxZ: Math.max(...zs),
+    },
     height: building.h,
     levels: building.l,
   }
