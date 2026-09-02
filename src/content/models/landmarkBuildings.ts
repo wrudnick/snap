@@ -347,8 +347,9 @@ function drakeHotel(site: LandmarkSite): THREE.Object3D {
   const edge = onX ? (nx > 0 ? maxX : minX) : nz > 0 ? maxZ : minZ
 
   const sign = new THREE.Group()
-  // The word is modelled facing −Z, so this turns it to face north.
-  sign.rotation.y = Math.atan2(-nx, -nz)
+  // Letters read from their own +Z — see letters.ts — so this turns that side
+  // north. Aiming the group's −Z north instead put the sign up backwards.
+  sign.rotation.y = Math.atan2(nx, nz)
   sign.position.set(onX ? edge + nx * 0.8 : 0, 0, onX ? 0 : edge + nz * 0.8)
 
   const posts = 5
@@ -363,7 +364,8 @@ function drakeHotel(site: LandmarkSite): THREE.Object3D {
   }
 
   const word = buildWord(WORD, letter, 0.55, mat(SIGN_RED), 0.24, true)
-  word.position.set(0, baseY + (frameH - letter) / 2, -0.5)
+  // Proud of the frame on the side that is read.
+  word.position.set(0, baseY + (frameH - letter) / 2, 0.5)
   sign.add(word)
   g.add(sign)
 

@@ -105,9 +105,12 @@ export function serifed(glyph: readonly Rect[], amount = 0.12): Rect[] {
 /**
  * A word as one group of boxes, laid out left to right and centred on x = 0.
  *
- * The whole word is built in the XY plane facing −Z, which is the direction
- * everything else in this codebase calls forward, so a sign can be placed with
- * the same rules as any other part of a facade.
+ * The word is built in the XY plane with x increasing to the right, so it reads
+ * correctly to a viewer on the **+Z** side looking back along −Z. That is the
+ * opposite of the convention everything else here uses — models face −Z — and
+ * saying otherwise in this comment is what put the Drake's sign up backwards,
+ * with the blank side aimed at the lake. Turn a sign so its local +Z points at
+ * whoever is meant to read it.
  */
 export function buildWord(
   text: string,
