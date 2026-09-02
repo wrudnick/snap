@@ -327,15 +327,29 @@ function drakeHotel(site: LandmarkSite): THREE.Object3D {
    * carries one, and one is also the only honest answer to a frame you can see
    * through.
    */
-  const [fx, fz] = site.streetFace
-  const onX = Math.abs(fx) > 0
+  /**
+   * It faces north, not the street.
+   *
+   * Placed on `streetFace` first, which put it looking west up Walton at the
+   * back of the Palmolive. A rooftop sign is aimed at whoever reads it, and
+   * this one is read from the Drive, the lakefront and everything coming down
+   * the shore — which is north. That is a different question from where the
+   * pavement is, and `streetFace` only answers the second.
+   *
+   * Derived rather than hard-coded: the scene applies the building's heading,
+   * so local −Z is only north because this footprint happens to sit at 1.2°.
+   * `northInLocal` stays correct if the footprint is refitted.
+   */
+  const northInLocal: [number, number] = [Math.sin(site.heading), -Math.cos(site.heading)]
+  const [nx, nz] = northInLocal
+  const onX = Math.abs(nx) > Math.abs(nz)
   const { minX, maxX, minZ, maxZ } = site.extent
-  const edge = onX ? (fx > 0 ? maxX : minX) : fz > 0 ? maxZ : minZ
+  const edge = onX ? (nx > 0 ? maxX : minX) : nz > 0 ? maxZ : minZ
 
   const sign = new THREE.Group()
-  // The word is modelled facing −Z, so this turns it to face the street.
-  sign.rotation.y = Math.atan2(-fx, -fz)
-  sign.position.set(onX ? edge + fx * 0.8 : 0, 0, onX ? 0 : edge + fz * 0.8)
+  // The word is modelled facing −Z, so this turns it to face north.
+  sign.rotation.y = Math.atan2(-nx, -nz)
+  sign.position.set(onX ? edge + nx * 0.8 : 0, 0, onX ? 0 : edge + nz * 0.8)
 
   const posts = 5
   for (let i = 0; i < posts; i++) {
